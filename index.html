@@ -6,7 +6,6 @@
     <title>Fresh Entry - Control System</title>
     <link rel="stylesheet" href="style.css">
     <style>
-        /* 🎯 एडिट और डिलीट बटन की प्रोफेशनल स्टाइल */
         .btn-edit-action { background-color: #0284c7; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
         .btn-edit-action:hover { background-color: #0369a1; }
         .btn-delete-action { background-color: #dc2626; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; }
@@ -21,14 +20,14 @@
     </div>
     
     <div class="tabs-nav">
-    <a href="index.html" class="tab-link">📦 New Entry (Fresh)</a>
-    <a href="rework.html" class="tab-link">🛠️ Gate In (Rework)</a>
-    <a href="gateout.html" class="tab-link">🚪 Gate Out (Dispatch)</a>
-    <a href="debit.html" class="tab-link">🧾 Debit Note (Vendor)</a>
-    <a href="code.html" class="tab-link">🆕 Generate Code</a>
-    <a href="ledger.html" class="tab-link">📊 Master Ledger & History</a>
-    <a href="users.html" class="tab-link">👥 Manage Users</a>
-</div>
+        <a href="index.html" class="tab-link active-fresh">📦 New Entry (Fresh)</a>
+        <a href="rework.html" class="tab-link">🛠️ Gate In (Rework)</a>
+        <a href="gateout.html" class="tab-link">🚪 Gate Out (Dispatch)</a>
+        <a href="debit.html" class="tab-link">🧾 Debit Note (Vendor)</a>
+        <a href="code.html" class="tab-link">🆕 Generate Code</a>
+        <a href="ledger.html" class="tab-link">📊 Master Ledger & History</a>
+        <a href="users.html" class="tab-link">👥 Manage Users</a>
+    </div>
 
     <div id="lowStockAlert" class="low-stock-badge">⚠️ Warning: Some Items are running low in Stock! Check Master Ledger.</div>
 
@@ -38,22 +37,27 @@
         <input type="hidden" id="editRowIndex" value="-1">
 
         <div class="form-grid">
-            <div class="form-group"><label>Company Name</label>
-                <select id="companyName" onchange="updateModelCodes()" required></select>
+            <div class="form-group">
+                <label>Company Name <span>*</span></label>
+                <input type="text" id="companyName" placeholder="e.g. VINYAS, OWN, OTHER" required autocomplete="off">
             </div>
-            <div class="form-group"><label>Model Code</label>
-                <select id="modelCode" onchange="autoFillModelName()" required>
-                    <option value="" disabled selected>-- Select Company First --</option>
-                </select>
+            <div class="form-group">
+                <label>Model Code <span>*</span></label>
+                <input type="text" id="modelCode" placeholder="e.g. ACV 002, OWN-ITEM" oninput="autoFillModelNameLive(this)" required autocomplete="off">
             </div>
-            <div class="form-group"><label>Model Name (Auto)</label><input type="text" id="modelName" readonly required placeholder="Auto-filled"></div>
-            <div class="form-group"><label>PO No.</label><input type="text" id="poNo" required></div>
-            <div class="form-group"><label>Bill No.</label><input type="text" id="billNo" required></div>
-            <div class="form-group"><label>Bill Date</label><input type="date" id="billDate" max="2026-05-25" required></div>
-            <div class="form-group"><label>Gate-In Date</label><input type="date" id="gateInDate" max="2026-05-25" required></div>
-            <div class="form-group"><label>Gate-In No.</label><input type="text" id="gateInNo" required></div>
-            <div class="form-group"><label>Live Stock Qty</label><input type="number" id="qty" min="1" required></div>
-            <div class="form-group"><label>Receive Qty</label><input type="number" id="receiveQty" min="0" required></div>
+            <div class="form-group">
+                <label>Model Name / Description</label>
+                <input type="text" id="modelName" placeholder="Auto-filled or manual enter" required autocomplete="off">
+            </div>
+            <div class="form-group"><label>PO No.</label><input type="text" id="poNo" required autocomplete="off"></div>
+            <div class="form-group"><label>Bill No.</label><input type="text" id="billNo" required autocomplete="off"></div>
+            
+            <div class="form-group"><label>Bill Date</label><input type="date" id="billDate" required></div>
+            <div class="form-group"><label>Gate-In Date</label><input type="date" id="gateInDate" required></div>
+            
+            <div class="form-group"><label>Gate-In No.</label><input type="text" id="gateInNo" required autocomplete="off"></div>
+            <div class="form-group"><label>Live Stock Qty</label><input type="number" id="qty" min="1" required autocomplete="off"></div>
+            <div class="form-group"><label>Receive Qty</label><input type="number" id="receiveQty" min="0" required autocomplete="off"></div>
             
             <button type="submit" id="btnSubmitForm" class="btn-submit fresh-btn">Material In</button>
             <button type="button" id="btnCancelEdit" class="btn-submit" style="background-color:#64748b; display:none; margin-top:10px; grid-column: 1/-1;" onclick="cancelEditMode()">Cancel Update</button>
@@ -61,8 +65,8 @@
     </form>
 
     <div class="date-export-panel">
-        <label>From:</label> <input type="date" id="freshFromDate" max="2026-05-25">
-        <label>To:</label> <input type="date" id="freshToDate" max="2026-05-25">
+        <label>From:</label> <input type="date" id="freshFromDate">
+        <label>To:</label> <input type="date" id="freshToDate">
         <button class="btn-excel" onclick="exportFreshToExcel()">Download Excel</button>
     </div>
 
@@ -80,73 +84,86 @@
 
 <div id="printSection"></div>
 
-<script>
+<script {contentFetchId="uploaded:image_bf5347.png-89eaacf5-6117-4d3f-8aee-70580c53e2a3"}>
     const session = JSON.parse(localStorage.getItem('activeSession'));
     if(!session) { window.location.href = 'login.html'; }
-    if(session && !session.permissions.fresh) { alert("Access Denied!"); window.location.href = 'rework.html'; }
 
     function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
 
-    const defaultCatalog = { "VINYAS": [{ code: "ACV 002", name: "SIEMENS" }, { code: "ACV 003", name: "ALSTOM" }], "HEX MOTO": [{ code: "T18 545", name: "INVERTER" }] };
-    let catalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || defaultCatalog;
     let stockData = JSON.parse(localStorage.getItem('freshStockData')) || [];
+    let masterCatalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
 
-    function updateMasterCompaniesDropdowns() {
-        const comp = document.getElementById('companyName'); comp.innerHTML = '<option value="" disabled selected>-- Select --</option>';
-        for(let key in catalog) { comp.innerHTML += `<option value="${key}">${key}</option>`; }
-    }
-    function updateModelCodes() {
-        const sc = document.getElementById('companyName').value; const mc = document.getElementById('modelCode');
-        mc.innerHTML = '<option value="" disabled selected>-- Select Code --</option>';
-        if (catalog[sc]) { catalog[sc].forEach(i => { mc.innerHTML += `<option value="${i.code}">${i.code}</option>`; }); }
-    }
-    function autoFillModelName() {
-        const sc = document.getElementById('companyName').value; const c = document.getElementById('modelCode').value;
-        if (catalog[sc]) { const f = catalog[sc].find(i => i.code === c); if (f) document.getElementById('modelName').value = f.name; }
+    function autoFillModelNameLive(input) {
+        let code = input.value.trim().toUpperCase(); 
+        let foundName = "";
+        let foundCompany = "";
+        
+        for(let company in masterCatalog) {
+            const match = masterCatalog[company].find(x => x.code.trim().toUpperCase() === code);
+            if(match) { foundName = match.name; foundCompany = company; }
+        }
+        
+        if(foundName) {
+            document.getElementById('modelName').value = foundName;
+            if(!document.getElementById('companyName').value) {
+                document.getElementById('companyName').value = foundCompany;
+            }
+        }
     }
 
     document.getElementById('stockForm').addEventListener('submit', function(e) {
         e.preventDefault();
-        const bQty = parseInt(document.getElementById('qty').value); const rQty = parseInt(document.getElementById('receiveQty').value);
-        if(bQty !== rQty) { alert("Error: Bill Qty and Receive Qty must match!"); return; }
+        const bQty = parseInt(document.getElementById('qty').value); 
+        const rQty = parseInt(document.getElementById('receiveQty').value);
+        
+        if(bQty !== rQty) { 
+            alert("Error: Bill Qty and Receive Qty must match!"); 
+            return; 
+        }
 
         const idx = parseInt(document.getElementById('editRowIndex').value);
         const entry = {
-            companyName: document.getElementById('companyName').value, modelCode: document.getElementById('modelCode').value,
-            modelName: document.getElementById('modelName').value, poNo: document.getElementById('poNo').value,
-            billNo: document.getElementById('billNo').value, billDate: document.getElementById('billDate').value,
-            gateInDate: document.getElementById('gateInDate').value, gateInNo: document.getElementById('gateInNo').value, qty: bQty, receiveQty: rQty
+            companyName: document.getElementById('companyName').value.trim().toUpperCase(), 
+            modelCode: document.getElementById('modelCode').value.trim().toUpperCase(),
+            modelName: document.getElementById('modelName').value.trim(), 
+            poNo: document.getElementById('poNo').value.trim(),
+            billNo: document.getElementById('billNo').value.trim(), 
+            billDate: document.getElementById('billDate').value,
+            gateInDate: document.getElementById('gateInDate').value, 
+            gateInNo: document.getElementById('gateInNo').value.trim(), 
+            qty: bQty, 
+            receiveQty: rQty
         };
 
         if(idx === -1) {
-            // नई एंट्री जोड़ना
             stockData.push(entry);
-            alert("🎉 Entry saved successfully!");
+            alert("🎉 Material In Entry Saved!");
         } else {
-            // पुरानी एंट्री को अपडेट करना
             stockData[idx] = entry;
-            alert("🎯 Entry updated successfully!");
+            alert("🎯 Entry Updated Successfully!");
         }
 
         localStorage.setItem('freshStockData', JSON.stringify(stockData));
-        cancelEditMode(); renderTable(); triggerGateInReceipt(entry);
+        cancelEditMode(); 
+        renderTable(); 
+        triggerGateInReceipt(entry);
     });
 
-    // 🎯 इतिहास तालिका (History Table) में एडिट और डिलीट बटन जोड़ना
     function renderTable() {
-        const body = document.getElementById('tableBody'); body.innerHTML = '';
+        const body = document.getElementById('tableBody'); 
+        body.innerHTML = '';
         document.getElementById('lowStockAlert').style.display = 'none';
 
         stockData.forEach((i, idx) => {
             body.innerHTML += `<tr>
-                <td>${i.companyName}</td>
+                <td><b>${i.companyName}</b></td>
                 <td><code>${i.modelCode}</code></td>
                 <td>${i.modelName}</td>
                 <td>${i.poNo}</td>
                 <td>${i.billNo}</td>
                 <td>${i.billDate}</td>
                 <td>${i.gateInNo}</td>
-                <td>${i.qty}</td>
+                <td><b style="color:green;">${i.qty}</b></td>
                 <td>${i.receiveQty}</td>
                 <td>
                     <button type="button" class="btn-print-receipt" onclick='triggerGateInReceipt(${JSON.stringify(i)})'>🖨️ Pass</button>
@@ -158,14 +175,11 @@
         });
     }
 
-    // 🎯 एडिट मोड: चुना हुआ डेटा वापस ऊपर फॉर्म में लोड करना
     function editFreshRow(idx) {
         const d = stockData[idx];
         document.getElementById('editRowIndex').value = idx;
         
         document.getElementById('companyName').value = d.companyName;
-        updateModelCodes(); // मॉडल कोड ड्रॉपडाउन अपडेट करें
-        
         document.getElementById('modelCode').value = d.modelCode;
         document.getElementById('modelName').value = d.modelName;
         document.getElementById('poNo').value = d.poNo;
@@ -176,28 +190,24 @@
         document.getElementById('qty').value = d.qty;
         document.getElementById('receiveQty').value = d.receiveQty;
 
-        // फॉर्म का लुक बदलना
         document.getElementById('formTitleIndex').style.display = "block";
         document.getElementById('btnSubmitForm').innerText = "Update Material Ledger";
         document.getElementById('btnCancelEdit').style.display = "inline-block";
-        
         document.getElementById('stockForm').scrollIntoView({ behavior: 'smooth' });
     }
 
-    // एडिट मोड से बाहर आना
     function cancelEditMode() {
         document.getElementById('editRowIndex').value = "-1";
         document.getElementById('stockForm').reset();
-        document.getElementById('modelCode').innerHTML = '<option value="" disabled selected>-- Select Company First --</option>';
-        
         document.getElementById('formTitleIndex').style.display = "none";
         document.getElementById('btnSubmitForm').innerText = "Material In";
         document.getElementById('btnCancelEdit').style.display = "none";
+        // रिसेट के बाद दोबारा आज की डेट सेट करना
+        applyLiveDateRestrictions();
     }
 
-    // 🎯 डिलीट मोड: एंट्री हटाना
     function deleteFreshRow(idx) {
-        if(confirm("Are you sure you want to delete this fresh entry permanently from database?")) {
+        if(confirm("Are you sure you want to delete this entry permanently?")) {
             stockData.splice(idx, 1);
             localStorage.setItem('freshStockData', JSON.stringify(stockData));
             renderTable();
@@ -208,7 +218,7 @@
     function triggerGateInReceipt(i) {
         const shell = document.getElementById('printSection');
         shell.innerHTML = `
-            <div style="border:3px double #000; padding:15px; width:450px; margin:auto; font-family: monospace;">
+            <div style="border:3px double #000; padding:15px; width:450px; margin:auto; font-family: monospace; background:#fff; line-height:1.4;">
                 <h2 style="text-align:center; margin:0;">GVM RAIL PVT LTD</h2>
                 <h4 style="text-align:center; margin:5px 0; border-bottom:1px solid #000; padding-bottom:5px;">MATERIAL GATE-IN PASS</h4>
                 <p><b>Pass Date:</b> ${i.gateInDate} <span style="float:right;"><b>Pass No:</b> ${i.gateInNo}</span></p>
@@ -222,7 +232,24 @@
         window.print();
     }
 
-    updateMasterCompaniesDropdowns(); renderTable();
+    // 🎯 लाइव डेट लॉक फंक्शन: यह आज की ताज़ा तारीख से आगे कैलेंडर खुलने ही नहीं देगा
+    function applyLiveDateRestrictions() {
+        const todayStr = new Date().toISOString().split('T')[0];
+        
+        // इनपुट बॉक्स की मैक्स वैल्यू को आज पर सेट करना
+        document.getElementById('billDate').setAttribute('max', todayStr);
+        document.getElementById('gateInDate').setAttribute('max', todayStr);
+        if(document.getElementById('freshFromDate')) document.getElementById('freshFromDate').setAttribute('max', todayStr);
+        if(document.getElementById('freshToDate')) document.getElementById('freshToDate').setAttribute('max', todayStr);
+
+        // डिफ़ॉल्ट रूप से आज की तारीख भरना
+        document.getElementById('billDate').value = todayStr;
+        document.getElementById('gateInDate').value = todayStr;
+    }
+
+    // पेज लोड होते ही लॉक एक्टिव करें
+    applyLiveDateRestrictions();
+    renderTable();
 </script>
 </body>
 </html>
