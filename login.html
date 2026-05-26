@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ERP Authentication</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body style="background-color: #0f172a;">
+
+<div class="login-wrapper" style="margin-top: 120px;">
+    <h2>j stock - ERP Login</h2>
+    <div style="background-color: #f8d7da; color: #721c24; font-weight: bold; text-align: center; margin-bottom: 15px; padding: 10px; border-radius: 4px; border: 1px solid #f5c6cb; display: none;" id="loginError">
+        ❌ Access Denied: Invalid ID or Password!
+    </div>
+    
+    <div class="form-group" style="margin-bottom: 18px;">
+        <label>User ID</label>
+        <input type="text" id="loginUser" required autocomplete="off">
+    </div>
+    <div class="form-group" style="margin-bottom: 25px;">
+        <label>Password</label>
+        <input type="password" id="loginPassword" required>
+    </div>
+    <button class="login-btn" onclick="checkLogin()">Authenticate</button>
+</div>
+
+<script>
+    // सुरक्षा जांच नियम
+    function checkLogin() {
+        const u = document.getElementById('loginUser').value.trim();
+        const p = document.getElementById('loginPassword').value;
+        const err = document.getElementById('loginError');
+
+        // 🎯 FIXED: आपकी नई मांगी गई यूजर आईडी और पासवर्ड क्रेडेंशियल्स यहाँ पूरी तरह सेट हैं
+        if(u === "k88rakesh" && p === "Rinku@7004") {
+            const sessionObj = {
+                userId: u,
+                permissions: { fresh: true, rework: true, gateout: true, debit: true, code: true, users: true }
+            };
+            localStorage.setItem('activeSession', JSON.stringify(sessionObj));
+            window.location.href = 'index.html'; // सही लॉगिन होते ही सीधे मुख्य सिस्टम पर डाइव करेगा
+        } else {
+            err.style.display = 'block'; // गलत क्रेडेंशियल होने पर रेड एरर एक्टिवेट होगा
+        }
+    }
+
+    // एंटर बटन दबाने पर भी लॉगिन हो जाए, उसके लिए शॉर्टकट कुंजी
+    document.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') { checkLogin(); }
+    });
+</script>
+</body>
+</html>

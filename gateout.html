@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gate Out Dispatch</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* 🎯 एडिट और डिलीट बटन की प्रोफेशनल स्टाइल */
+        .btn-edit-action { background-color: #0284c7; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
+        .btn-edit-action:hover { background-color: #0369a1; }
+        .btn-delete-action { background-color: #dc2626; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; }
+        .btn-delete-action:hover { background-color: #b91c1c; }
+        .btn-print-receipt { background-color: #007bff; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="erp-header">
+        <h1>Material Lifecycle Control & Inventory Ledger Systems</h1>
+        <button class="logout-btn" onclick="logout()">Logout</button>
+    </div>
+    
+   <div class="tabs-nav">
+    <a href="index.html" class="tab-link">📦 New Entry (Fresh)</a>
+    <a href="rework.html" class="tab-link">🛠️ Gate In (Rework)</a>
+    <a href="gateout.html" class="tab-link">🚪 Gate Out (Dispatch)</a>
+    <a href="debit.html" class="tab-link">🧾 Debit Note (Vendor)</a>
+    <a href="code.html" class="tab-link">🆕 Generate Code</a>
+    <a href="ledger.html" class="tab-link">📊 Master Ledger & History</a>
+    <a href="users.html" class="tab-link">👥 Manage Users</a>
+</div>
+
+    <h3 id="formTitleGateout" style="color:var(--primary); margin: 0 0 10px 0;">🚪 Gate Out (Dispatch) Ledger</h3>
+
+    <form id="gateoutForm">
+        <input type="hidden" id="editRowIndex" value="-1">
+
+        <div class="form-grid">
+            <div class="form-group"><label>Dispatch Trans Date</label><input type="date" id="goDate" max="2026-05-26" required></div>
+            <div class="form-group"><label>Vehicle Transport No</label><input type="text" id="goVehicleNo" required autocomplete="off"></div>
+            <div class="form-group"><label>Target Party Account</label><input type="text" id="goPartyName" required autocomplete="off"></div>
+            <div class="form-group"><label>Delivery Shipping Location</label><input type="text" id="goDeliveryShipping" required autocomplete="off"></div>
+            <div class="form-group"><label>Send / Dispatched By</label><input type="text" id="goSendBy" autocomplete="off"></div>
+        </div>
+
+        <table class="grid-table">
+            <thead style="background-color: var(--secondary);">
+                <tr><th>Stock Pool Type</th><th>Model Part Code 🔍</th><th>Item Name</th><th>Qty</th><th>S/N Track</th><th>Action</th></tr>
+            </thead>
+            <tbody id="gateoutItemsBody"></tbody>
+        </table>
+        <button type="button" class="btn-row-add" onclick="addGoRow()">+</button>
+        <button type="submit" id="btnSubmitForm" class="btn-submit gateout-btn" style="margin-top:15px;">Authorize Gate Out (Deduct Stock)</button>
+        <button type="button" id="btnCancelEdit" class="btn-submit" style="background-color:#64748b; display:none; margin-top:10px;" onclick="cancelEditMode()">Cancel Update</button>
+    </form>
+
+    <div class="table-responsive">
+        <table class="history-table">
+            <thead style="background-color: var(--secondary);">
+                <tr><th>Voucher No</th><th>Date</th><th>Vehicle No</th><th>Party Target</th><th>Items Dispatched</th><th>Action Controls</th></tr>
+            </thead>
+            <tbody id="goHistoryBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<div id="printSection"></div>
+
+<script>
+    const session = JSON.parse(localStorage.getItem('activeSession'));
+    if(!session) { window.location.href = 'login.html'; }
+
+    function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
+
+    let stockData = JSON.parse(localStorage.getItem('freshStockData')) || [];
+    let reworkData = JSON.parse(localStorage.getItem('reworkStockData')) || [];
+    let gateoutData = JSON.parse(localStorage.getItem('gateoutStockData')) || [];
+    let masterCatalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
+    let activeBtnRef = null;
+
+    function addGoRow() {
+        const body = document.getElementById('gateoutItemsBody');
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><select class="go-pool-type"><option value="FRESH">FRESH POOL</option><option value="REWORK">REWORK POOL</option></select></td>
+            <td><input type="text" required class="go-code" oninput="autofillGo(this)"></td>
+            <td><input type="text" required class="go-name"></td>
+            <td><input type="number" min="1" required class="go-qty" oninput="clearSN(this)"></td>
+            <td><button type="button" class="btn-sn-setup" onclick="openSNModal(this)">S/N</button></td>
+            <td><button type="button" class="btn-row-remove" onclick="this.closest('tr').remove()">×</button></td>`;
+        body.appendChild(tr);
+    }
+
+    function autofillGo(input) {
+        let code = input.value.trim().toUpperCase(); let name = "";
+        for(let key in masterCatalog) { const m = masterCatalog[key].find(i=>i.code===code); if(m) name = m.name; }
+        input.closest('tr').querySelector('.go-name').value = name;
+    }
+    
+    function clearSN(i) { const b = i.closest('tr').querySelector('.btn-sn-setup'); b.removeAttribute('data-sn'); b.innerText="S/N"; b.classList.remove('configured'); }
+
+    function openSNModal(btn) {
+        activeBtnRef = btn; const qty = parseInt(btn.closest('tr').querySelector('.go-qty').value) || 0;
+        if(qty <= 0) { alert("Input Qty first!"); return; }
+        const arr = btn.getAttribute('data-sn') ? JSON.parse(btn.getAttribute('data-sn')) : [];
+        let promptContainer = prompt(`Enter ${qty} Serials separated by comma:`, arr.join(','));
+        if(promptContainer) {
+            let res = promptContainer.split(',').map(s=>s.trim());
+            btn.setAttribute('data-sn', JSON.stringify(res)); btn.classList.add('configured'); btn.innerText = `✔ (${res.length})`;
+        }
+    }
+
+    document.getElementById('gateoutForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        let items = []; let deficit = false;
+        const idx = parseInt(document.getElementById('editRowIndex').value);
+
+        // 🎯 अगर एडिट मोड है, तो पहले पुराने डिडक्ट किए गए स्टॉक को वापस रिस्टोर (प्लस) करो ताकि नया कैलकुलेशन सही हो
+        if (idx !== -1) {
+            restoreStockPools(idx);
+        }
+
+        document.querySelectorAll('#gateoutItemsBody tr').forEach(row => {
+            const pool = row.querySelector('.go-pool-type').value; 
+            const code = row.querySelector('.go-code').value.toUpperCase();
+            const qty = parseInt(row.querySelector('.go-qty').value); 
+            const sn = row.querySelector('.btn-sn-setup').getAttribute('data-sn');
+            
+            // स्टॉक डिडक्शन रूल (Fresh Pool)
+            if(pool === 'FRESH') {
+                let match = stockData.find(s => s.modelCode === code);
+                if(!match || parseInt(match.qty || match.inQty) < qty) { 
+                    deficit = true; 
+                    alert("Deficit Stock in Fresh for code " + code); 
+                    return; 
+                }
+                if(match.qty !== undefined) match.qty -= qty;
+                else match.inQty -= qty;
+            }
+            // स्टॉक डिडक्शन रूल (Rework Pool)
+            else if(pool === 'REWORK') {
+                let currentReworkQty = 0;
+                reworkData.forEach(r => {
+                    r.gridItems.forEach(gi => { if(gi.itemShort === code) currentReworkQty += gi.qty; });
+                });
+                if(currentReworkQty < qty) {
+                    deficit = true;
+                    alert("Deficit Stock in Rework Pool for code " + code);
+                    return;
+                }
+                // अनुपातिक रूप से रिड्यूस करना
+                let rem = qty;
+                for(let r of reworkData) {
+                    for(let gi of r.gridItems) {
+                        if(gi.itemShort === code && gi.qty > 0) {
+                            if(gi.qty >= rem) { gi.qty -= rem; rem = 0; break; }
+                            else { rem -= gi.qty; gi.qty = 0; }
+                        }
+                    }
+                    if(rem === 0) break;
+                }
+            }
+
+            items.push({ pool, code, name: row.querySelector('.go-name').value, qty, serials: sn ? JSON.parse(sn) : [] });
+        });
+
+        if(deficit) {
+            // अगर स्टॉक की कमी है और एडिट मोड था, तो वापस पुराने डेटा को डेटाबेस में लोड करो
+            if(idx !== -1) {
+                stockData = JSON.parse(localStorage.getItem('freshStockData'));
+                reworkData = JSON.parse(localStorage.getItem('reworkStockData'));
+            }
+            return;
+        }
+
+        // डेटाबेस में अपडेट सेव करना
+        localStorage.setItem('freshStockData', JSON.stringify(stockData));
+        localStorage.setItem('reworkStockData', JSON.stringify(reworkData));
+
+        const entry = { 
+            voucherNo: idx === -1 ? (gateoutData.length + 1) : gateoutData[idx].voucherNo, 
+            date: document.getElementById('goDate').value, 
+            vehicleNo: document.getElementById('goVehicleNo').value.trim(), 
+            partyName: document.getElementById('goPartyName').value.trim(), 
+            deliveryShipping: document.getElementById('goDeliveryShipping').value.trim(), 
+            goSendBy: document.getElementById('goSendBy').value.trim(),
+            gridItems: items 
+        };
+
+        if(idx === -1) {
+            gateoutData.push(entry);
+            alert("🎉 Gate Out dispatch authorized successfully!");
+        } else {
+            gateoutData[idx] = entry;
+            alert("🎯 Dispatch entry modified successfully!");
+        }
+
+        localStorage.setItem('gateoutStockData', JSON.stringify(gateoutData));
+        resetGateoutForm(); renderHistory(); printDispatchPass(entry);
+    });
+
+    // 🎯 स्टॉक रिस्टोर करने का फंक्शन (एडिट/डिलीट के लिए मददगार)
+    function restoreStockPools(idx) {
+        const oldEntry = gateoutData[idx];
+        oldEntry.gridItems.forEach(item => {
+            if(item.pool === 'FRESH') {
+                let match = stockData.find(s => s.modelCode === item.code);
+                if(match) {
+                    if(match.qty !== undefined) match.qty += item.qty;
+                    else match.inQty += item.qty;
+                }
+            } else if(item.pool === 'REWORK') {
+                if(reworkData.length > 0 && reworkData[0].gridItems.length > 0) {
+                    let match = reworkData[0].gridItems.find(gi => gi.itemShort === item.code);
+                    if(match) match.qty += item.qty;
+                }
+            }
+        });
+    }
+
+    // 🎯 एडिट मोड: पुराना डेटा फॉर्म और ग्रिड में वापस खींचना
+    function editGateoutRow(idx) {
+        const g = gateoutData[idx];
+        document.getElementById('editRowIndex').value = idx;
+        
+        document.getElementById('goDate').value = g.date;
+        document.getElementById('goVehicleNo').value = g.vehicleNo;
+        document.getElementById('goPartyName').value = g.partyName;
+        document.getElementById('goDeliveryShipping').value = g.deliveryShipping;
+        document.getElementById('goSendBy').value = g.goSendBy || '';
+
+        const body = document.getElementById('gateoutItemsBody');
+        body.innerHTML = '';
+
+        g.gridItems.forEach(item => {
+            const tr = document.createElement('tr');
+            const snText = item.serials.length > 0 ? `✔ (${item.serials.length})` : 'S/N';
+            const snClass = item.serials.length > 0 ? 'btn-sn-setup configured' : 'btn-sn-setup';
+
+            tr.innerHTML = `
+                <td>
+                    <select class="go-pool-type">
+                        <option value="FRESH" ${item.pool === 'FRESH'?'selected':''}>FRESH POOL</option>
+                        <option value="REWORK" ${item.pool === 'REWORK'?'selected':''}>REWORK POOL</option>
+                    </select>
+                </td>
+                <td><input type="text" required class="go-code" value="${item.code}" oninput="autofillGo(this)"></td>
+                <td><input type="text" required class="go-name" value="${item.name}"></td>
+                <td><input type="number" min="1" required class="go-qty" value="${item.qty}" oninput="clearSN(this)"></td>
+                <td><button type="button" class="${snClass}" data-sn='${JSON.stringify(item.serials)}' onclick="openSNModal(this)">${snText}</button></td>
+                <td><button type="button" class="btn-row-remove" onclick="this.closest('tr').remove()">×</button></td>`;
+            body.appendChild(tr);
+        });
+
+        document.getElementById('formTitleGateout').innerText = "🛠️ Modify/Edit Gate Out Dispatch Entry";
+        document.getElementById('btnSubmitForm').innerText = "Update & Authorize Dispatch";
+        document.getElementById('btnCancelEdit').style.style.display = "inline-block";
+        document.getElementById('gateoutForm').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // 🎯 कैंसिल और रिसेट मोड
+    function resetGateoutForm() {
+        document.getElementById('editRowIndex').value = "-1";
+        document.getElementById('gateoutForm').reset();
+        document.getElementById('gateoutItemsBody').innerHTML = '';
+        
+        document.getElementById('formTitleGateout').innerText = "🚪 Gate Out (Dispatch) Ledger";
+        document.getElementById('btnSubmitForm').innerText = "Authorize Gate Out (Deduct Stock)";
+        document.getElementById('btnCancelEdit').style.display = "none";
+        addGoRow();
+    }
+
+    function cancelEditMode() {
+        resetGateoutForm();
+    }
+
+    // 🎯 डिलीट मोड (स्टॉक ऑटो-प्लस होकर डिलीट होगा)
+    function deleteGateoutRow(idx) {
+        if(confirm("🚨 WARNING: Deleting this record will add the dispatched stock back to inventory. Proceed?")) {
+            // लाइव रिस्टोर स्टॉक पूल
+            restoreStockPools(idx);
+            localStorage.setItem('freshStockData', JSON.stringify(stockData));
+            localStorage.setItem('reworkStockData', JSON.stringify(reworkData));
+
+            // डिलीट करना
+            gateoutData.splice(idx, 1);
+            localStorage.setItem('gateoutStockData', JSON.stringify(gateoutData));
+            
+            renderHistory();
+            resetGateoutForm();
+        }
+    }
+
+    function printDispatchPass(e) {
+        const shell = document.getElementById('printSection');
+        let lines = ''; e.gridItems.forEach(i => { lines += `<tr style="border-bottom:1px solid #000;"><td>${i.name} [${i.code}]</td><td>${i.pool}</td><td>${i.qty} NOS</td><td>${i.serials.join(', ')}</td></tr>`; });
+        shell.innerHTML = `
+            <div style="border:2px solid #000; padding:15px; width:650px; margin:auto; font-family:monospace; background:#fff;">
+                <h2 style="text-align:center; margin:0;">GVM RAIL PRIVATE LIMITED</h2>
+                <h4 style="text-align:center; margin:5px 0;">OUTWARD DELIVERY CHALLAN / GATE PASS</h4>
+                <hr>
+                <p><b>Challan Serial No:</b> GVM-GO-2026-${e.voucherNo} <span style="float:right;"><b>Date:</b> ${e.date}</span></p>
+                <p><b>Consignee Party Name:</b> ${e.partyName}</p>
+                <p><b>Transport Vehicle Number:</b> ${e.vehicleNo} <span style="float:right;"><b>Destination:</b> ${e.deliveryShipping}</span></p>
+                <table style="width:100%; border-collapse:collapse; margin-top:15px;" border="1">
+                    <thead><tr style="background:#ddd;"><th>Item Description</th><th>Pool Source</th><th>Quantity</th><th>Verified Serial Nos</th></tr></thead>
+                    <tbody>${lines}</tbody>
+                </table>
+                <br><br><br>
+                <div style="display:flex; justify-content:space-between;"><p>Security Guard Checked</p><p>Authorized Dispatched Sign</p></div>
+            </div>`;
+        window.print();
+    }
+
+    function renderHistory() {
+        const b = document.getElementById('goHistoryBody'); b.innerHTML = '';
+        gateoutData.forEach((g, idx) => {
+            let summary = g.gridItems.map(i=>`${i.name} (${i.qty})`).join(', ');
+            b.innerHTML += `<tr>
+                <td>GVM-GO-${g.voucherNo}</td>
+                <td>${g.date}</td>
+                <td>${g.vehicleNo}</td>
+                <td>${g.partyName}</td>
+                <td>${summary}</td>
+                <td>
+                    <button type="button" class="btn-print-receipt" onclick='printDispatchPass(${JSON.stringify(g)})'>🖨️ Print</button>
+                    <button type="button" class="btn-edit-action" onclick="editGateoutRow(${idx})">Edit</button>
+                    <button type="button" class="btn-delete-action" onclick="deleteGateoutRow(${idx})">Delete</button>
+                </td>
+            </tr>`;
+        });
+    }
+    
+    addGoRow(); renderHistory();
+</script>
+</body>
+</html>

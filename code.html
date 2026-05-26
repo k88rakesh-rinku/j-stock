@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generate Master Code</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="container">
+    <div class="erp-header">
+        <h1>Material Lifecycle Control & Inventory Ledger Systems</h1>
+        <button class="logout-btn" onclick="logout()">Logout</button>
+    </div>
+    
+    <div class="tabs-nav">
+        <a href="index.html" class="tab-link">📦 New Entry (Fresh)</a>
+        <a href="rework.html" class="tab-link">🛠️ Gate In (Rework)</a>
+        <a href="gateout.html" class="tab-link">🚪 Gate Out (Dispatch)</a>
+        <a href="debit.html" class="tab-link">🧾 Debit Note (Vendor)</a>
+        <a href="code.html" class="tab-link active-code">🆕 Generate Code</a>
+        <a href="users.html" class="tab-link">👥 Manage Users</a>
+    </div>
+
+    <h3 style="color:#6f42c1; margin-top:0;">Generate Custom Item Code (Universal Master)</h3>
+    
+    <form id="codeGeneratorForm">
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Company Name <span>*</span></label>
+                <input type="text" id="newCompanyInput" placeholder="e.g., OWN PRODUCTION, VINYAS" required list="existingCompaniesList">
+                <datalist id="existingCompaniesList"></datalist>
+            </div>
+            <div class="form-group">
+                <label>New Item Part Code <span>*</span></label>
+                <input type="text" id="newPartCode" placeholder="e.g., GP0021" required>
+            </div>
+            <div class="form-group">
+                <label>New Item Model Name <span>*</span></label>
+                <input type="text" id="newModelName" placeholder="e.g., NTC SENSOR" required>
+            </div>
+            <button type="submit" class="btn-submit" style="background-color: #6f42c1;">Generate & Linked Code</button>
+        </div>
+    </form>
+</div>
+
+<script>
+    const session = JSON.parse(localStorage.getItem('activeSession'));
+    if(!session) { window.location.href = 'login.html'; }
+
+    function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
+
+    const defaultCatalog = { "VINYAS": [{ code: "ACV 002", name: "SIEMENS" }], "HEX MOTO": [{ code: "T18 545", name: "INVERTER" }] };
+    let catalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || defaultCatalog;
+
+    function renderDatalist() {
+        const list = document.getElementById('existingCompaniesList'); list.innerHTML = '';
+        for(let key in catalog) { list.innerHTML += `<option value="${key}">`; }
+    }
+
+    document.getElementById('codeGeneratorForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const comp = document.getElementById('newCompanyInput').value.trim().toUpperCase();
+        const code = document.getElementById('newPartCode').value.trim().toUpperCase();
+        const name = document.getElementById('newModelName').value.trim().toUpperCase();
+
+        if(!catalog[comp]) catalog[comp] = [];
+        
+        if(!catalog[comp].some(x => x.code === code)) {
+            catalog[comp].push({ code: code, name: name });
+            localStorage.setItem('systemMasterCatalog', JSON.stringify(catalog));
+            alert("🎉 Success! New code universally generated.");
+            document.getElementById('codeGeneratorForm').reset();
+            renderDatalist();
+        } else {
+            alert("This item code already exists under this company register!");
+        }
+    });
+
+    renderDatalist();
+</script>
+</body>
+</html>

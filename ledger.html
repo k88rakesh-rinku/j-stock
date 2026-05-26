@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Master Stock Ledger & Lifecycle Search</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .search-container {
+            background: #fff;
+            padding: 20px;
+            border: 2px solid var(--primary);
+            border-radius: 6px;
+            margin-bottom: 25px;
+            display: flex;
+            gap: 15px;
+            align-items: flex-end;
+        }
+        .search-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            flex: 1;
+        }
+        .search-group label {
+            font-weight: bold;
+            color: var(--neutral-dark);
+        }
+        .search-group input {
+            padding: 10px;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            font-size: 14px;
+            text-transform: uppercase;
+        }
+        .btn-search-trigger {
+            background-color: #1e3a8a;
+            color: white;
+            border: none;
+            padding: 11px 25px;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .btn-search-trigger:hover {
+            background-color: #111827;
+        }
+        .badge-type {
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: bold;
+            color: white;
+            display: inline-block;
+        }
+        .badge-fresh-in { background-color: #007bff; }
+        .badge-rework-in { background-color: #28a745; }
+        .badge-dispatch-out { background-color: #6c757d; }
+        .badge-debit-out { background-color: #dc3545; }
+        
+        .summary-card-grid {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .summary-card {
+            background: #f8fafc;
+            border: 1px solid #cbd5e1;
+            padding: 15px;
+            border-radius: 6px;
+            flex: 1;
+            text-align: center;
+        }
+        .summary-card h4 { margin: 0 0 5px 0; color: #475569; font-size: 13px; }
+        .summary-card p { margin: 0; font-size: 20px; font-weight: bold; color: #0f172a; }
+        .active-ledger { background-color: #1e3a8a !important; color: white !important; }
+
+        @media print {
+            body * { visibility: hidden; }
+            #printSearchSection, #printSearchSection * { visibility: visible; }
+            #printSearchSection { position: absolute; left: 0; top: 0; width: 100%; margin: 0; padding: 20px; box-sizing: border-box; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="erp-header">
+        <h1>Material Lifecycle Control & Inventory Ledger Systems</h1>
+        <button class="logout-btn" onclick="logout()">Logout</button>
+    </div>
+    
+    <div class="tabs-nav">
+        <a href="index.html" class="tab-link">📦 New Entry (Fresh)</a>
+        <a href="rework.html" class="tab-link">🛠️ Gate In (Rework)</a>
+        <a href="gateout.html" class="tab-link">🚪 Gate Out (Dispatch)</a>
+        <a href="debit.html" class="tab-link">🧾 Debit Note (Vendor)</a>
+        <a href="code.html" class="tab-link">🆕 Generate Code</a>
+        <a href="ledger.html" class="tab-link active-ledger">📊 Master Ledger & History</a>
+        <a href="users.html" class="tab-link">👥 Manage Users</a>
+    </div>
+
+    <h3 style="color:var(--primary); margin-top:0;">🔍 Smart Model Code History Engine</h3>
+    <div class="search-container">
+        <div class="search-group">
+            <label>Enter Model Part Code</label>
+            <input type="text" id="searchPartCode" placeholder="e.g. GP0018" autocomplete="off">
+        </div>
+        <button type="button" class="btn-search-trigger" onclick="triggerCodeSearch()">Search History Control</button>
+    </div>
+
+    <div id="searchResultWrapper" style="display: none; margin-bottom: 35px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <h3 id="resultTitle" style="color: #0f172a; margin: 0;"></h3>
+            <button class="btn-excel" id="btnPrintHist" style="background-color: #475569;" onclick="printFilteredHistory()">🖨️ Print History</button>
+        </div>
+        
+        <div class="summary-card-grid">
+            <div class="summary-card" style="border-left: 4px solid #007bff;"><h4 id="lblComp">Company</h4><p id="txtCompName">-</p></div>
+            <div class="summary-card" style="border-left: 4px solid #28a745;"><h4>Total Tracked Inward</h4><p id="txtTotalIn">0 NOS</p></div>
+            <div class="summary-card" style="border-left: 4px solid #6c757d;"><h4>Total Dispatched Out</h4><p id="txtTotalOut">0 NOS</p></div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="history-table" id="searchTableToPrint">
+                <thead>
+                    <tr>
+                        <th>Transaction Date</th>
+                        <th>Log Type</th>
+                        <th>Ref Invoice/Challan/Voucher</th>
+                        <th>Party / Destination / Vendor</th>
+                        <th>Qty Change</th>
+                        <th>Verified Serial Numbers Included</th>
+                    </tr>
+                </thead>
+                <tbody id="searchHistoryBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px;">
+        <h3 style="color:var(--primary); margin: 0;">📋 Live Current Stock Stockrooms Overview</h3>
+        <button class="btn-excel" onclick="exportStockLedgerToExcel()">📊 Download Stock Excel</button>
+    </div>
+
+    <div class="table-responsive" style="margin-top: 10px;">
+        <table class="history-table" id="stockLedgerTable">
+            <thead style="background-color: #1e3a8a; color: white;">
+                <tr>
+                    <th>Company Name</th>
+                    <th>Model Code</th>
+                    <th>Model Item Description</th>
+                    <th>Current Fresh Pool Balance</th>
+                    <th>Current Rework Pool Balance</th>
+                </tr>
+            </thead>
+            <tbody id="masterLedgerBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<div id="printSearchSection"></div>
+
+<script>
+    const session = JSON.parse(localStorage.getItem('activeSession'));
+    if(!session) { window.location.href = 'login.html'; }
+    function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
+
+    let freshData = JSON.parse(localStorage.getItem('freshStockData')) || [];
+    let reworkData = JSON.parse(localStorage.getItem('reworkStockData')) || [];
+    let gateoutData = JSON.parse(localStorage.getItem('gateoutStockData')) || [];
+    let debitData = JSON.parse(localStorage.getItem('debitNoteStockData')) || [];
+    let masterCatalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
+
+    let currentSearchedCode = "";
+    let currentSearchedName = "";
+
+    function renderMasterLedgerTable() {
+        const body = document.getElementById('masterLedgerBody');
+        body.innerHTML = '';
+
+        for (let company in masterCatalog) {
+            masterCatalog[company].forEach(model => {
+                let code = model.code.trim().toUpperCase();
+                let freshBal = 0;
+                
+                freshData.forEach(f => {
+                    if ((f.modelCode || f.itemShort || "").trim().toUpperCase() === code) {
+                        freshBal += parseInt(f.qty || f.inQty || f.receiveQty || 0);
+                    }
+                });
+
+                let reworkBal = 0;
+                reworkData.forEach(r => {
+                    r.gridItems.forEach(gi => {
+                        if ((gi.itemShort || "").trim().toUpperCase() === code) {
+                            reworkBal += parseInt(gi.qty || 0);
+                        }
+                    });
+                });
+
+                gateoutData.forEach(g => {
+                    g.gridItems.forEach(gi => {
+                        if ((gi.code || "").trim().toUpperCase() === code) {
+                            if (gi.pool === 'FRESH') freshBal -= parseInt(gi.qty || 0);
+                            if (gi.pool === 'REWORK') reworkBal -= parseInt(gi.qty || 0);
+                        }
+                    });
+                });
+
+                debitData.forEach(d => {
+                    d.gridItems.forEach(gi => {
+                        if ((gi.itemShort || "").trim().toUpperCase() === code) {
+                            if (d.subType === 'FRESH_FAILED') freshBal -= parseInt(gi.qty || 0);
+                            if (d.subType === 'FIELD_RETURN') reworkBal -= parseInt(gi.qty || 0);
+                        }
+                    });
+                });
+
+                body.innerHTML += `
+                    <tr>
+                        <td><b>${company}</b></td>
+                        <td><code>${code}</code></td>
+                        <td>${model.name}</td>
+                        <td><b style="color:${freshBal > 0 ? 'green':'#64748b'};">${freshBal} NOS</b></td>
+                        <td><b style="color:${reworkBal > 0 ? 'orange':'#64748b'};">${reworkBal} NOS</b></td>
+                    </tr>`;
+            });
+        }
+    }
+
+    // 🎯 SMART UPGRADE: अब अगर हिस्ट्री नहीं भी होगी, कोड कैटलॉग में मिलते ही कार्ड खुल जाएगा
+    function triggerCodeSearch() {
+        const targetCode = document.getElementById('searchPartCode').value.trim().toUpperCase();
+        if (!targetCode) { alert("Please input a Model Part Code first!"); return; }
+
+        currentSearchedCode = targetCode;
+        const wrapper = document.getElementById('searchResultWrapper');
+        const historyBody = document.getElementById('searchHistoryBody');
+        historyBody.innerHTML = '';
+
+        let timeline = [];
+        let totalIn = 0;
+        let totalOut = 0;
+        let codeExistsInCatalog = false;
+        currentSearchedName = "New Registered Item";
+        let matchedCompanyName = "N/A";
+
+        // नीचे वाली टेबल की तरह पहले कैटलॉग में कोड को ढूंढना
+        for (let comp in masterCatalog) {
+            let m = masterCatalog[comp].find(x => x.code.trim().toUpperCase() === targetCode);
+            if (m) { 
+                currentSearchedName = m.name; 
+                matchedCompanyName = comp;
+                codeExistsInCatalog = true;
+            }
+        }
+
+        if (!codeExistsInCatalog) {
+            alert("Error: This Model Code does not exist in System Master Catalog! Generate Code first.");
+            wrapper.style.display = "none";
+            return;
+        }
+
+        // 1. Fresh Entries
+        freshData.forEach(f => {
+            if ((f.modelCode || f.itemShort || "").trim().toUpperCase() === targetCode) {
+                let qty = parseInt(f.qty || f.inQty || f.receiveQty || 0);
+                totalIn += qty;
+                timeline.push({
+                    date: f.billDate || f.date || f.gateInDate,
+                    type: '📦 FRESH IN',
+                    ref: `Bill/Inv: ${f.billNo || f.invNo || 'N/A'}`,
+                    party: f.companyName || matchedCompanyName,
+                    qty: `+${qty} NOS`,
+                    sns: 'N/A'
+                });
+            }
+        });
+
+        // 2. Rework Entries
+        reworkData.forEach(r => {
+            r.gridItems.forEach(gi => {
+                if ((gi.itemShort || "").trim().toUpperCase() === targetCode) {
+                    let qty = parseInt(gi.qty || 0);
+                    totalIn += qty;
+                    timeline.push({
+                        date: r.date,
+                        type: '🛠️ REWORK IN',
+                        ref: `Gate Entry: ${r.gateEntryNo} / Challan: ${r.billNo}`,
+                        party: r.partyName,
+                        qty: `+${qty} NOS`,
+                        sns: gi.serials ? gi.serials.join(', ') : 'N/A'
+                    });
+                }
+            });
+        });
+
+        // 3. Gate Out Entries
+        gateoutData.forEach(g => {
+            g.gridItems.forEach(gi => {
+                if ((gi.code || "").trim().toUpperCase() === targetCode) {
+                    let qty = parseInt(gi.qty || 0);
+                    totalOut += qty;
+                    timeline.push({
+                        date: g.date,
+                        type: `🚪 DISPATCH (${gi.pool})`,
+                        ref: `Voucher No: GVM-GO-${g.voucherNo} / Vehicle: ${g.vehicleNo}`,
+                        party: g.partyName,
+                        qty: `-${qty} NOS`,
+                        sns: gi.serials ? gi.serials.join(', ') : 'N/A'
+                    });
+                }
+            });
+        });
+
+        // 4. Debit Note Entries
+        debitData.forEach(d => {
+            d.gridItems.forEach(gi => {
+                if ((gi.itemShort || "").trim().toUpperCase() === targetCode) {
+                    let qty = parseInt(gi.qty || 0);
+                    totalOut += qty;
+                    timeline.push({
+                        date: d.date,
+                        type: `🧾 DEBIT NOTE`,
+                        ref: `DN Ref: ${d.dbNo} (${d.subType})`,
+                        party: d.vendorName,
+                        qty: `-${qty} NOS`,
+                        sns: gi.componentsList && gi.componentsList.length > 0 ? '5-Board Matrix Checked' : (gi.singlesList ? gi.singlesList.join(', ') : 'N/A')
+                    });
+                }
+            });
+        });
+
+        timeline.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+        // स्क्रीन पर कार्ड और समरी लोड करना
+        document.getElementById('resultTitle').innerText = `📊 Timeline Log for: ${targetCode} [${currentSearchedName}]`;
+        document.getElementById('txtCompName').innerText = matchedCompanyName;
+        document.getElementById('txtTotalIn').innerText = `${totalIn} NOS`;
+        document.getElementById('txtTotalOut').innerText = `${totalOut} NOS`;
+
+        if (timeline.length === 0) {
+            // अगर हिस्ट्री खाली है तो टेबल में एक साफ़ मैसेज दिखा देना
+            historyBody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#64748b; font-weight:bold; padding:15px;">ℹ️ No transaction history logged yet for this model code. Current stock is 0.</td></tr>`;
+            document.getElementById('btnPrintHist').style.display = "none";
+        } else {
+            document.getElementById('btnPrintHist').style.display = "inline-block";
+            timeline.forEach(row => {
+                let badgeClass = "badge-fresh-in";
+                if(row.type.includes("REWORK")) badgeClass = "badge-rework-in";
+                if(row.type.includes("DISPATCH")) badgeClass = "badge-dispatch-out";
+                if(row.type.includes("DEBIT")) badgeClass = "badge-debit-out";
+
+                historyBody.innerHTML += `
+                    <tr>
+                        <td>${row.date}</td>
+                        <td><span class="badge-type ${badgeClass}">${row.type}</span></td>
+                        <td><code>${row.ref}</code></td>
+                        <td><b>${row.party}</b></td>
+                        <td><b>${row.qty}</b></td>
+                        <td style="max-width:200px; font-size:11px; word-break:break-all;">${row.sns || 'N/A'}</td>
+                    </tr>`;
+            });
+        }
+
+        wrapper.style.display = "block";
+        wrapper.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function exportStockLedgerToExcel() {
+        let table = document.getElementById("stockLedgerTable");
+        let csv = [];
+        csv.push("Company Name,Model Code,Model Item Description,Current Fresh Pool Balance,Current Rework Pool Balance");
+        let rows = table.querySelectorAll("tbody tr");
+        rows.forEach(row => {
+            let cols = row.querySelectorAll("td");
+            let rowData = [];
+            cols.forEach(col => { rowData.push(col.innerText.replace(/,/g, "").trim()); });
+            csv.push(rowData.join(","));
+        });
+        let csvString = csv.join("\n");
+        let blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
+        let link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.setAttribute("download", "GVM_Live_Stock_Ledger_Report.csv");
+        document.body.appendChild(link); link.click(); document.body.removeChild(link);
+    }
+
+    function printFilteredHistory() {
+        const printShell = document.getElementById('printSearchSection');
+        const originalTableContent = document.getElementById('searchTableToPrint').innerHTML;
+        const comp = document.getElementById('txtCompName').innerText;
+        const tin = document.getElementById('txtTotalIn').innerText;
+        const tout = document.getElementById('txtTotalOut').innerText;
+
+        printShell.innerHTML = `
+            <div style="font-family: monospace; padding: 20px; line-height: 1.4; background:#fff;">
+                <h2 style="text-align: center; margin: 0; color: #1e3a8a;">GVM RAIL PRIVATE LIMITED</h2>
+                <h4 style="text-align: center; margin: 5px 0 20px 0; border-bottom: 2px solid #000; padding-bottom: 5px;">LIFECYCLE HISTORY STATEMENT REPORT</h4>
+                <table style="width: 100%; font-size: 13px; margin-bottom: 15px;">
+                    <tr><td><b>Model Part Code:</b> ${currentSearchedCode}</td><td style="text-align: right;"><b>Item Desc:</b> ${currentSearchedName}</td></tr>
+                    <tr><td><b>Company Brand:</b> ${comp}</td><td style="text-align: right;"><b>Report Date:</b> 2026-05-26</td></tr>
+                    <tr><td><b>Total Tracked In:</b> ${tin}</td><td style="text-align: right;"><b>Total Outward:</b> ${tout}</td></tr>
+                </table>
+                <table style="width: 100%; border-collapse: collapse; font-size: 11px;" border="1">${originalTableContent}</table>
+            </div>`;
+        window.print();
+    }
+
+    document.getElementById('searchPartCode').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') { triggerCodeSearch(); }
+    });
+
+    renderMasterLedgerTable();
+</script>
+</body>
+</html>

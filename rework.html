@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rework Management</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* 🎯 एडिट और डिलीट बटन की प्रोफेशनल स्टाइल */
+        .btn-edit-action { background-color: #0284c7; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
+        .btn-edit-action:hover { background-color: #0369a1; }
+        .btn-delete-action { background-color: #dc2626; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; }
+        .btn-delete-action:hover { background-color: #b91c1c; }
+        .btn-print-receipt { background-color: #007bff; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="erp-header">
+        <h1>Material Lifecycle Control & Inventory Ledger Systems</h1>
+        <button class="logout-btn" onclick="logout()">Logout</button>
+    </div>
+    
+    <div class="tabs-nav">
+    <a href="index.html" class="tab-link">📦 New Entry (Fresh)</a>
+    <a href="rework.html" class="tab-link">🛠️ Gate In (Rework)</a>
+    <a href="gateout.html" class="tab-link">🚪 Gate Out (Dispatch)</a>
+    <a href="debit.html" class="tab-link">🧾 Debit Note (Vendor)</a>
+    <a href="code.html" class="tab-link">🆕 Generate Code</a>
+    <a href="ledger.html" class="tab-link">📊 Master Ledger & History</a>
+    <a href="users.html" class="tab-link">👥 Manage Users</a>
+</div>
+
+    <h3 id="formTitleRework" style="color:var(--primary); margin: 0 0 10px 0;">🛠️ Gate In (Rework) Ledger</h3>
+
+    <form id="reworkForm">
+        <input type="hidden" id="editRowIndex" value="-1">
+
+        <div class="form-grid">
+            <div class="form-group"><label>Gate In Date</label><input type="date" id="rwDate" max="2026-05-26" required></div>
+            <div class="form-group"><label>Party Name (Where From)</label><input type="text" id="rwPartyName" required autocomplete="off"></div>
+            <div class="form-group"><label>Dispatch Info Reference</label><input type="text" id="rwDispatch" required autocomplete="off"></div>
+            <div class="form-group"><label>Challan / Bill No</label><input type="text" id="rwBillNo" required autocomplete="off"></div>
+            <div class="form-group"><label>Gate Entry No</label><input type="text" id="rwGateEntryNo" required autocomplete="off"></div>
+        </div>
+
+        <div style="overflow-x:auto;">
+            <table class="grid-table">
+                <thead style="background-color: var(--success);">
+                    <tr><th>Item Code 🔍</th><th>Item Display Name</th><th>Qty</th><th>S/N Req?</th><th>Serial Configuration</th><th>Action</th></tr>
+                </thead>
+                <tbody id="dynamicItemsBody"></tbody>
+            </table>
+            <button type="button" class="btn-row-add" onclick="addReworkRow()">+</button>
+        </div>
+        <button type="submit" id="btnSubmitForm" class="btn-submit rework-btn" style="margin-top:15px;">Save Rework Gate In</button>
+        <button type="button" id="btnCancelEdit" class="btn-submit" style="background-color:#64748b; display:none; margin-top:10px;" onclick="cancelEditMode()">Cancel Update</button>
+    </form>
+
+    <div class="table-responsive">
+        <table class="history-table">
+            <thead style="background-color: var(--success);">
+                <tr><th>Date</th><th>From Party</th><th>Challan No</th><th>Gate Entry No</th><th>Items Enrolled</th><th>Action Controls</th></tr>
+            </thead>
+            <tbody id="reworkHistoryBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<div id="serialModal" class="sn-modal">
+    <div class="modal-content" style="width:340px;">
+        <h3>Configure Serials</h3>
+        <div id="serialFieldsBox" style="display:flex; flex-direction:column; gap:8px;"></div>
+        <button type="button" class="btn-submit rework-btn" style="margin-top:15px;" onclick="lockSerials()">Done</button>
+    </div>
+</div>
+
+<div id="printSection"></div>
+
+<script>
+    const session = JSON.parse(localStorage.getItem('activeSession'));
+    if(!session) { window.location.href = 'login.html'; }
+
+    function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
+
+    let reworkData = JSON.parse(localStorage.getItem('reworkStockData')) || [];
+    let masterCatalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
+    let activeBtnRef = null;
+
+    function addReworkRow() {
+        const body = document.getElementById('dynamicItemsBody');
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><input type="text" required class="item-short" oninput="autofillItem(this)"></td>
+            <td><input type="text" required class="item-name"></td>
+            <td><input type="number" min="1" required class="item-qty" oninput="clearSN(this)"></td>
+            <td><select class="item-sn-req"><option value="YES">YES</option><option value="NO">NO</option></select></td>
+            <td><button type="button" class="btn-sn-setup" onclick="openSNModal(this)">S/N</button></td>
+            <td><button type="button" class="btn-row-remove" onclick="this.closest('tr').remove()">×</button></td>`;
+        body.appendChild(tr);
+    }
+
+    function autofillItem(input) {
+        let code = input.value.trim().toUpperCase(); let foundName = "";
+        for(let key in masterCatalog) { const match = masterCatalog[key].find(m => m.code === code); if(match) foundName = match.name; }
+        input.closest('tr').querySelector('.item-name').value = foundName;
+    }
+    function clearSN(input) { const btn = input.closest('tr').querySelector('.btn-sn-setup'); btn.removeAttribute('data-sn'); btn.classList.remove('configured'); btn.innerText = "S/N"; }
+
+    function openSNModal(btn) {
+        activeBtnRef = btn; const qty = parseInt(btn.closest('tr').querySelector('.item-qty').value) || 0;
+        if(qty <= 0) { alert("Please input Quantity first!"); return; }
+        const box = document.getElementById('serialFieldsBox'); box.innerHTML = '';
+        const exist = btn.getAttribute('data-sn') ? JSON.parse(btn.getAttribute('data-sn')) : [];
+        for(let i=0; i<qty; i++) { box.innerHTML += `<input type="text" placeholder="Serial #${i+1}" value="${exist[i]||''}" class="popup-sn-input" style="padding:6px; border:1px solid #ced4da; border-radius:4px;" autocomplete="off">`; }
+        document.getElementById('serialModal').style.display = 'flex';
+    }
+
+    function lockSerials() {
+        let arr = []; const inputs = document.querySelectorAll('.popup-sn-input');
+        inputs.forEach(i => arr.push(i.value.trim()));
+        activeBtnRef.setAttribute('data-sn', JSON.stringify(arr));
+        activeBtnRef.classList.add('configured'); activeBtnRef.innerText = `✔ Loaded (${arr.length})`;
+        document.getElementById('serialModal').style.display = 'none';
+    }
+
+    // फॉर्म सबमिट पर नया सेव या पुराना अपडेट करने का मैकेनिज्म
+    document.getElementById('reworkForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        let items = [];
+        document.querySelectorAll('#dynamicItemsBody tr').forEach(row => {
+            const qty = parseInt(row.querySelector('.item-qty').value);
+            const snData = row.querySelector('.btn-sn-setup').getAttribute('data-sn');
+            items.push({ itemShort: row.querySelector('.item-short').value.toUpperCase(), itemName: row.querySelector('.item-name').value, qty: qty, serials: snData ? JSON.parse(snData) : [] });
+        });
+
+        const idx = parseInt(document.getElementById('editRowIndex').value);
+        const entry = { date: document.getElementById('rwDate').value, partyName: document.getElementById('rwPartyName').value.trim(), dispatch: document.getElementById('rwDispatch').value.trim(), billNo: document.getElementById('rwBillNo').value.trim(), gateEntryNo: document.getElementById('rwGateEntryNo').value.trim(), gridItems: items };
+        
+        if(idx === -1) {
+            reworkData.push(entry);
+            alert("🎉 Rework Gate In entry saved successfully!");
+        } else {
+            reworkData[idx] = entry;
+            alert("🎯 Entry updated successfully!");
+        }
+
+        localStorage.setItem('reworkStockData', JSON.stringify(reworkData));
+        resetReworkForm(); renderHistory(); printReworkPass(entry);
+    });
+
+    // 🎯 इतिहास तालिका में एडिट और डिलीट बटन के साथ रेंडरिंग
+    function renderHistory() {
+        const b = document.getElementById('reworkHistoryBody'); b.innerHTML = '';
+        reworkData.forEach((r, idx) => {
+            let desc = r.gridItems.map(i => `${i.itemName} (${i.qty} Nos)`).join(', ');
+            b.innerHTML += `<tr>
+                <td>${r.date}</td>
+                <td>${r.partyName}</td>
+                <td>${r.billNo}</td>
+                <td>${r.gateEntryNo}</td>
+                <td>${desc}</td>
+                <td>
+                    <button type="button" class="btn-print-receipt" onclick='printReworkPass(${JSON.stringify(r)})'>🖨️ Print</button>
+                    <button type="button" class="btn-edit-action" onclick="editReworkRow(${idx})">Edit</button>
+                    <button type="button" class="btn-delete-action" onclick="deleteReworkRow(${idx})">Delete</button>
+                </td>
+            </tr>`;
+        });
+    }
+
+    // 🎯 एडिट मोड: सारा डेटा वापस फॉर्म और ग्रिड टेबल में रेंडर करना
+    function editReworkRow(idx) {
+        const r = reworkData[idx];
+        document.getElementById('editRowIndex').value = idx;
+        
+        document.getElementById('rwDate').value = r.date;
+        document.getElementById('rwPartyName').value = r.partyName;
+        document.getElementById('rwDispatch').value = r.dispatch;
+        document.getElementById('rwBillNo').value = r.billNo;
+        document.getElementById('rwGateEntryNo').value = r.gateEntryNo;
+
+        // ग्रिड बॉडी को साफ़ करके पुराना मटीरियल लोड करना
+        const body = document.getElementById('dynamicItemsBody');
+        body.innerHTML = '';
+        
+        r.gridItems.forEach(item => {
+            const tr = document.createElement('tr');
+            const snText = item.serials.length > 0 ? `✔ Loaded (${item.serials.length})` : 'S/N';
+            const snClass = item.serials.length > 0 ? 'btn-sn-setup configured' : 'btn-sn-setup';
+            
+            tr.innerHTML = `
+                <td><input type="text" required class="item-short" value="${item.itemShort}" oninput="autofillItem(this)"></td>
+                <td><input type="text" required class="item-name" value="${item.itemName}"></td>
+                <td><input type="number" min="1" required class="item-qty" value="${item.qty}" oninput="clearSN(this)"></td>
+                <td><select class="item-sn-req"><option value="YES" ${item.serials.length > 0 ? 'selected' : ''}>YES</option><option value="NO" ${item.serials.length === 0 ? 'selected' : ''}>NO</option></select></td>
+                <td><button type="button" class="${snClass}" data-sn='${JSON.stringify(item.serials)}' onclick="openSNModal(this)">${snText}</button></td>
+                <td><button type="button" class="btn-row-remove" onclick="this.closest('tr').remove()">×</button></td>`;
+            body.appendChild(tr);
+        });
+
+        // फॉर्म लुक बदलना
+        document.getElementById('formTitleRework').innerText = "🛠️ Modify/Edit Rework Gate In Entry";
+        document.getElementById('btnSubmitForm').innerText = "Update Rework Entry";
+        document.getElementById('btnCancelEdit').style.display = "inline-block";
+        document.getElementById('reworkForm').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // 🎯 फॉर्म रिसेट और कैंसिल मोड
+    function resetReworkForm() {
+        document.getElementById('editRowIndex').value = "-1";
+        document.getElementById('reworkForm').reset();
+        document.getElementById('dynamicItemsBody').innerHTML = '';
+        
+        document.getElementById('formTitleRework').innerText = "🛠️ Gate In (Rework) Ledger";
+        document.getElementById('btnSubmitForm').innerText = "Save Rework Gate In";
+        document.getElementById('btnCancelEdit').style.display = "none";
+        addReworkRow();
+    }
+
+    function cancelEditMode() {
+        resetReworkForm();
+    }
+
+    // 🎯 डिलीट मोड
+    function deleteReworkRow(idx) {
+        if(confirm("Are you sure you want to permanently delete this rework entry from logs?")) {
+            reworkData.splice(idx, 1);
+            localStorage.setItem('reworkStockData', JSON.stringify(reworkData));
+            renderHistory();
+            resetReworkForm();
+        }
+    }
+
+    function printReworkPass(e) {
+        const shell = document.getElementById('printSection');
+        let lines = ''; e.gridItems.forEach(i => { lines += `<p>• ${i.itemName} [Code: ${i.itemShort}] - Qty: ${i.qty} NOS <br> <small>S/Ns: ${i.serials.join(', ')}</small></p>`; });
+        shell.innerHTML = `
+            <div style="border:3px double #000; padding:15px; width:450px; margin:auto; font-family:monospace; background:#fff;">
+                <h3 style="text-align:center; margin:0;">GVM RAIL PVT LTD - REWORK PASS</h3>
+                <hr>
+                <p><b>Gate In Entry No:</b> ${e.gateEntryNo}</p><p><b>Date:</b> ${e.date}</p>
+                <p><b>From Party Location:</b> ${e.partyName}</p>
+                <p><b>Reference Challan No:</b> ${e.billNo}</p>
+                <h4 style="border-bottom:1px solid #000; margin-bottom:5px;">ITEMS ENROLLED:</h4>
+                ${lines}
+                <br><br><p style="text-align:right;">Receiver Signatory</p>
+            </div>`;
+        window.print();
+    }
+
+    addReworkRow(); renderHistory();
+</script>
+</body>
+</html>

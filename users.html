@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Users</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .perm-box-grid {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            background: #fff;
+            padding: 10px;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            margin-top: 5px;
+        }
+        .perm-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .perm-item input {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+        .badge-perm {
+            background-color: #e2e8f0;
+            color: #1e293b;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: bold;
+            display: inline-block;
+            margin-right: 4px;
+        }
+        .btn-edit-user {
+            background-color: #0284c7;
+            color: white;
+            border: none;
+            padding: 4px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 12px;
+            margin-right: 5px;
+        }
+        .btn-edit-user:hover {
+            background-color: #0369a1;
+        }
+        /* पासवर्ड दिखाने वाले बटन की स्टाइल */
+        .btn-view-pass {
+            background: #f1f5f9;
+            border: 1px solid #cbd5e1;
+            padding: 2px 6px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: bold;
+            color: #475569;
+        }
+        .btn-view-pass:hover {
+            background: #e2e8f0;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="erp-header">
+        <h1>Material Lifecycle Control & Inventory Ledger Systems</h1>
+        <button class="logout-btn" onclick="logout()">Logout</button>
+    </div>
+    
+    <<div class="tabs-nav">
+        <a href="index.html" class="tab-link">📦 New Entry (Fresh)</a>
+        <a href="rework.html" class="tab-link">🛠️ Gate In (Rework)</a>
+        <a href="gateout.html" class="tab-link">🚪 Gate Out (Dispatch)</a>
+        <a href="debit.html" class="tab-link">🧾 Debit Note (Vendor)</a>
+        <a href="code.html" class="tab-link">🆕 Generate Code</a>
+        <a href="ledger.html" class="tab-link">📊 Master Ledger & History</a>
+        <a href="users.html" class="tab-link">👥 Manage Users</a>
+    </div>
+
+    <h3 id="formTitle" style="color:var(--primary); margin-top:0;">👥 User Access Management Registry</h3>
+    
+    <form id="userRegistrationForm">
+        <input type="hidden" id="editUserIndex" value="-1">
+        
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Staff / User Name <span>*</span></label>
+                <input type="text" id="regFullName" placeholder="e.g. Ramesh Kumar" required autocomplete="off">
+            </div>
+            <div class="form-group">
+                <label>Desired User ID <span>*</span></label>
+                <input type="text" id="regUserId" placeholder="e.g. ramesh88" required autocomplete="off">
+            </div>
+            <div class="form-group">
+                <label>Secure Password <span>*</span></label>
+                <input type="text" id="regPassword" placeholder="e.g. Pass@123" required autocomplete="off">
+            </div>
+            
+            <div class="form-group" style="grid-column: 1/-1;">
+                <label>Assign Service Permissions (कंट्रोल करें कि यूजर क्या कर सकता है)</label>
+                <div class="perm-box-grid">
+                    <label class="perm-item"><input type="checkbox" id="chkAdd" checked> 📦 Can Add Entries</label>
+                    <label class="perm-item"><input type="checkbox" id="chkDebit" checked> 🧾 Can Manage Debit Note</label>
+                    <label class="perm-item"><input type="checkbox" id="chkExcel" checked> 📊 Can Download Excel</label>
+                    <label class="perm-item"><input type="checkbox" id="chkGenCode" checked> 🆕 Can Generate Code</label>
+                    <label class="perm-item"><input type="checkbox" id="chkUsers"> 👥 Can Manage Users</label>
+                </div>
+            </div>
+            
+            <button type="submit" id="btnSubmitForm" class="btn-submit">Register New User with Permissions</button>
+            <button type="button" id="btnCancelEdit" class="btn-submit" style="background-color:#64748b; display:none; margin-top:10px;" onclick="cancelEditMode()">Cancel Update</button>
+        </div>
+    </form>
+
+    <div class="table-responsive" style="margin-top: 25px;">
+        <h4 style="margin: 0 0 10px 0; color: var(--neutral-dark);">Active ERP User Registers & Active Services</h4>
+        <table class="history-table">
+            <thead>
+                <tr>
+                    <th>Staff Name</th>
+                    <th>User ID</th>
+                    <th>System Password (क्रिप्टेड)</th>
+                    <th>Assigned Service Permissions</th>
+                    <th style="width: 20%;">Action</th>
+                </tr>
+            </thead>
+            <tbody id="usersTableBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    const session = JSON.parse(localStorage.getItem('activeSession'));
+    if(!session) { window.location.href = 'login.html'; }
+
+    function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
+
+    const defaultUsers = [
+        { 
+            name: "Rakesh Kumar", 
+            userId: "k88rakesh", 
+            password: "Rinku@7004", 
+            permissions: { add: true, debit: true, excel: true, gencode: true, users: true } 
+        }
+    ];
+
+    let userRegistry = JSON.parse(localStorage.getItem('systemUserRegistry')) || defaultUsers;
+
+    function renderUsersTable() {
+        const body = document.getElementById('usersTableBody');
+        if(!body) return;
+        body.innerHTML = '';
+
+        userRegistry.forEach((user, idx) => {
+            let actionButtonsHTML = '';
+            
+            if(user.userId !== "k88rakesh") {
+                actionButtonsHTML = `
+                    <button class="btn-edit-user" onclick="editUser(${idx})">Edit Power</button>
+                    <button class="btn-delete" onclick="deleteUser(${idx})">Remove</button>
+                `;
+            } else {
+                actionButtonsHTML = `<span style="color:#1e3a8a; font-size:12px; font-weight:bold;">Super Admin</span>`;
+            }
+
+            let p = user.permissions || { add: true, debit: true, excel: true, gencode: true, users: false };
+            let permBadges = '';
+            if(p.add) permBadges += `<span class="badge-perm" style="background:#dbeafe; color:#1e40af;">📦 Entry</span>`;
+            if(p.debit) permBadges += `<span class="badge-perm" style="background:#fee2e2; color:#991b1b;">🧾 Debit</span>`;
+            if(p.excel) permBadges += `<span class="badge-perm" style="background:#dcfce7; color:#166534;">📊 Excel</span>`;
+            if(p.gencode) permBadges += `<span class="badge-perm" style="background:#fef08a; color:#854d0e;">🆕 Code</span>`;
+            if(p.users) permBadges += `<span class="badge-perm" style="background:#f3e8ff; color:#6b21a8;">👥 Admin</span>`;
+            
+            if(!p.add && !p.debit && !p.excel && !p.gencode && !p.users) {
+                permBadges = `<span class="badge-perm" style="background:#edf2f7; color:#e53e3e;">❌ Blocked</span>`;
+            }
+
+            // 🎯 पासवर्ड रिकवरी लॉजिक: छुपा हुआ पासवर्ड देखने के लिए लाइव बटन
+            body.innerHTML += `
+                <tr>
+                    <td><b>${user.name}</b></td>
+                    <td><code>${user.userId}</code></td>
+                    <td>
+                        <span id="passText_${idx}" style="font-family:monospace; font-weight:bold;">••••••••</span>
+                        <button type="button" class="btn-view-pass" onclick="togglePasswordView(${idx}, '${user.password}')">👁️ Show</button>
+                    </td>
+                    <td>${permBadges}</td>
+                    <td>${actionButtonsHTML}</td>
+                </tr>`;
+        });
+    }
+
+    // 🎯 पासवर्ड को देखने और छुपाने का लाइव फंक्शन
+    function togglePasswordView(idx, realPassword) {
+        const span = document.getElementById(`passText_${idx}`);
+        const btn = span.nextElementSibling;
+        if(span.innerText === "••••••••") {
+            span.innerText = realPassword;
+            btn.innerText = "👁️ Hide";
+            span.style.color = "var(--primary)";
+        } else {
+            span.innerText = "••••••••";
+            btn.innerText = "👁️ Show";
+            span.style.color = "#1e293b";
+        }
+    }
+
+    function editUser(index) {
+        const user = userRegistry[index];
+        document.getElementById('editUserIndex').value = index;
+        document.getElementById('regFullName').value = user.name;
+        document.getElementById('regUserId').value = user.userId;
+        document.getElementById('regUserId').disabled = true; 
+        document.getElementById('regPassword').value = user.password;
+
+        let p = user.permissions || { add: true, debit: true, excel: true, gencode: true, users: false };
+        document.getElementById('chkAdd').checked = !!p.add;
+        document.getElementById('chkDebit').checked = !!p.debit;
+        document.getElementById('chkExcel').checked = !!p.excel;
+        document.getElementById('chkGenCode').checked = !!p.gencode;
+        document.getElementById('chkUsers').checked = !!p.users;
+
+        document.getElementById('formTitle').innerText = `🛠️ Modify Permissions for: ${user.name}`;
+        document.getElementById('btnSubmitForm').innerText = "Update & Save User Permissions";
+        document.getElementById('btnCancelEdit').style.display = "inline-block";
+        document.getElementById('userRegistrationForm').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function cancelEditMode() {
+        document.getElementById('editUserIndex').value = "-1";
+        document.getElementById('userRegistrationForm').reset();
+        document.getElementById('regUserId').disabled = false;
+        
+        document.getElementById('formTitle').innerText = "👥 User Access Management Registry";
+        document.getElementById('btnSubmitForm').innerText = "Register New User with Permissions";
+        document.getElementById('btnCancelEdit').style.display = "none";
+    }
+
+    document.getElementById('userRegistrationForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const index = parseInt(document.getElementById('editUserIndex').value);
+        const fullName = document.getElementById('regFullName').value.trim();
+        const userId = document.getElementById('regUserId').value.trim().toLowerCase();
+        const password = document.getElementById('regPassword').value;
+
+        const userPermissions = {
+            add: document.getElementById('chkAdd').checked,
+            debit: document.getElementById('chkDebit').checked,
+            excel: document.getElementById('chkExcel').checked,
+            gencode: document.getElementById('chkGenCode').checked,
+            users: document.getElementById('chkUsers').checked
+        };
+
+        if(index === -1) {
+            if(userRegistry.some(user => user.userId === userId)) {
+                alert("Error: This User ID is already allocated!");
+                return;
+            }
+            userRegistry.push({ name: fullName, userId: userId, password: password, permissions: userPermissions });
+            alert("🎉 Success: New user registered!");
+        } else {
+            userRegistry[index].name = fullName;
+            userRegistry[index].password = password;
+            userRegistry[index].permissions = userPermissions;
+            alert("🎯 Success: User details updated!");
+        }
+
+        localStorage.setItem('systemUserRegistry', JSON.stringify(userRegistry));
+        cancelEditMode();
+        renderUsersTable();
+    });
+
+    function deleteUser(index) {
+        if(confirm("Are you sure you want to permanently revoke access?")) {
+            userRegistry.splice(index, 1);
+            localStorage.setItem('systemUserRegistry', JSON.stringify(userRegistry));
+            cancelEditMode();
+            renderUsersTable();
+        }
+    }
+
+    renderUsersTable();
+</script>
+</body>
+</html>

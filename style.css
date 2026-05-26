@@ -1,0 +1,74 @@
+/* 🎨 Unified Industrial Theme */
+:root {
+    --primary: #1e3a8a;
+    --primary-dark: #0f172a;
+    --neutral-dark: #334155;
+    --neutral-light: #f8fafc;
+    --border-color: #cbd5e1;
+    --error-red: #dc3545;
+    --error-bg: #f8d7da;
+    --success-green: #28a745;
+}
+
+body { font-family: 'Segoe UI', Arial, sans-serif; background-color: #f1f5f9; margin: 0; padding: 10px; color: #1e293b; }
+.container { max-width: 100%; margin: 0 auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+
+/* 🚄 Header Layout */
+.erp-header { background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%); padding: 15px; border-radius: 6px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-left: 6px solid var(--primary); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; }
+.erp-header h1 { color: #ffffff; margin: 0; font-size: 20px; letter-spacing: 0.5px; font-weight: bold; }
+.logout-btn { background-color: #64748b; color: white; border: none; padding: 8px 16px; font-weight: bold; cursor: pointer; border-radius: 4px; font-size: 13px; transition: background 0.2s; }
+.logout-btn:hover { background-color: var(--error-red); }
+
+/* 🗂️ Unified Navigation Tabs */
+.tabs-nav { display: flex; gap: 6px; margin-bottom: 20px; border-bottom: 3px solid #e2e8f0; padding-bottom: 10px; flex-wrap: wrap; }
+.tab-link { display: block; padding: 10px 16px; font-size: 13px; font-weight: bold; text-decoration: none; border-radius: 4px; background-color: #e2e8f0; color: #475569; transition: all 0.2s; }
+/* सभी एक्टिव टैब का रंग अब एक जैसा ब्लू रहेगा */
+.tab-link.active-fresh, .tab-link.active-rework, .tab-link.active-gateout, .tab-link.active-debit, .tab-link.active-code, .tab-link.active-users { background-color: var(--primary); color: white; }
+
+/* 📝 Form Layouts */
+.form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 20px; background: var(--neutral-light); padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0; }
+.form-group { display: flex; flex-direction: column; }
+.form-group label { font-size: 12px; font-weight: bold; margin-bottom: 4px; color: #344054; }
+.form-group input, .form-group select { padding: 8px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 14px; background-color: white; height: 38px; box-sizing: border-box; color: #1e293b; }
+.form-group input[readonly] { background-color: #e2e8f0; cursor: not-allowed; font-weight: bold; }
+
+/* 🔘 Uniform Action Buttons */
+.btn-submit { padding: 12px 24px; color: white; border: none; border-radius: 4px; font-size: 14px; cursor: pointer; font-weight: bold; width: 100%; grid-column: 1/-1; background-color: var(--primary); transition: background 0.2s; }
+.btn-submit:hover { background-color: var(--primary-dark); }
+.btn-excel { background-color: var(--success-green); color: white; border: none; padding: 8px 14px; font-weight: bold; border-radius: 4px; cursor: pointer; margin-bottom: 10px; font-size: 12px; float: right; }
+.btn-row-add { background-color: #fff; border: 1px solid var(--primary); color: var(--primary); padding: 5px 15px; cursor: pointer; font-weight: bold; font-size: 18px; margin-top: 5px; border-radius: 4px; transition: all 0.2s; }
+.btn-row-add:hover { background-color: var(--primary); color: white; }
+.btn-row-remove { background: none; border: none; color: var(--error-red); font-size: 18px; cursor: pointer; font-weight: bold; }
+.btn-print-receipt { background-color: #0284c7; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; }
+
+/* 📋 Uniform Tables Custom Grid */
+.table-responsive { overflow-x: auto; margin-top: 15px; clear: both; }
+.history-table, .grid-table { width: 100%; border-collapse: collapse; background: #fff; }
+.history-table th, .grid-table th { background-color: var(--neutral-dark); color: white; font-weight: bold; padding: 12px; text-align: left; font-size: 14px; white-space: nowrap; }
+.history-table td, .grid-table td { padding: 10px; border-bottom: 1px solid #e2e8f0; font-size: 14px; }
+.grid-table input, .grid-table select { width: 100%; padding: 6px; border: 1px solid var(--border-color); border-radius: 4px; box-sizing: border-box; height: 34px; }
+
+/* 🛑 PURE ERROR STYLING - लाल रंग सिर्फ यहाँ दिखेगा */
+.error-message { grid-column: 1 / -1; background-color: var(--error-bg); color: #721c24; padding: 10px; border-radius: 4px; border: 1px solid #f5c6cb; margin-bottom: 10px; display: none; font-weight: bold; font-size: 13px; }
+.low-stock-badge { background-color: var(--error-bg); color: #721c24; border: 1px solid #f5c6cb; padding: 10px; border-radius: 4px; margin-bottom: 15px; font-weight: bold; display: none; }
+.btn-delete { background-color: var(--error-red); color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; }
+
+/* 🔐 Login Wrapper Styling */
+.login-wrapper { max-width: 360px; margin: 80px auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); border-top: 5px solid var(--primary); }
+.login-wrapper h2 { margin-top: 0; text-align: center; color: var(--primary); margin-bottom: 25px; font-size: 22px; font-weight: bold; }
+.login-btn { width: 100%; padding: 12px; background-color: var(--primary); color: white; border: none; border-radius: 4px; font-weight: bold; font-size: 16px; cursor: pointer; margin-top: 10px; }
+.login-btn:hover { background-color: var(--primary-dark); }
+
+/* 📥 Modals Framework */
+.sn-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 3000; justify-content: center; align-items: center; }
+.modal-content { background: white; padding: 25px; border-radius: 8px; width: 100%; max-width: 700px; max-height: 85%; overflow-y: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
+.component-grid-row { display: grid; grid-template-columns: 40px repeat(5, 1fr); gap: 6px; margin-bottom: 8px; align-items: center;}
+.component-grid-row input { padding: 6px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; width: 100%; box-sizing: border-box; }
+.component-header { font-weight: bold; font-size: 11px; color: #475569; text-align: center; background: #e2e8f0; padding: 4px 0; border-radius: 2px;}
+.view-sn-link { color: var(--primary); text-decoration: underline; cursor: pointer; font-weight: bold; font-size: 12px; }
+
+@media print {
+    body * { visibility: hidden; }
+    #printSection, #printSection * { visibility: visible; }
+    #printSection { position: absolute; left: 0; top: 0; width: 100%; padding: 20px; }
+}
