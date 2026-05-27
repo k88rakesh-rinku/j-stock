@@ -3,8 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Debit Note - Pro Control System</title>
+    <title>Debit Note - Pro Control System (Live Cloud)</title>
     <link rel="stylesheet" href="style.css">
+    
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+
     <style>
         .btn-edit-action { background-color: #0284c7; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
         .btn-edit-action:hover { background-color: #0369a1; }
@@ -12,72 +16,26 @@
         .btn-delete-action:hover { background-color: #b91c1c; }
         .btn-print-receipt { background-color: #007bff; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
 
-        /* 🔥 पॉपअप बॉक्स को चौड़ा और 5 सीधे कॉलम्स में सेट करने की स्टाइल */
-        .sn-modal {
-            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-            background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 9999;
-        }
-        .modal-content {
-            background: #fff; padding: 20px; border-radius: 6px; 
-            width: 850px; /* 🎯 चौड़ाई बढ़ा दी ताकि 5 कॉलम आ सकें */
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-        .modal-columns-wrapper {
-            display: flex;
-            flex-direction: row;
-            gap: 10px;
-            margin-top: 10px;
-            max-height: 350px;
-            overflow-y: auto;
-            padding-bottom: 10px;
-        }
-        .modal-board-col {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            background: #f8fafc;
-            padding: 8px;
-            border: 1px solid #cbd5e1;
-            border-radius: 4px;
-        }
-        .col-title-header {
-            font-weight: bold;
-            font-size: 11px;
-            color: #1e3a8a;
-            text-align: center;
-            border-bottom: 2px solid #1e3a8a;
-            padding-bottom: 4px;
-            margin-bottom: 4px;
-        }
-        .modal-input-group {
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
-        }
-        .modal-input-group label {
-            font-size: 10px;
-            color: #64748b;
-            font-weight: bold;
-        }
-
-        /* 1/4 A4 साइज प्रिंटिंग सीएसएस */
         @media print {
             body * { visibility: hidden; }
             #printSection, #printSection * { visibility: visible; }
             #printSection {
-                position: absolute; left: 0; top: 0; width: 210mm; height: 74.25mm;
-                box-sizing: border-box; padding: 4mm 6mm; margin: 0; background: #fff;
+                position: absolute; left: 0; top: 0; width: 297mm; height: 52.5mm;
+                box-sizing: border-box; padding: 3mm 5mm; margin: 0; background: #fff;
                 font-family: monospace; font-size: 9px; line-height: 1.2;
             }
-            @page { size: A4 portrait; margin: 0; }
+            @page { size: A4 landscape; margin: 0; }
+            .columns-container { display: flex; flex-direction: row; gap: 5px; margin-top: 4px; width: 100%; }
+            .board-column { flex: 1; display: flex; flex-direction: column; border: 1px solid #000; }
+            .column-header { font-weight: bold; background: #eee; padding: 2px; text-align: center; border-bottom: 1px solid #000; font-size: 8px; }
+            .column-serials { padding: 3px; font-size: 8px; line-height: 1.3; }
         }
     </style>
 </head>
 <body>
 <div class="container">
     <div class="erp-header">
-        <h1>Material Lifecycle Control & Inventory Ledger Systems</h1>
+        <h1>Material Lifecycle Control & Inventory Ledger Systems <span style="font-size:12px; color:#4ade80;">● CLOUD LIVE</span></h1>
         <button class="logout-btn" onclick="logout()">Logout</button>
     </div>
     
@@ -95,6 +53,7 @@
 
     <form id="debitForm">
         <input type="hidden" id="editRowIndex" value="-1">
+        <input type="hidden" id="editFirebaseKey" value="">
 
         <div class="form-grid">
             <div class="form-group"><label>Debit Note Date <span>*</span></label><input type="date" id="dbDate" required></div>
@@ -126,12 +85,10 @@
     </div>
 </div>
 
-<div id="serialModal" class="sn-modal">
-    <div class="modal-content">
+<div id="serialModal" class="sn-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); justify-content:center; align-items:center; z-index:9999;">
+    <div class="modal-content" style="background:#fff; padding:20px; border-radius:6px; width:850px; box-shadow:0 4px 6px rgba(0,0,0,0.1);">
         <h3 style="margin-top:0; color: var(--primary);">⚙️ Configure Board Serials (Column wise)</h3>
-        
-        <div id="serialFieldsBox" class="modal-columns-wrapper"></div>
-        
+        <div id="serialFieldsBox" class="modal-columns-wrapper" style="display:flex; flex-direction:row; gap:10px; margin-top:10px; max-height:350px; overflow-y:auto; padding-bottom:10px;"></div>
         <button type="button" class="btn-submit debit-btn" style="margin-top:15px; width:100%;" onclick="lockSerials()">Done</button>
     </div>
 </div>
@@ -139,16 +96,42 @@
 <div id="printSection"></div>
 
 <script>
+    // 🎯 आपकी अपनी फायरबेस चाबी यहाँ लोड कर दी है
+    const firebaseConfig = {
+        apiKey: "AIzaSyCAOXbPwuFR3wh1QSLBXWsodupKWoRYmqs",
+        authDomain: "gvm-stock-control.firebaseapp.com",
+        databaseURL: "https://gvm-stock-control-default-rtdb.firebaseio.com",
+        projectId: "gvm-stock-control",
+        storageBucket: "gvm-stock-control.firebasestorage.app",
+        messagingSenderId: "202991207119",
+        appId: "1:202991207119:web:2246ffb7b92f9eb0c4adba"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+
     const session = JSON.parse(localStorage.getItem('activeSession'));
     if(!session) { window.location.href = 'login.html'; }
     function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
 
     let stockData = JSON.parse(localStorage.getItem('freshStockData')) || [];
-    let debitData = JSON.parse(localStorage.getItem('debitNoteData')) || [];
     let masterCatalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
+    let debitListGlobal = [];
     let activeBtnRef = null;
 
     const BOARD_NAMES = ["Main Board", "CH1", "CH2", "Top Board", "Bar Code"];
+
+    // 🔄 फायरबेस से रीयल-टाइम डेटा खींचने का लॉजिक
+    database.ref('debitNotes').on('value', (snapshot) => {
+        debitListGlobal = [];
+        const data = snapshot.val();
+        if(data) {
+            for(let key in data) {
+                debitListGlobal.push({ fbKey: key, ...data[key] });
+            }
+        }
+        renderHistory();
+    });
 
     function addDbRow() {
         const body = document.getElementById('debitItemsBody');
@@ -171,49 +154,36 @@
 
     function clearSN(input) { const btn = input.closest('tr').querySelector('.btn-sn-setup'); btn.removeAttribute('data-sn'); btn.classList.remove('configured'); btn.innerText = "S/N"; }
 
-    // 🎯 5 सीधे खड़े कॉलम का पॉपअप इंजन फिक्स
     function openSNModal(btn) {
         activeBtnRef = btn; 
         const setsQty = parseInt(btn.closest('tr').querySelector('.db-qty').value) || 0;
-        if(setsQty <= 0) { alert("Please input Sets Quantity first!"); return; }
+        if(setsQty <= 0) { alert("Please input Quantity first!"); return; }
         
-        const wrapperBox = document.getElementById('serialFieldsBox'); 
-        wrapperBox.innerHTML = '';
-        
+        const wrapperBox = document.getElementById('serialFieldsBox'); wrapperBox.innerHTML = '';
         const exist = btn.getAttribute('data-sn') ? JSON.parse(btn.getAttribute('data-sn')) : [];
-
-        // 5 कॉलम की HTML को अलग-अलग जनरेट करेंगे
+        
         BOARD_NAMES.forEach(boardName => {
-            let columnHtml = `<div class="modal-board-col">
-                <div class="col-title-header">${boardName.toUpperCase()}</div>`;
+            let columnHtml = `<div style="flex:1; display:flex; flex-direction:column; gap:6px; background:#f8fafc; padding:8px; border:1px solid #cbd5e1; border-radius:4px;">
+                <div style="font-weight:bold; font-size:11px; color:#1e3a8a; text-align:center; border-bottom:2px solid #1e3a8a; padding-bottom:4px; margin-bottom:4px;">${boardName.toUpperCase()}</div>`;
             
             for(let s = 1; s <= setsQty; s++) {
-                // पुराने भरे हुए डेटा को ढूंढने का लॉजिक
                 let matchExist = exist.find(x => parseInt(x.setNum) === s && x.boardType === boardName);
                 let currentVal = matchExist ? matchExist.sn : '';
-
                 columnHtml += `
-                    <div class="modal-input-group">
-                        <label>Set #${s} S/N</label>
-                        <input type="text" placeholder="Serial No" data-board="${boardName}" data-set="${s}" value="${currentVal}" class="popup-sn-input" style="padding:5px; border:1px solid #ced4da; border-radius:4px; font-size:11px;" autocomplete="off">
+                    <div style="display:flex; flex-direction:column; gap:2px;">
+                        <label style="font-size:10px; color:#64748b; font-weight:bold;">Set #${s}</label>
+                        <input type="text" placeholder="S/N" data-board="${boardName}" data-set="${s}" value="${currentVal}" class="popup-sn-input" style="padding:4px; border:1px solid #ced4da; border-radius:4px; font-size:11px;" autocomplete="off">
                     </div>`;
             }
             columnHtml += `</div>`;
             wrapperBox.innerHTML += columnHtml;
         });
-
         document.getElementById('serialModal').style.display = 'flex';
     }
 
     function lockSerials() {
         let arr = []; const inputs = document.querySelectorAll('.popup-sn-input');
-        inputs.forEach(i => {
-            arr.push({
-                setNum: parseInt(i.getAttribute('data-set')),
-                boardType: i.getAttribute('data-board'),
-                sn: i.value.trim()
-            });
-        });
+        inputs.forEach(i => { arr.push({ setNum: parseInt(i.getAttribute('data-set')), boardType: i.getAttribute('data-board'), sn: i.value.trim() }); });
         activeBtnRef.setAttribute('data-sn', JSON.stringify(arr));
         activeBtnRef.classList.add('configured'); activeBtnRef.innerText = `✔ Loaded (${arr.length})`;
         document.getElementById('serialModal').style.display = 'none';
@@ -223,12 +193,11 @@
         e.preventDefault();
         let items = []; let deficit = false;
         const idx = parseInt(document.getElementById('editRowIndex').value);
+        const fbKey = document.getElementById('editFirebaseKey').value;
 
-        if (idx !== -1) { restoreDebitStock(idx); }
+        if (idx !== -1) { restoreLocalStock(idx); }
 
         let rows = document.querySelectorAll('#debitItemsBody tr');
-        if(rows.length === 0) { alert("Please add at least one item row!"); return; }
-
         rows.forEach(row => {
             const code = row.querySelector('.db-code').value.toUpperCase();
             const setsQty = parseInt(row.querySelector('.db-qty').value);
@@ -240,21 +209,16 @@
                 alert("🚨 Deficit Stock! Available: " + (match ? (match.qty || match.inQty) : 0) + " for code: " + code);
                 return;
             }
-            if(match.qty !== undefined) match.qty -= setsQty;
-            else match.inQty -= setsQty;
-
+            if(match.qty !== undefined) match.qty -= setsQty; else match.inQty -= setsQty;
             items.push({ code, name: row.querySelector('.db-name').value, qty: setsQty, serials: snData ? JSON.parse(snData) : [] });
         });
 
-        if(deficit) {
-            if(idx !== -1) { stockData = JSON.parse(localStorage.getItem('freshStockData')); }
-            return;
-        }
+        if(deficit) { if(idx !== -1) { stockData = JSON.parse(localStorage.getItem('freshStockData')); } return; }
 
         localStorage.setItem('freshStockData', JSON.stringify(stockData));
 
         const entry = {
-            noteNo: idx === -1 ? (debitData.length + 1) : debitData[idx].noteNo,
+            noteNo: idx === -1 ? (debitListGlobal.length + 1) : debitListGlobal[idx].noteNo,
             date: document.getElementById('dbDate').value,
             vendorName: document.getElementById('dbVendorName').value.trim().toUpperCase(),
             refNo: document.getElementById('dbRefNo').value.trim().toUpperCase(),
@@ -262,40 +226,39 @@
             gridItems: items
         };
 
+        // 🎯 फायरबेस पर डेटा भेजने का रीयल-टाइम लॉजिक
         if(idx === -1) {
-            debitData.push(entry);
-            alert("🎉 Debit Note Saved and Stock Deducted Successfully!");
+            database.ref('debitNotes').push(entry);
+            alert("🎉 Debit Note Saved to Cloud Successfully!");
         } else {
-            debitData[idx] = entry;
-            alert("🎯 Debit Note Entry updated successfully!");
+            database.ref('debitNotes/' + fbKey).set(entry);
+            alert("🎯 Cloud Entry updated successfully!");
         }
 
-        localStorage.setItem('debitNoteData', JSON.stringify(debitData));
-        resetDebitForm(); renderHistory();
+        resetDebitForm();
     });
 
-    function restoreDebitStock(idx) {
-        const oldEntry = debitData[idx];
+    function restoreLocalStock(idx) {
+        const oldEntry = debitListGlobal[idx];
         oldEntry.gridItems.forEach(item => {
             let match = stockData.find(s => s.modelCode === item.code);
             if(match) {
-                if(match.qty !== undefined) match.qty += item.qty;
-                else match.inQty += item.qty;
+                if(match.qty !== undefined) match.qty += item.qty; else match.inQty += item.qty;
             }
         });
     }
 
     function editDebitRow(idx) {
-        const d = debitData[idx];
+        const d = debitListGlobal[idx];
         document.getElementById('editRowIndex').value = idx;
+        document.getElementById('editFirebaseKey').value = d.fbKey;
         
         document.getElementById('dbDate').value = d.date;
         document.getElementById('dbVendorName').value = d.vendorName;
         document.getElementById('dbRefNo').value = d.refNo;
         document.getElementById('dbReason').value = d.reason;
 
-        const body = document.getElementById('debitItemsBody');
-        body.innerHTML = '';
+        const body = document.getElementById('debitItemsBody'); body.innerHTML = '';
 
         d.gridItems.forEach(item => {
             const tr = document.createElement('tr');
@@ -312,71 +275,56 @@
             body.appendChild(tr);
         });
 
-        document.getElementById('formTitleDebit').innerText = "🛠️ Modify/Edit Debit Note Entry";
+        document.getElementById('formTitleDebit').innerText = "🛠️ Modify/Edit Cloud Debit Note Entry";
         document.getElementById('btnSubmitForm').innerText = "Update Debit Note";
         document.getElementById('btnCancelEdit').style.display = "inline-block";
         document.getElementById('debitForm').scrollIntoView({ behavior: 'smooth' });
     }
 
-    function resetDebitForm() {
-        document.getElementById('editRowIndex').value = "-1";
-        document.getElementById('debitForm').reset();
-        document.getElementById('debitItemsBody').innerHTML = '';
-        document.getElementById('formTitleDebit').innerText = "🧾 Debit Note (Vendor Return) Ledger";
-        document.getElementById('btnSubmitForm').innerText = "Save Debit Note & Deduct Stock";
-        document.getElementById('btnCancelEdit').style.display = "none";
-        applyLiveDateRestrictions();
-        addDbRow();
-    }
-
-    function cancelEditMode() { resetDebitForm(); }
-
     function deleteDebitRow(idx) {
-        if(confirm("🚨 Deleting this debit note will add stock back to inventory. Proceed?")) {
-            restoreDebitStock(idx);
+        if(confirm("🚨 Deleting this cloud note will add stock back. Proceed?")) {
+            restoreLocalStock(idx);
             localStorage.setItem('freshStockData', JSON.stringify(stockData));
-            debitData.splice(idx, 1);
-            localStorage.setItem('debitNoteData', JSON.stringify(debitData));
-            renderHistory(); resetDebitForm();
+            const fbKey = debitListGlobal[idx].fbKey;
+            database.ref('debitNotes/' + fbKey).remove();
+            resetDebitForm();
         }
     }
 
     function printDebitNotePass(e) {
         const shell = document.getElementById('printSection');
-        let lines = ''; 
-        e.gridItems.forEach(i => { 
-            let sList = '';
-            if(i.serials && i.serials.length > 0) {
-                sList = '<br><span style="font-size:8px; color:#555;">';
-                i.serials.forEach(item => {
-                    sList += `[Set${item.setNum}] ${item.boardType}: ${item.sn || '-'} | `;
+        let itemHeaderLine = ''; let columnsHtml = '';
+
+        e.gridItems.forEach(i => {
+            itemHeaderLine += `• <b>${i.name}</b> [${i.code}] - Qty: <b>${i.qty} Sets</b><br>`;
+            if (i.serials && i.serials.length > 0) {
+                columnsHtml = '<div class="columns-container">';
+                BOARD_NAMES.forEach(boardName => {
+                    let serialsRows = '';
+                    i.serials.forEach(item => { if (item.boardType === boardName && item.sn) { serialsRows += `#${item.setNum}: ${item.sn}<br>`; } });
+                    columnsHtml += `<div class="board-column"><div class="column-header">${boardName.toUpperCase()}</div><div class="column-serials">${serialsRows || '-'}</div></div>`;
                 });
-                sList += '</span>';
+                columnsHtml += '</div>';
             }
-            lines += `• <b>${i.name}</b> [${i.code}] - Returned: <b>${i.qty} Sets</b>${sList}<br>`; 
         });
 
         shell.innerHTML = `
-            <div style="border:1px solid #000; padding:6px; height:100%; box-sizing:border-box; display:flex; flex-direction:column; justify-content:space-between;">
-                <div style="text-align:center; font-weight:bold; font-size:12px; border-bottom:1px solid #000; padding-bottom:2px; text-transform:uppercase;">GVM RAIL PVT LTD - DEBIT NOTE VOUCHER</div>
-                
-                <table style="width:100%; font-size:11px; margin-top:2px; line-height:1.2;">
-                    <tr><td><b>Debit Note No:</b> GVM-DN-${e.noteNo}</td><td><b>Date:</b> ${e.date}</td></tr>
-                    <tr><td><b>Vendor Name:</b> ${e.vendorName}</td><td><b>Ref Bill No:</b> ${e.refNo}</td></tr>
-                    <tr><td colspan="2"><b>Reason for Return:</b> ${e.reason}</td></tr>
+            <div style="border:1px solid #000; padding:5px; height:100%; box-sizing:border-box; display:flex; flex-direction:column; justify-content:space-between;">
+                <div style="text-align:center; font-weight:bold; font-size:12px; border-bottom:1px solid #000; padding-bottom:1px; text-transform:uppercase;">GVM RAIL PVT LTD - DEBIT NOTE (CLOUD SYNC)</div>
+                <table style="width:100%; font-size:10px; margin-top:2px; line-height:1.1;">
+                    <tr><td><b>DN No:</b> GVM-DN-${e.noteNo}</td><td><b>Date:</b> ${e.date}</td><td><b>Vendor:</b> ${e.vendorName}</td><td><b>Ref Bill:</b> ${e.refNo}</td></tr>
+                    <tr><td colspan="4"><b>Reason:</b> ${e.reason}</td></tr>
                 </table>
-
-                <div style="margin-top:4px; font-size:10px; border-top:1px solid #eee; padding-top:2px; flex-grow:1; overflow:hidden;">
-                    <b>RETURNED ITEMS DETAILS:</b><br>${lines}
-                </div>
-                <div style="text-align:right; font-weight:bold; font-size:9px; margin-top:2px;">Authorized Store & Accounts Sign</div>
+                <div style="margin-top:2px; font-size:9px; border-top:1px solid #ddd; padding-top:2px;">${itemHeaderLine}</div>
+                <div style="flex-grow:1; margin-top:2px;">${columnsHtml}</div>
+                <div style="text-align:right; font-weight:bold; font-size:8px; margin-top:2px; border-top:1px solid #eee; padding-top:1px;">Authorized Store Signatory</div>
             </div>`;
         window.print();
     }
 
     function renderHistory() {
         const b = document.getElementById('dbHistoryBody'); b.innerHTML = '';
-        debitData.forEach((d, idx) => {
+        debitListGlobal.forEach((d, idx) => {
             let summary = d.gridItems.map(i=>`${i.name} (<b>${i.qty} Sets</b>)`).join(', ');
             b.innerHTML += `<tr>
                 <td>GVM-DN-${d.noteNo}</td>
@@ -393,13 +341,26 @@
         });
     }
 
+    function resetDebitForm() {
+        document.getElementById('editRowIndex').value = "-1";
+        document.getElementById('editFirebaseKey').value = "";
+        document.getElementById('debitForm').reset();
+        document.getElementById('debitItemsBody').innerHTML = '';
+        document.getElementById('formTitleDebit').innerText = "🧾 Debit Note (Vendor Return) Ledger";
+        document.getElementById('btnSubmitForm').innerText = "Save Debit Note & Deduct Stock";
+        document.getElementById('btnCancelEdit').style.display = "none";
+        applyLiveDateRestrictions(); addDbRow();
+    }
+
+    function cancelEditMode() { resetDebitForm(); }
+
     function applyLiveDateRestrictions() {
         const todayStr = new Date().toISOString().split('T')[0];
         document.getElementById('dbDate').setAttribute('max', todayStr);
         document.getElementById('dbDate').value = todayStr;
     }
 
-    applyLiveDateRestrictions(); renderHistory(); addDbRow();
+    applyLiveDateRestrictions(); addDbRow();
 </script>
 </body>
 </html>
