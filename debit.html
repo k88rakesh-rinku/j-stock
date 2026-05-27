@@ -3,69 +3,74 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Debit Note Registry</title>
+    <title>Debit Note - Pro Control System</title>
     <link rel="stylesheet" href="style.css">
     <style>
-        .modal-header {
+        .btn-edit-action { background-color: #0284c7; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
+        .btn-edit-action:hover { background-color: #0369a1; }
+        .btn-delete-action { background-color: #dc2626; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; }
+        .btn-delete-action:hover { background-color: #b91c1c; }
+        .btn-print-receipt { background-color: #007bff; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
+
+        /* 🔥 पॉपअप बॉक्स को चौड़ा और 5 सीधे कॉलम्स में सेट करने की स्टाइल */
+        .sn-modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 9999;
+        }
+        .modal-content {
+            background: #fff; padding: 20px; border-radius: 6px; 
+            width: 850px; /* 🎯 चौड़ाई बढ़ा दी ताकि 5 कॉलम आ सकें */
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .modal-columns-wrapper {
             display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid #e2e8f0;
-            margin-bottom: 15px;
+            flex-direction: row;
+            gap: 10px;
+            margin-top: 10px;
+            max-height: 350px;
+            overflow-y: auto;
             padding-bottom: 10px;
         }
-        .modal-close-x {
-            background: none;
-            border: none;
-            color: #64748b;
-            font-size: 24px;
-            font-weight: bold;
-            cursor: pointer;
-        }
-        .modal-close-x:hover {
-            color: #dc3545;
-        }
-        .btn-delete-action {
-            background-color: #dc2626;
-            color: white;
-            border: none;
-            padding: 4px 8px;
+        .modal-board-col {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            background: #f8fafc;
+            padding: 8px;
+            border: 1px solid #cbd5e1;
             border-radius: 4px;
-            font-size: 11px;
-            font-weight: bold;
-            cursor: pointer;
-            margin-left: 5px;
         }
-        .btn-delete-action:hover {
-            background-color: #b91c1c;
+        .col-title-header {
+            font-weight: bold;
+            font-size: 11px;
+            color: #1e3a8a;
+            text-align: center;
+            border-bottom: 2px solid #1e3a8a;
+            padding-bottom: 4px;
+            margin-bottom: 4px;
+        }
+        .modal-input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .modal-input-group label {
+            font-size: 10px;
+            color: #64748b;
+            font-weight: bold;
         }
 
-        /* 🖨️ PERFECT HALF-PAGE (A5) REUSE PRINT SETTINGS */
+        /* 1/4 A4 साइज प्रिंटिंग सीएसएस */
         @media print {
-            body * {
-                visibility: hidden;
-            }
-            #printSection, #printSection * {
-                visibility: visible;
-            }
+            body * { visibility: hidden; }
+            #printSection, #printSection * { visibility: visible; }
             #printSection {
-                position: absolute;
-                left: 0;
-                top: 0;
-                width: 100%;
-                margin: 0;
-                padding: 0;
-                box-sizing: border-box;
+                position: absolute; left: 0; top: 0; width: 210mm; height: 74.25mm;
+                box-sizing: border-box; padding: 4mm 6mm; margin: 0; background: #fff;
+                font-family: monospace; font-size: 9px; line-height: 1.2;
             }
-            /* आपके स्क्रीनशॉट के अनुसार सटीक हाफ-पेज साइज और मार्जिन */
-            .print-slip-container {
-                width: 650px !important; 
-                margin: 0 auto;
-                padding: 20px;
-                box-sizing: border-box;
-                page-break-inside: avoid;
-                page-break-after: avoid;
-            }
+            @page { size: A4 portrait; margin: 0; }
         }
     </style>
 </head>
@@ -77,79 +82,57 @@
     </div>
     
     <div class="tabs-nav">
-    <a href="index.html" class="tab-link">📦 New Entry (Fresh)</a>
-    <a href="rework.html" class="tab-link">🛠️ Gate In (Rework)</a>
-    <a href="gateout.html" class="tab-link">🚪 Gate Out (Dispatch)</a>
-    <a href="debit.html" class="tab-link">🧾 Debit Note (Vendor)</a>
-    <a href="code.html" class="tab-link">🆕 Generate Code</a>
-    <a href="ledger.html" class="tab-link">📊 Master Ledger & History</a>
-    <a href="users.html" class="tab-link">👥 Manage Users</a>
-</div>
+        <a href="index.html" class="tab-link">📦 New Entry (Fresh)</a>
+        <a href="rework.html" class="tab-link">🛠️ Gate In (Rework)</a>
+        <a href="gateout.html" class="tab-link">🚪 Gate Out (Dispatch)</a>
+        <a href="debit.html" class="tab-link active-debit" style="background-color: var(--primary); color: white;">🧾 Debit Note (Vendor)</a>
+        <a href="code.html" class="tab-link">🆕 Generate Code</a>
+        <a href="ledger.html" class="tab-link">📊 Master Ledger & History</a>
+        <a href="users.html" class="tab-link">👥 Manage Users</a>
+    </div>
+
+    <h3 id="formTitleDebit" style="color:var(--primary); margin: 0 0 10px 0;">🧾 Debit Note (Vendor Return) Ledger</h3>
 
     <form id="debitForm">
+        <input type="hidden" id="editRowIndex" value="-1">
+
         <div class="form-grid">
-            <div class="form-group">
-                <label>Debit Note Sub-Type</label>
-                <select id="dbSubType" onchange="toggleDebitFields()"><option value="FRESH_FAILED">FRESH FAILED (Deduct Fresh)</option><option value="FIELD_RETURN">FIELD RETURN REWORK (Deduct Rework)</option></select>
-            </div>
-            <div class="form-group"><label>Debit Note Number Reference</label><input type="text" id="dbNo" required></div>
-            <div class="form-group"><label>Date</label><input type="date" id="dbDate" max="2026-05-26" required></div>
-            <div class="form-group"><label>Vendor Target Account</label><input type="text" id="dbVendorName" required></div>
-            <div class="form-group" id="dbReasonBox"><label>Reason for Failure Description</label><input type="text" id="dbReason"></div>
-            <div class="form-group" id="dbWhereFromBox" style="display:none;"><label>Where From Field Location</label><input type="text" id="dbWhereFrom"></div>
+            <div class="form-group"><label>Debit Note Date <span>*</span></label><input type="date" id="dbDate" required></div>
+            <div class="form-group"><label>Vendor Name <span>*</span></label><input type="text" id="dbVendorName" required autocomplete="off"></div>
+            <div class="form-group"><label>Original Bill / Ref No <span>*</span></label><input type="text" id="dbRefNo" required autocomplete="off"></div>
+            <div class="form-group"><label>Reason for Return <span>*</span></label><input type="text" id="dbReason" placeholder="e.g. Defective, Wrong Item" required autocomplete="off"></div>
         </div>
 
-        <table class="grid-table">
-            <thead style="background-color: var(--danger);">
-                <tr>
-                    <th style="width: 15%;">Company Name</th>
-                    <th style="width: 15%;">Model Code 🔍</th>
-                    <th style="width: 25%;">Item Display Name</th>
-                    <th style="width: 8%;">Return Qty</th>
-                    <th style="width: 10%;">S/N Req?</th>
-                    <th style="width: 15%;">Serial Config</th>
-                    <th style="width: 2%;">Action</th>
-                </tr>
-            </thead>
-            <tbody id="debitItemsBody"></tbody>
-        </table>
+        <div style="overflow-x:auto;">
+            <table class="grid-table">
+                <thead style="background-color: var(--primary); color: white;">
+                    <tr><th>Item Code 🔍</th><th>Item Description</th><th>Return Qty (Sets)</th><th>S/N Req?</th><th>Serial Configuration</th><th>Action</th></tr>
+                </thead>
+                <tbody id="debitItemsBody"></tbody>
+            </table>
+        </div>
         <button type="button" class="btn-row-add" onclick="addDbRow()">+</button>
-        <button type="submit" class="btn-submit debit-btn" style="margin-top:15px;">Authorize & Generate Debit Note</button>
+        <button type="submit" id="btnSubmitForm" class="btn-submit debit-btn" style="margin-top:15px; width: 100%;">Save Debit Note & Deduct Stock</button>
+        <button type="button" id="btnCancelEdit" class="btn-submit" style="background-color:#64748b; display:none; margin-top:10px; width: 100%;" onclick="cancelEditMode()">Cancel Update</button>
     </form>
 
     <div class="table-responsive">
         <table class="history-table">
-            <thead style="background-color: var(--danger);">
-                <tr><th>Debit Note No</th><th>Type</th><th>Date</th><th>Vendor Account</th><th>Dispatched Sets Details</th><th>Action</th></tr>
+            <thead style="background-color: var(--primary); color: white;">
+                <tr><th>Note No</th><th>Date</th><th>Vendor Name</th><th>Ref Bill No</th><th>Returned Items Details</th><th>Action Controls</th></tr>
             </thead>
-            <tbody id="debitHistoryBody"></tbody>
+            <tbody id="dbHistoryBody"></tbody>
         </table>
     </div>
 </div>
 
-<div id="componentModal" class="sn-modal">
+<div id="serialModal" class="sn-modal">
     <div class="modal-content">
-        <div class="modal-header">
-            <h3 id="compModalTitle" style="margin:0; color:var(--primary);">Configure Multi-Component Set Numbers Matrix</h3>
-            <button type="button" class="modal-close-x" onclick="closeComponentModal()">×</button>
-        </div>
-        <div class="component-grid-row" style="margin-bottom:5px; font-weight:bold;">
-            <div class="component-header" style="background:none;">Set</div>
-            <div class="component-header">Main Board</div><div class="component-header">Child 1</div><div class="component-header">Child 2</div><div class="component-header">LED Board</div><div class="component-header">Barcode</div>
-        </div>
-        <div id="componentContainer" style="display:flex; flex-direction:column; gap:5px;"></div>
-        <button type="button" class="btn-submit" style="margin-top:15px; background-color:#28a745; height:40px;" onclick="saveComponentModalGridData()">Done</button>
-    </div>
-</div>
-
-<div id="singleSerialModal" class="sn-modal">
-    <div class="modal-content" style="width:340px;">
-        <div class="modal-header">
-            <h3 style="margin:0; color:var(--primary);">Enter Serial Numbers</h3>
-            <button type="button" class="modal-close-x" onclick="closeSingleSerialModal()">×</button>
-        </div>
-        <div id="singleSerialContainer" style="display:flex; flex-direction:column; gap:8px; max-height: 250px; overflow-y: auto;"></div>
-        <button type="button" class="btn-submit" style="margin-top:15px; background-color:#28a745; height:40px;" onclick="saveSingleSerialsData()">Done</button>
+        <h3 style="margin-top:0; color: var(--primary);">⚙️ Configure Board Serials (Column wise)</h3>
+        
+        <div id="serialFieldsBox" class="modal-columns-wrapper"></div>
+        
+        <button type="button" class="btn-submit debit-btn" style="margin-top:15px; width:100%;" onclick="lockSerials()">Done</button>
     </div>
 </div>
 
@@ -158,258 +141,265 @@
 <script>
     const session = JSON.parse(localStorage.getItem('activeSession'));
     if(!session) { window.location.href = 'login.html'; }
-
     function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
 
-    let debitData = JSON.parse(localStorage.getItem('debitNoteStockData')) || [];
+    let stockData = JSON.parse(localStorage.getItem('freshStockData')) || [];
+    let debitData = JSON.parse(localStorage.getItem('debitNoteData')) || [];
     let masterCatalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
-    let currentActiveDebitBtn = null;
+    let activeBtnRef = null;
 
-    function toggleDebitFields() {
-        const type = document.getElementById('dbSubType').value;
-        document.getElementById('dbReasonBox').style.display = (type=='FRESH_FAILED')?'flex':'none';
-        document.getElementById('dbWhereFromBox').style.display = (type=='FIELD_RETURN')?'flex':'none';
-    }
+    const BOARD_NAMES = ["Main Board", "CH1", "CH2", "Top Board", "Bar Code"];
 
     function addDbRow() {
         const body = document.getElementById('debitItemsBody');
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td><input type="text" required class="db-company" placeholder="e.g. VINYAS" oninput="checkCompanyLogic(this)"></td>
-            <td><input type="text" required class="db-code" oninput="autofillDb(this)"></td>
+            <td><input type="text" required class="db-code" oninput="autofillDb(this)" style="text-transform:uppercase;"></td>
             <td><input type="text" required class="db-name"></td>
-            <td><input type="number" min="1" required class="db-qty" oninput="clearMatrix(this)"></td>
-            <td><select class="db-sn-req" onchange="toggleSnDropdownLogic(this)"><option value="YES">YES</option><option value="NO">NO</option></select></td>
-            <td><button type="button" class="btn-sn-setup" onclick="openCorrectModal(this)">S/N</button></td>
-            <td><button type="button" class="btn-row-remove" onclick="this.closest('tr').remove();">×</button></td>`;
+            <td><input type="number" min="1" required class="db-qty" oninput="clearSN(this)"></td>
+            <td><select class="db-sn-req"><option value="YES">YES</option><option value="NO">NO</option></select></td>
+            <td><button type="button" class="btn-sn-setup" onclick="openSNModal(btn=this)">S/N</button></td>
+            <td><button type="button" class="btn-row-remove" onclick="this.closest('tr').remove()">×</button></td>`;
         body.appendChild(tr);
     }
 
-    function autofillDb(i) {
-        let code = i.value.trim().toUpperCase(); let name = "";
-        for(let key in masterCatalog) { const m = masterCatalog[key].find(x=>x.code===code); if(m) name = m.name; }
-        i.closest('tr').querySelector('.db-name').value = name;
-    }
-    
-    function clearMatrix(i) { const b = i.closest('tr').querySelector('.btn-sn-setup'); b.removeAttribute('data-components'); b.removeAttribute('data-singles'); b.innerText= b.closest('tr').querySelector('.db-company').value.trim().toUpperCase() === "VINYAS" ? "Set S/Ns (5-Board)" : "S/N"; b.classList.remove('configured'); }
-
-    function checkCompanyLogic(input) {
-        const row = input.closest('tr');
-        const comp = input.value.trim().toUpperCase();
-        const btn = row.querySelector('.btn-sn-setup');
-        const snSelect = row.querySelector('.db-sn-req');
-
-        clearMatrix(input);
-
-        if(comp === "VINYAS") {
-            snSelect.value = "YES";
-            snSelect.disabled = true;
-            btn.innerText = "Set S/Ns (5-Board)";
-            btn.style.visibility = "visible";
-        } else {
-            snSelect.disabled = false;
-            btn.innerText = "S/N";
-            btn.style.visibility = (snSelect.value === "NO") ? "hidden" : "visible";
-        }
+    function autofillDb(input) {
+        let code = input.value.trim().toUpperCase(); let name = "";
+        for(let key in masterCatalog) { const m = masterCatalog[key].find(i=>i.code===code); if(m) name = m.name; }
+        input.closest('tr').querySelector('.db-name').value = name;
     }
 
-    function toggleSnDropdownLogic(select) {
-        const row = select.closest('tr');
-        const btn = row.querySelector('.btn-sn-setup');
-        btn.style.visibility = (select.value === "NO") ? "hidden" : "visible";
-        clearMatrix(select);
-    }
+    function clearSN(input) { const btn = input.closest('tr').querySelector('.btn-sn-setup'); btn.removeAttribute('data-sn'); btn.classList.remove('configured'); btn.innerText = "S/N"; }
 
-    function openCorrectModal(btn) {
-        const row = btn.closest('tr');
-        const comp = row.querySelector('.db-company').value.trim().toUpperCase();
-        const qty = parseInt(row.querySelector('.db-qty').value) || 0;
-        if(qty <= 0) { alert("Please input Return Qty first!"); return; }
+    // 🎯 5 सीधे खड़े कॉलम का पॉपअप इंजन फिक्स
+    function openSNModal(btn) {
+        activeBtnRef = btn; 
+        const setsQty = parseInt(btn.closest('tr').querySelector('.db-qty').value) || 0;
+        if(setsQty <= 0) { alert("Please input Sets Quantity first!"); return; }
+        
+        const wrapperBox = document.getElementById('serialFieldsBox'); 
+        wrapperBox.innerHTML = '';
+        
+        const exist = btn.getAttribute('data-sn') ? JSON.parse(btn.getAttribute('data-sn')) : [];
 
-        currentActiveDebitBtn = btn;
+        // 5 कॉलम की HTML को अलग-अलग जनरेट करेंगे
+        BOARD_NAMES.forEach(boardName => {
+            let columnHtml = `<div class="modal-board-col">
+                <div class="col-title-header">${boardName.toUpperCase()}</div>`;
+            
+            for(let s = 1; s <= setsQty; s++) {
+                // पुराने भरे हुए डेटा को ढूंढने का लॉजिक
+                let matchExist = exist.find(x => parseInt(x.setNum) === s && x.boardType === boardName);
+                let currentVal = matchExist ? matchExist.sn : '';
 
-        if(comp === "VINYAS") {
-            document.getElementById('compModalTitle').innerText = `Configure Component Matrix (${qty} Sets)`;
-            const container = document.getElementById('componentContainer'); container.innerHTML = '';
-            const existing = btn.getAttribute('data-components') ? JSON.parse(btn.getAttribute('data-components')) : [];
-
-            for(let i=0; i<qty; i++) {
-                const ex = existing[i] || { mainBoard:"", child1:"", child2:"", ledBoard:"", barcode:"" };
-                container.innerHTML += `
-                    <div class="component-grid-row">
-                        <div style="font-weight:bold; text-align:center;">#${i+1}</div>
-                        <input type="text" placeholder="Main Board" value="${ex.mainBoard}" class="comp-mb" required autocomplete="off">
-                        <input type="text" placeholder="Child 1" value="${ex.child1}" class="comp-c1" required autocomplete="off">
-                        <input type="text" placeholder="Child 2" value="${ex.child2}" class="comp-c2" required autocomplete="off">
-                        <input type="text" placeholder="LED Board" value="${ex.ledBoard}" class="comp-led" required autocomplete="off">
-                        <input type="text" placeholder="Barcode" value="${ex.barcode}" class="comp-bar" required autocomplete="off">
+                columnHtml += `
+                    <div class="modal-input-group">
+                        <label>Set #${s} S/N</label>
+                        <input type="text" placeholder="Serial No" data-board="${boardName}" data-set="${s}" value="${currentVal}" class="popup-sn-input" style="padding:5px; border:1px solid #ced4da; border-radius:4px; font-size:11px;" autocomplete="off">
                     </div>`;
             }
-            document.getElementById('componentModal').style.display = 'flex';
-        } else {
-            const container = document.getElementById('singleSerialContainer'); container.innerHTML = '';
-            const existing = btn.getAttribute('data-singles') ? JSON.parse(btn.getAttribute('data-singles')) : [];
-
-            for(let i=0; i<qty; i++) {
-                container.innerHTML += `<input type="text" placeholder="Serial Number #${i+1}" value="${existing[i]||''}" class="popup-single-sn" style="padding:8px; border:1px solid #ced4da; border-radius:4px; height:38px;" required autocomplete="off">`;
-            }
-            document.getElementById('singleSerialModal').style.display = 'flex';
-        }
-    }
-
-    function closeComponentModal() { document.getElementById('componentModal').style.display = 'none'; }
-    function closeSingleSerialModal() { document.getElementById('singleSerialModal').style.display = 'none'; }
-
-    function saveComponentModalGridData() {
-        const rows = document.querySelectorAll('#componentContainer .component-grid-row'); 
-        let arr = []; let blank = false;
-        rows.forEach(r => {
-            const mb = r.querySelector('.comp-mb').value.trim(); const c1 = r.querySelector('.comp-c1').value.trim(); const c2 = r.querySelector('.comp-c2').value.trim(); const led = r.querySelector('.comp-led').value.trim(); const bar = r.querySelector('.comp-bar').value.trim();
-            if(!mb || !c1 || !c2 || !led || !bar) { blank = true; }
-            arr.push({ mainBoard: mb, child1: c1, child2: c2, ledBoard: led, barcode: bar });
+            columnHtml += `</div>`;
+            wrapperBox.innerHTML += columnHtml;
         });
-        if(blank) { alert("All fields are mandatory for Vinyas Matrix!"); return; }
-        
-        currentActiveDebitBtn.setAttribute('data-components', JSON.stringify(arr));
-        currentActiveDebitBtn.classList.add('configured'); 
-        currentActiveDebitBtn.innerText = `✔ Loaded (${arr.length})`;
-        closeComponentModal();
+
+        document.getElementById('serialModal').style.display = 'flex';
     }
 
-    function saveSingleSerialsData() {
-        const inputs = document.querySelectorAll('.popup-single-sn');
-        let arr = []; let blank = false;
+    function lockSerials() {
+        let arr = []; const inputs = document.querySelectorAll('.popup-sn-input');
         inputs.forEach(i => {
-            if(!i.value.trim()) blank = true;
-            arr.push(i.value.trim());
+            arr.push({
+                setNum: parseInt(i.getAttribute('data-set')),
+                boardType: i.getAttribute('data-board'),
+                sn: i.value.trim()
+            });
         });
-        if(blank) { alert("Please fill all serial numbers!"); return; }
-
-        currentActiveDebitBtn.setAttribute('data-singles', JSON.stringify(arr));
-        currentActiveDebitBtn.classList.add('configured');
-        currentActiveDebitBtn.innerText = `✔ Loaded (${arr.length})`;
-        closeSingleSerialModal();
-    }
-
-    function resetDebitForm() {
-        document.getElementById('debitForm').reset();
-        document.getElementById('debitItemsBody').innerHTML = '';
-        addDbRow();
+        activeBtnRef.setAttribute('data-sn', JSON.stringify(arr));
+        activeBtnRef.classList.add('configured'); activeBtnRef.innerText = `✔ Loaded (${arr.length})`;
+        document.getElementById('serialModal').style.display = 'none';
     }
 
     document.getElementById('debitForm').addEventListener('submit', function(e) {
         e.preventDefault();
-        let items = []; let validationError = false;
-        
-        document.querySelectorAll('#debitItemsBody tr').forEach(row => {
-            const comp = row.querySelector('.db-company').value.trim().toUpperCase();
-            const qty = parseInt(row.querySelector('.db-qty').value);
-            const snReq = row.querySelector('.db-sn-req').value;
-            const matrix = row.querySelector('.btn-sn-setup').getAttribute('data-components');
-            const singles = row.querySelector('.btn-sn-setup').getAttribute('data-singles');
+        let items = []; let deficit = false;
+        const idx = parseInt(document.getElementById('editRowIndex').value);
 
-            if(snReq === "YES") {
-                if(comp === "VINYAS" && (!matrix || JSON.parse(matrix).length !== qty)) validationError = true;
-                if(comp !== "VINYAS" && (!singles || JSON.parse(singles).length !== qty)) validationError = true;
+        if (idx !== -1) { restoreDebitStock(idx); }
+
+        let rows = document.querySelectorAll('#debitItemsBody tr');
+        if(rows.length === 0) { alert("Please add at least one item row!"); return; }
+
+        rows.forEach(row => {
+            const code = row.querySelector('.db-code').value.toUpperCase();
+            const setsQty = parseInt(row.querySelector('.db-qty').value);
+            const snData = row.querySelector('.btn-sn-setup').getAttribute('data-sn');
+            
+            let match = stockData.find(s => s.modelCode === code);
+            if(!match || parseInt(match.qty || match.inQty) < setsQty) {
+                deficit = true;
+                alert("🚨 Deficit Stock! Available: " + (match ? (match.qty || match.inQty) : 0) + " for code: " + code);
+                return;
             }
+            if(match.qty !== undefined) match.qty -= setsQty;
+            else match.inQty -= setsQty;
 
-            items.push({ 
-                companyName: comp, 
-                itemShort: row.querySelector('.db-code').value.toUpperCase(), 
-                itemName: row.querySelector('.db-name').value, 
-                qty: qty, 
-                snReq: snReq,
-                componentsList: matrix ? JSON.parse(matrix) : [],
-                singlesList: singles ? JSON.parse(singles) : []
-            });
+            items.push({ code, name: row.querySelector('.db-name').value, qty: setsQty, serials: snData ? JSON.parse(snData) : [] });
         });
 
-        if(validationError) { alert("Error: Please configure Serials completely before submitting!"); return; }
+        if(deficit) {
+            if(idx !== -1) { stockData = JSON.parse(localStorage.getItem('freshStockData')); }
+            return;
+        }
 
-        const entry = { dbNo: document.getElementById('dbNo').value, subType: document.getElementById('dbSubType').value, date: document.getElementById('dbDate').value, vendorName: document.getElementById('dbVendorName').value, reasonOrLocation: document.getElementById('dbSubType').value === 'FRESH_FAILED' ? document.getElementById('dbReason').value : document.getElementById('dbWhereFrom').value, gridItems: items };
-        debitData.push(entry); localStorage.setItem('debitNoteStockData', JSON.stringify(debitData));
-        
-        resetDebitForm(); renderHistory(); printDebitNoteChallan(entry);
+        localStorage.setItem('freshStockData', JSON.stringify(stockData));
+
+        const entry = {
+            noteNo: idx === -1 ? (debitData.length + 1) : debitData[idx].noteNo,
+            date: document.getElementById('dbDate').value,
+            vendorName: document.getElementById('dbVendorName').value.trim().toUpperCase(),
+            refNo: document.getElementById('dbRefNo').value.trim().toUpperCase(),
+            reason: document.getElementById('dbReason').value.trim().toUpperCase(),
+            gridItems: items
+        };
+
+        if(idx === -1) {
+            debitData.push(entry);
+            alert("🎉 Debit Note Saved and Stock Deducted Successfully!");
+        } else {
+            debitData[idx] = entry;
+            alert("🎯 Debit Note Entry updated successfully!");
+        }
+
+        localStorage.setItem('debitNoteData', JSON.stringify(debitData));
+        resetDebitForm(); renderHistory();
     });
 
-    function printDebitNoteChallan(e) {
-        const shell = document.getElementById('printSection');
-        let mainContentRows = '';
-        
-        e.gridItems.forEach(gi => {
-            if(gi.companyName === "VINYAS" && gi.snReq === "YES") {
-                mainContentRows += `
-                    <table style="width:100%; border-collapse:collapse; font-size:12px; margin-top:10px;" border="1">
-                        <thead><tr style="background:#f1f5f9;"><th>Set #</th><th>M/B</th><th>C1</th><th>C2</th><th>LED</th><th>Barcode</th></tr></thead>
-                        <tbody>`;
-                gi.componentsList.forEach((c, idx) => {
-                    mainContentRows += `<tr><td style="text-align:center; padding:5px;">#${idx+1}</td><td style="padding:5px;">${c.mainBoard}</td><td style="padding:5px;">${c.child1}</td><td style="padding:5px;">${c.child2}</td><td style="padding:5px;">${c.ledBoard}</td><td style="padding:5px;">${c.barcode}</td></tr>`;
-                });
-                mainContentRows += `</tbody></table>`;
-            } else {
-                let sns = gi.snReq === "YES" ? gi.singlesList.join(', ') : 'N/A';
-                mainContentRows += `
-                    <div style="border:1px solid #000; padding:10px; margin-top:10px; font-size:13px;">
-                        <b>Company Name:</b> ${gi.companyName}<br>
-                        <b>Item Desc:</b> ${gi.itemName} (${gi.itemShort})<br>
-                        <b>Quantity:</b> ${gi.qty} NOS<br>
-                        <b>Serial Numbers:</b> ${sns}
-                    </div>`;
+    function restoreDebitStock(idx) {
+        const oldEntry = debitData[idx];
+        oldEntry.gridItems.forEach(item => {
+            let match = stockData.find(s => s.modelCode === item.code);
+            if(match) {
+                if(match.qty !== undefined) match.qty += item.qty;
+                else match.inQty += item.qty;
             }
+        });
+    }
+
+    function editDebitRow(idx) {
+        const d = debitData[idx];
+        document.getElementById('editRowIndex').value = idx;
+        
+        document.getElementById('dbDate').value = d.date;
+        document.getElementById('dbVendorName').value = d.vendorName;
+        document.getElementById('dbRefNo').value = d.refNo;
+        document.getElementById('dbReason').value = d.reason;
+
+        const body = document.getElementById('debitItemsBody');
+        body.innerHTML = '';
+
+        d.gridItems.forEach(item => {
+            const tr = document.createElement('tr');
+            const snText = item.serials && item.serials.length > 0 ? `✔ Loaded (${item.serials.length})` : 'S/N';
+            const snClass = item.serials && item.serials.length > 0 ? 'btn-sn-setup configured' : 'btn-sn-setup';
+            
+            tr.innerHTML = `
+                <td><input type="text" required class="db-code" value="${item.code}" oninput="autofillDb(this)" style="text-transform:uppercase;"></td>
+                <td><input type="text" required class="db-name" value="${item.name}"></td>
+                <td><input type="number" min="1" required class="db-qty" value="${item.qty}" oninput="clearSN(this)"></td>
+                <td><select class="db-sn-req"><option value="YES" ${item.serials && item.serials.length > 0 ? 'selected' : ''}>YES</option><option value="NO" ${!item.serials || item.serials.length === 0 ? 'selected' : ''}>NO</option></select></td>
+                <td><button type="button" class="${snClass}" data-sn='${JSON.stringify(item.serials || [])}' onclick="openSNModal(this)">${snText}</button></td>
+                <td><button type="button" class="btn-row-remove" onclick="this.closest('tr').remove()">×</button></td>`;
+            body.appendChild(tr);
+        });
+
+        document.getElementById('formTitleDebit').innerText = "🛠️ Modify/Edit Debit Note Entry";
+        document.getElementById('btnSubmitForm').innerText = "Update Debit Note";
+        document.getElementById('btnCancelEdit').style.display = "inline-block";
+        document.getElementById('debitForm').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function resetDebitForm() {
+        document.getElementById('editRowIndex').value = "-1";
+        document.getElementById('debitForm').reset();
+        document.getElementById('debitItemsBody').innerHTML = '';
+        document.getElementById('formTitleDebit').innerText = "🧾 Debit Note (Vendor Return) Ledger";
+        document.getElementById('btnSubmitForm').innerText = "Save Debit Note & Deduct Stock";
+        document.getElementById('btnCancelEdit').style.display = "none";
+        applyLiveDateRestrictions();
+        addDbRow();
+    }
+
+    function cancelEditMode() { resetDebitForm(); }
+
+    function deleteDebitRow(idx) {
+        if(confirm("🚨 Deleting this debit note will add stock back to inventory. Proceed?")) {
+            restoreDebitStock(idx);
+            localStorage.setItem('freshStockData', JSON.stringify(stockData));
+            debitData.splice(idx, 1);
+            localStorage.setItem('debitNoteData', JSON.stringify(debitData));
+            renderHistory(); resetDebitForm();
+        }
+    }
+
+    function printDebitNotePass(e) {
+        const shell = document.getElementById('printSection');
+        let lines = ''; 
+        e.gridItems.forEach(i => { 
+            let sList = '';
+            if(i.serials && i.serials.length > 0) {
+                sList = '<br><span style="font-size:8px; color:#555;">';
+                i.serials.forEach(item => {
+                    sList += `[Set${item.setNum}] ${item.boardType}: ${item.sn || '-'} | `;
+                });
+                sList += '</span>';
+            }
+            lines += `• <b>${i.name}</b> [${i.code}] - Returned: <b>${i.qty} Sets</b>${sList}<br>`; 
         });
 
         shell.innerHTML = `
-            <div class="print-slip-container" style="border: 2px solid #000; padding: 20px; width: 650px; margin: 0 auto; font-family: monospace; background: #fff; line-height: 1.5; box-sizing: border-box;">
-                <h2 style="text-align: center; color: red; margin: 0 0 15px 0; font-size: 18px; border-bottom: 2px solid red; padding-bottom: 5px; letter-spacing:1px;">DEBIT NOTE / REJECTION</h2>
+            <div style="border:1px solid #000; padding:6px; height:100%; box-sizing:border-box; display:flex; flex-direction:column; justify-content:space-between;">
+                <div style="text-align:center; font-weight:bold; font-size:12px; border-bottom:1px solid #000; padding-bottom:2px; text-transform:uppercase;">GVM RAIL PVT LTD - DEBIT NOTE VOUCHER</div>
                 
-                <table style="width: 100%; font-size: 13px; margin-bottom: 10px; line-height: 1.6;">
-                    <tr><td><b>Ref No:</b> ${e.dbNo}</td><td style="text-align: right;"><b>Debit Note Date:</b> ${e.date}</td></tr>
-                    <tr><td><b>Returned To:</b> <b>${e.vendorName}</b></td><td style="text-align: right;"><b>Debit Type:</b> ${e.subType}</td></tr>
-                    <tr><td colspan="2"><b>Reason / Location:</b> ${e.reasonOrLocation}</td></tr>
+                <table style="width:100%; font-size:11px; margin-top:2px; line-height:1.2;">
+                    <tr><td><b>Debit Note No:</b> GVM-DN-${e.noteNo}</td><td><b>Date:</b> ${e.date}</td></tr>
+                    <tr><td><b>Vendor Name:</b> ${e.vendorName}</td><td><b>Ref Bill No:</b> ${e.refNo}</td></tr>
+                    <tr><td colspan="2"><b>Reason for Return:</b> ${e.reason}</td></tr>
                 </table>
-                
-                <div style="border-top: 2px solid #000; margin-top: 10px; padding-top: 10px;">
-                    <h4 style="margin: 0 0 5px 0; text-align: center; font-size: 13px; background: #f1f5f9; padding: 4px; border: 1px solid #000;">DISPATCHED MATERIAL DETAILS</h4>
-                    ${mainContentRows}
-                </div>
-                
-                <div style="margin-top: 60px; display: flex; justify-content: space-between; font-size: 12px; border-top: 1px dashed #999; padding-top: 10px;">
-                    <div><b>Security Guard Signed</b></div>
-                    <div style="text-align: right;"><b>Authorized Signatory</b></div>
-                </div>
-            </div>`;
 
+                <div style="margin-top:4px; font-size:10px; border-top:1px solid #eee; padding-top:2px; flex-grow:1; overflow:hidden;">
+                    <b>RETURNED ITEMS DETAILS:</b><br>${lines}
+                </div>
+                <div style="text-align:right; font-weight:bold; font-size:9px; margin-top:2px;">Authorized Store & Accounts Sign</div>
+            </div>`;
         window.print();
     }
 
     function renderHistory() {
-        const b = document.getElementById('debitHistoryBody'); if(!b) return; b.innerHTML = '';
+        const b = document.getElementById('dbHistoryBody'); b.innerHTML = '';
         debitData.forEach((d, idx) => {
-            let summary = d.gridItems.map(i=>`${i.itemName} (${i.qty} Pcs)`).join(', ');
-            b.innerHTML += `
-                <tr>
-                    <td><b>${d.dbNo}</b></td>
-                    <td>${d.subType}</td>
-                    <td>${d.date}</td>
-                    <td>${d.vendorName}</td>
-                    <td>${summary}</td>
-                    <td>
-                        <button class="btn-print-receipt" onclick='printDebitNoteChallan(${JSON.stringify(d)})'>🖨️ Re-Print</button>
-                        <button class="btn-delete-action" onclick="deleteDebitNote(${idx})">Delete</button>
-                    </td>
-                </tr>`;
+            let summary = d.gridItems.map(i=>`${i.name} (<b>${i.qty} Sets</b>)`).join(', ');
+            b.innerHTML += `<tr>
+                <td>GVM-DN-${d.noteNo}</td>
+                <td>${d.date}</td>
+                <td><b>${d.vendorName}</b></td>
+                <td>${d.refNo}</td>
+                <td style="text-align:left; font-size:12px;">${summary}</td>
+                <td>
+                    <button type="button" class="btn-print-receipt" onclick='printDebitNotePass(${JSON.stringify(d)})'>🖨️ Print</button>
+                    <button type="button" class="btn-edit-action" onclick="editDebitRow(${idx})">Edit</button>
+                    <button type="button" class="btn-delete-action" onclick="deleteDebitRow(${idx})">Delete</button>
+                </td>
+            </tr>`;
         });
     }
 
-    function deleteDebitNote(idx) {
-        if(confirm("🚨 WARNING: Are you sure you want to permanently delete this Debit Note?")) {
-            debitData.splice(idx, 1);
-            localStorage.setItem('debitNoteStockData', JSON.stringify(debitData));
-            renderHistory();
-        }
+    function applyLiveDateRestrictions() {
+        const todayStr = new Date().toISOString().split('T')[0];
+        document.getElementById('dbDate').setAttribute('max', todayStr);
+        document.getElementById('dbDate').value = todayStr;
     }
-    
-    addDbRow(); renderHistory();
+
+    applyLiveDateRestrictions(); renderHistory(); addDbRow();
 </script>
 </body>
 </html>
