@@ -3,13 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fresh Entry - Control System</title>
+    <title>Fresh Entry - Pro Control System</title>
     <link rel="stylesheet" href="style.css">
     <style>
+        .grid-input-card { background: #f8fafc; border: 1px solid #cbd5e1; padding: 15px; border-radius: 6px; margin-bottom: 20px; }
+        .inner-table { width: 100%; border-collapse: collapse; margin-top: 10px; background: #fff; }
+        .inner-table th { background: #64748b; color: white; padding: 6px; font-size: 12px; }
+        .inner-table td { padding: 6px; border: 1px solid #e2e8f0; font-size: 12px; }
+        .btn-remove-row { background: #ef4444; color:white; border:none; padding: 2px 6px; border-radius:3px; cursor:pointer; }
         .btn-edit-action { background-color: #0284c7; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
-        .btn-edit-action:hover { background-color: #0369a1; }
         .btn-delete-action { background-color: #dc2626; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; }
-        .btn-delete-action:hover { background-color: #b91c1c; }
+        
+        @media print {
+            body * { visibility: hidden; }
+            #printSection, #printSection * { visibility: visible; }
+            #printSection {
+                position: absolute;
+                left: 0; top: 0;
+                width: 210mm;
+                height: 74.25mm;
+                box-sizing: border-box;
+                padding: 4mm 6mm;
+                margin: 0;
+                background: #fff;
+                font-family: monospace;
+                font-size: 11px;
+                line-height: 1.3;
+            }
+            @page { size: A4 portrait; margin: 0; }
+        }
     </style>
 </head>
 <body>
@@ -31,40 +53,58 @@
 
     <div id="lowStockAlert" class="low-stock-badge">⚠️ Warning: Some Items are running low in Stock! Check Master Ledger.</div>
 
-    <h3 id="formTitleIndex" style="color:var(--primary); margin: 0 0 10px 10px; display:none;">📦 Modify Fresh Stock Entry</h3>
+    <h3 id="formTitleIndex" style="color:var(--primary); margin: 0 0 10px 10px;">📦 Fresh Material Inward Controller</h3>
 
     <form id="stockForm">
         <input type="hidden" id="editRowIndex" value="-1">
 
-        <div class="form-grid">
+        <div class="form-grid" style="margin-bottom: 15px;">
             <div class="form-group">
                 <label>Company Name <span>*</span></label>
-                <input type="text" id="companyName" placeholder="e.g. VINYAS, OWN, OTHER" required autocomplete="off">
-            </div>
-            <div class="form-group">
-                <label>Model Code <span>*</span></label>
-                <input type="text" id="modelCode" placeholder="e.g. ACV 002, OWN-ITEM" oninput="autoFillModelNameLive(this)" required autocomplete="off">
-            </div>
-            <div class="form-group">
-                <label>Model Name / Description</label>
-                <input type="text" id="modelName" placeholder="Auto-filled or manual enter" required autocomplete="off">
+                <input type="text" id="companyName" placeholder="e.g. SIEMENS, VINYAS, OWN" required autocomplete="off">
             </div>
             <div class="form-group"><label>PO No.</label><input type="text" id="poNo" required autocomplete="off"></div>
-            <div class="form-group"><label>Bill No.</label><input type="text" id="billNo" required autocomplete="off"></div>
-            
+            <div class="form-group"><label>Bill / Invoice No.</label><input type="text" id="billNo" required autocomplete="off"></div>
             <div class="form-group"><label>Bill Date</label><input type="date" id="billDate" required></div>
             <div class="form-group"><label>Gate-In Date</label><input type="date" id="gateInDate" required></div>
-            
             <div class="form-group"><label>Gate-In No.</label><input type="text" id="gateInNo" required autocomplete="off"></div>
-            <div class="form-group"><label>Live Stock Qty</label><input type="number" id="qty" min="1" required autocomplete="off"></div>
-            <div class="form-group"><label>Receive Qty</label><input type="number" id="receiveQty" min="0" required autocomplete="off"></div>
-            
-            <button type="submit" id="btnSubmitForm" class="btn-submit fresh-btn">Material In</button>
-            <button type="button" id="btnCancelEdit" class="btn-submit" style="background-color:#64748b; display:none; margin-top:10px; grid-column: 1/-1;" onclick="cancelEditMode()">Cancel Update</button>
         </div>
+
+        <div class="grid-input-card">
+            <h4 style="margin: 0 0 10px 0; color: #1e3a8a;">Material Items Row Section (Direct Save if only 1 item):</h4>
+            <div style="display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap;">
+                <div style="flex: 1; min-width: 150px;">
+                    <label style="font-size:12px; font-weight:bold;">Model Code</label>
+                    <input type="text" id="gridModelCode" placeholder="Code (e.g. GP0018, OWN)" oninput="autoFillGridItemName(this)" style="padding:8px; width:100%; box-sizing:border-box; text-transform:uppercase;">
+                </div>
+                <div style="flex: 2; min-width: 200px;">
+                    <label style="font-size:12px; font-weight:bold;">Model Description / Name</label>
+                    <input type="text" id="gridModelName" placeholder="Item Name" style="padding:8px; width:100%; box-sizing:border-box;">
+                </div>
+                <div style="flex: 1; min-width: 100px;">
+                    <label style="font-size:12px; font-weight:bold;">Bill Qty</label>
+                    <input type="number" id="gridBillQty" min="1" style="padding:8px; width:100%; box-sizing:border-box;">
+                </div>
+                <div style="flex: 1; min-width: 100px;">
+                    <label style="font-size:12px; font-weight:bold;">Receive Qty</label>
+                    <input type="number" id="gridRecQty" min="0" style="padding:8px; width:100%; box-sizing:border-box;">
+                </div>
+                <button type="button" onclick="addItemToGridList()" style="background:#64748b; color:white; border:none; padding:9px 15px; font-weight:bold; border-radius:4px; cursor:pointer;">+ Add Row</button>
+            </div>
+
+            <table class="inner-table">
+                <thead>
+                    <tr><th>Model Code</th><th>Description</th><th>Bill Qty</th><th>Receive Qty</th><th>Remove</th></tr>
+                </thead>
+                <tbody id="gridItemsBody"></tbody>
+            </table>
+        </div>
+        
+        <button type="submit" id="btnSubmitForm" class="btn-submit fresh-btn" style="width: 100%;">Final Save Inward Voucher</button>
+        <button type="button" id="btnCancelEdit" class="btn-submit" style="background-color:#64748b; display:none; margin-top:10px; width:100%;" onclick="cancelEditMode()">Cancel Update</button>
     </form>
 
-    <div class="date-export-panel">
+    <div class="date-export-panel" style="margin-top: 30px;">
         <label>From:</label> <input type="date" id="freshFromDate">
         <label>To:</label> <input type="date" id="freshToDate">
         <button class="btn-excel" onclick="exportFreshToExcel()">Download Excel</button>
@@ -74,7 +114,7 @@
         <table class="history-table">
             <thead style="background-color: #007bff;">
                 <tr>
-                    <th>Company</th><th>Model Code</th><th>Model Name</th><th>PO No</th><th>Bill No</th><th>Bill Date</th><th>Gate-In No</th><th>Live Qty</th><th>Receive Qty</th><th>Action</th>
+                    <th>Company</th><th>Bill / PO Info</th><th>Dates</th><th>Gate-In No</th><th>Items Inwarded Details</th><th>Action</th>
                 </tr>
             </thead>
             <tbody id="tableBody"></tbody>
@@ -84,172 +124,181 @@
 
 <div id="printSection"></div>
 
-<script {contentFetchId="uploaded:image_bf5347.png-89eaacf5-6117-4d3f-8aee-70580c53e2a3"}>
+<script>
     const session = JSON.parse(localStorage.getItem('activeSession'));
     if(!session) { window.location.href = 'login.html'; }
-
     function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
 
     let stockData = JSON.parse(localStorage.getItem('freshStockData')) || [];
     let masterCatalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
+    let tempGridItems = [];
 
-    function autoFillModelNameLive(input) {
+    function autoFillGridItemName(input) {
         let code = input.value.trim().toUpperCase(); 
-        let foundName = "";
-        let foundCompany = "";
-        
+        let foundName = ""; let foundCompany = "";
         for(let company in masterCatalog) {
             const match = masterCatalog[company].find(x => x.code.trim().toUpperCase() === code);
             if(match) { foundName = match.name; foundCompany = company; }
         }
-        
         if(foundName) {
-            document.getElementById('modelName').value = foundName;
-            if(!document.getElementById('companyName').value) {
-                document.getElementById('companyName').value = foundCompany;
-            }
+            document.getElementById('gridModelName').value = foundName;
+            if(!document.getElementById('companyName').value) { document.getElementById('companyName').value = foundCompany; }
         }
+    }
+
+    function addItemToGridList() {
+        const code = document.getElementById('gridModelCode').value.trim().toUpperCase();
+        const name = document.getElementById('gridModelName').value.trim();
+        const bQty = parseInt(document.getElementById('gridBillQty').value);
+        const rQty = parseInt(document.getElementById('gridRecQty').value);
+
+        if(!code || !name || isNaN(bQty) || isNaN(rQty)) { alert("Please fill item details first!"); return; }
+        if(bQty !== rQty) { alert("Error: Bill Qty and Receive Qty must match!"); return; }
+
+        tempGridItems.push({ modelCode: code, modelName: name, qty: bQty, receiveQty: rQty });
+        renderTempGrid();
+        document.getElementById('gridModelCode').value = '';
+        document.getElementById('gridModelName').value = '';
+        document.getElementById('gridBillQty').value = '';
+        document.getElementById('gridRecQty').value = '';
+    }
+
+    function removeTempRow(index) { tempGridItems.splice(index, 1); renderTempGrid(); }
+
+    function renderTempGrid() {
+        const tbody = document.getElementById('gridItemsBody'); tbody.innerHTML = '';
+        tempGridItems.forEach((item, index) => {
+            tbody.innerHTML += `<tr><td><code>${item.modelCode}</code></td><td>${item.modelName}</td><td><b>${item.qty}</b></td><td>${item.receiveQty}</td><td><button type="button" class="btn-remove-row" onclick="removeTempRow(${index})">X</button></td></tr>`;
+        });
     }
 
     document.getElementById('stockForm').addEventListener('submit', function(e) {
         e.preventDefault();
-        const bQty = parseInt(document.getElementById('qty').value); 
-        const rQty = parseInt(document.getElementById('receiveQty').value);
-        
-        if(bQty !== rQty) { 
-            alert("Error: Bill Qty and Receive Qty must match!"); 
-            return; 
+        if(tempGridItems.length === 0) {
+            const code = document.getElementById('gridModelCode').value.trim().toUpperCase();
+            const name = document.getElementById('gridModelName').value.trim();
+            const bQty = parseInt(document.getElementById('gridBillQty').value);
+            const rQty = parseInt(document.getElementById('gridRecQty').value);
+            if(code && name && !isNaN(bQty) && !isNaN(rQty)) {
+                if(bQty !== rQty) { alert("Error: Bill Qty and Receive Qty must match!"); return; }
+                tempGridItems.push({ modelCode: code, modelName: name, qty: bQty, receiveQty: rQty });
+            } else { alert("Please enter at least one item!"); return; }
         }
 
         const idx = parseInt(document.getElementById('editRowIndex').value);
-        const entry = {
+        const masterVoucher = {
             companyName: document.getElementById('companyName').value.trim().toUpperCase(), 
-            modelCode: document.getElementById('modelCode').value.trim().toUpperCase(),
-            modelName: document.getElementById('modelName').value.trim(), 
             poNo: document.getElementById('poNo').value.trim(),
             billNo: document.getElementById('billNo').value.trim(), 
             billDate: document.getElementById('billDate').value,
             gateInDate: document.getElementById('gateInDate').value, 
-            gateInNo: document.getElementById('gateInNo').value.trim(), 
-            qty: bQty, 
-            receiveQty: rQty
+            gateInNo: document.getElementById('gateInNo').value.trim(),
+            gridItems: [...tempGridItems]
         };
 
-        if(idx === -1) {
-            stockData.push(entry);
-            alert("🎉 Material In Entry Saved!");
-        } else {
-            stockData[idx] = entry;
-            alert("🎯 Entry Updated Successfully!");
-        }
+        if(idx === -1) { stockData.push(masterVoucher); alert("🎉 Material Inward Entry Saved!"); } 
+        else { stockData[idx] = masterVoucher; alert("🎯 Entry Voucher Updated!"); }
 
         localStorage.setItem('freshStockData', JSON.stringify(stockData));
-        cancelEditMode(); 
-        renderTable(); 
-        triggerGateInReceipt(entry);
+        cancelEditMode(); renderTable(); 
     });
 
     function renderTable() {
-        const body = document.getElementById('tableBody'); 
-        body.innerHTML = '';
+        const body = document.getElementById('tableBody'); body.innerHTML = '';
         document.getElementById('lowStockAlert').style.display = 'none';
-
         stockData.forEach((i, idx) => {
+            let itemsHtml = "";
+            let itemsList = i.gridItems || [{ modelCode: i.modelCode, modelName: i.modelName, qty: i.qty, receiveQty: i.receiveQty }];
+            itemsList.forEach(item => {
+                itemsHtml += `• <code>${item.modelCode}</code> - ${item.modelName} (<b>${item.qty} NOS</b>)<br>`;
+                if(parseInt(item.qty) < 5) document.getElementById('lowStockAlert').style.display = 'block';
+            });
             body.innerHTML += `<tr>
-                <td><b>${i.companyName}</b></td>
-                <td><code>${i.modelCode}</code></td>
-                <td>${i.modelName}</td>
-                <td>${i.poNo}</td>
-                <td>${i.billNo}</td>
-                <td>${i.billDate}</td>
-                <td>${i.gateInNo}</td>
-                <td><b style="color:green;">${i.qty}</b></td>
-                <td>${i.receiveQty}</td>
+                <td><b>${i.companyName}</b></td><td>Bill: ${i.billNo}<br>PO: ${i.poNo}</td><td>Bill: ${i.billDate}<br>Gate-In: ${i.gateInDate}</td><td>${i.gateInNo}</td><td style="text-align:left;">${itemsHtml}</td>
                 <td>
-                    <button type="button" class="btn-print-receipt" onclick='triggerGateInReceipt(${JSON.stringify(i)})'>🖨️ Pass</button>
+                    <button type="button" class="btn-print-receipt" onclick='triggerGateInReceipt(${JSON.stringify(i)})'>🖨️ Print</button>
                     <button type="button" class="btn-edit-action" onclick="editFreshRow(${idx})">Edit</button>
                     <button type="button" class="btn-delete-action" onclick="deleteFreshRow(${idx})">Delete</button>
                 </td>
             </tr>`;
-            if(parseInt(i.qty) < 5) document.getElementById('lowStockAlert').style.display = 'block';
         });
     }
 
     function editFreshRow(idx) {
-        const d = stockData[idx];
-        document.getElementById('editRowIndex').value = idx;
-        
-        document.getElementById('companyName').value = d.companyName;
-        document.getElementById('modelCode').value = d.modelCode;
-        document.getElementById('modelName').value = d.modelName;
-        document.getElementById('poNo').value = d.poNo;
-        document.getElementById('billNo').value = d.billNo;
-        document.getElementById('billDate').value = d.billDate;
-        document.getElementById('gateInDate').value = d.gateInDate;
-        document.getElementById('gateInNo').value = d.gateInNo;
-        document.getElementById('qty').value = d.qty;
-        document.getElementById('receiveQty').value = d.receiveQty;
-
-        document.getElementById('formTitleIndex').style.display = "block";
-        document.getElementById('btnSubmitForm').innerText = "Update Material Ledger";
+        const d = stockData[idx]; document.getElementById('editRowIndex').value = idx;
+        document.getElementById('companyName').value = d.companyName; document.getElementById('poNo').value = d.poNo; document.getElementById('billNo').value = d.billNo;
+        document.getElementById('billDate').value = d.billDate; document.getElementById('gateInDate').value = d.gateInDate; document.getElementById('gateInNo').value = d.gateInNo;
+        tempGridItems = d.gridItems ? [...d.gridItems] : [{ modelCode: d.modelCode, modelName: d.modelName, qty: d.qty, receiveQty: d.receiveQty }];
+        renderTempGrid();
+        document.getElementById('btnSubmitForm').innerText = "Update Entire Material Inward Bill";
         document.getElementById('btnCancelEdit').style.display = "inline-block";
         document.getElementById('stockForm').scrollIntoView({ behavior: 'smooth' });
     }
 
     function cancelEditMode() {
-        document.getElementById('editRowIndex').value = "-1";
-        document.getElementById('stockForm').reset();
-        document.getElementById('formTitleIndex').style.display = "none";
-        document.getElementById('btnSubmitForm').innerText = "Material In";
-        document.getElementById('btnCancelEdit').style.display = "none";
-        // रिसेट के बाद दोबारा आज की डेट सेट करना
+        document.getElementById('editRowIndex').value = "-1"; document.getElementById('stockForm').reset(); tempGridItems = []; renderTempGrid();
+        document.getElementById('btnSubmitForm').innerText = "Final Save Inward Voucher"; document.getElementById('btnCancelEdit').style.display = "none";
         applyLiveDateRestrictions();
     }
 
     function deleteFreshRow(idx) {
-        if(confirm("Are you sure you want to delete this entry permanently?")) {
-            stockData.splice(idx, 1);
-            localStorage.setItem('freshStockData', JSON.stringify(stockData));
-            renderTable();
-            cancelEditMode();
-        }
+        if(confirm("Are you sure?")) { stockData.splice(idx, 1); localStorage.setItem('freshStockData', JSON.stringify(stockData)); renderTable(); cancelEditMode(); }
     }
 
+    /* 🎯 रसीद डिज़ाइन: सिर्फ आपके द्वारा माँगी गई शुद्ध फील्ड्स */
     function triggerGateInReceipt(i) {
         const shell = document.getElementById('printSection');
+        let itemsList = i.gridItems || [{ modelCode: i.modelCode, modelName: i.modelName, qty: i.qty, receiveQty: i.receiveQty }];
+        let rowsHtml = "";
+        itemsList.forEach(item => {
+            rowsHtml += `<tr>
+                <td style="border:1px solid #000; padding:3px;">${item.modelCode}</td>
+                <td style="border:1px solid #000; padding:3px;">${item.modelName}</td>
+                <td style="border:1px solid #000; padding:3px; text-align:center; font-weight:bold;">${item.qty}</td>
+                <td style="border:1px solid #000; padding:3px; text-align:center; font-weight:bold;">${item.receiveQty}</td>
+            </tr>`;
+        });
+
         shell.innerHTML = `
-            <div style="border:3px double #000; padding:15px; width:450px; margin:auto; font-family: monospace; background:#fff; line-height:1.4;">
-                <h2 style="text-align:center; margin:0;">GVM RAIL PVT LTD</h2>
-                <h4 style="text-align:center; margin:5px 0; border-bottom:1px solid #000; padding-bottom:5px;">MATERIAL GATE-IN PASS</h4>
-                <p><b>Pass Date:</b> ${i.gateInDate} <span style="float:right;"><b>Pass No:</b> ${i.gateInNo}</span></p>
-                <p><b>Company:</b> ${i.companyName}</p>
-                <p><b>Model Description:</b> ${i.modelName} (${i.modelCode})</p>
-                <p><b>Bill / PO Reference:</b> Bill No. ${i.billNo} / PO: ${i.poNo}</p>
-                <p style="border-top:1px dashed #000; padding-top:10px; font-size:16px;"><b>Received Quantity:</b> ${i.receiveQty} NOS.</p>
-                <br><br>
-                <p style="text-align:right; font-weight:bold;">Authorized Signatory</p>
+            <div style="border:1px solid #000; padding:6px; height:100%; box-sizing:border-box; display:flex; flex-direction:column; justify-content:space-between;">
+                <div style="text-align:center; font-weight:bold; font-size:12px; border-bottom:1px solid #000; padding-bottom:2px; text-transform:uppercase;">GVM RAIL PVT LTD - MATERIAL INWARD</div>
+                
+                <table style="width:100%; font-size:11px; margin-top:2px; line-height:1.2;">
+                    <tr>
+                        <td><b>Gate In Date:</b> ${i.gateInDate}</td>
+                        <td><b>Gate In No:</b> ${i.gateInNo}</td>
+                    </tr>
+                    <tr>
+                        <td><b>Bill No:</b> ${i.billNo}</td>
+                        <td><b>Company Name:</b> ${i.companyName}</td>
+                    </tr>
+                    <tr>
+                        <td colspan="2"><b>PO No:</b> ${i.poNo || 'N/A'} | <b>Bill Date:</b> ${i.billDate}</td>
+                    </tr>
+                </table>
+
+                <table style="width:100%; border-collapse:collapse; margin-top:4px; font-size:10px;">
+                    <thead>
+                        <tr style="background:#eee;">
+                            <th style="border:1px solid #000; padding:3px; text-align:left;">Model Code</th>
+                            <th style="border:1px solid #000; padding:3px; text-align:left;">Description</th>
+                            <th style="border:1px solid #000; padding:3px;">Bill Qty</th>
+                            <th style="border:1px solid #000; padding:3px;">Receive Qty</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rowsHtml}</tbody>
+                </table>
+                <div style="text-align:right; font-weight:bold; font-size:9px; margin-top:2px;">Authorized Store Signature</div>
             </div>`;
         window.print();
     }
 
-    // 🎯 लाइव डेट लॉक फंक्शन: यह आज की ताज़ा तारीख से आगे कैलेंडर खुलने ही नहीं देगा
     function applyLiveDateRestrictions() {
         const todayStr = new Date().toISOString().split('T')[0];
-        
-        // इनपुट बॉक्स की मैक्स वैल्यू को आज पर सेट करना
-        document.getElementById('billDate').setAttribute('max', todayStr);
-        document.getElementById('gateInDate').setAttribute('max', todayStr);
-        if(document.getElementById('freshFromDate')) document.getElementById('freshFromDate').setAttribute('max', todayStr);
-        if(document.getElementById('freshToDate')) document.getElementById('freshToDate').setAttribute('max', todayStr);
-
-        // डिफ़ॉल्ट रूप से आज की तारीख भरना
-        document.getElementById('billDate').value = todayStr;
-        document.getElementById('gateInDate').value = todayStr;
+        document.getElementById('billDate').setAttribute('max', todayStr); document.getElementById('gateInDate').setAttribute('max', todayStr);
+        document.getElementById('billDate').value = todayStr; document.getElementById('gateInDate').value = todayStr;
     }
-
-    // पेज लोड होते ही लॉक एक्टिव करें
-    applyLiveDateRestrictions();
-    renderTable();
+    applyLiveDateRestrictions(); renderTable();
 </script>
 </body>
 </html>
