@@ -3,149 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manage Users - Control System (Live Cloud)</title>
+    <title>ERP Authentication - Live Cloud</title>
     <link rel="stylesheet" href="style.css">
     
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
-
-    <style>
-        .perm-box-grid {
-            display: flex;
-            gap: 15px;
-            flex-wrap: wrap;
-            background: #fff;
-            padding: 10px;
-            border: 1px solid #cbd5e1;
-            border-radius: 4px;
-            margin-top: 5px;
-        }
-        .perm-item {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 13px;
-            font-weight: bold;
-            cursor: pointer;
-        }
-        .perm-item input {
-            width: 16px;
-            height: 16px;
-            cursor: pointer;
-        }
-        .badge-perm {
-            background-color: #e2e8f0;
-            color: #1e293b;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 11px;
-            font-weight: bold;
-            display: inline-block;
-            margin-right: 4px;
-        }
-        .btn-edit-user {
-            background-color: #0284c7;
-            color: white;
-            border: none;
-            padding: 4px 10px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: bold;
-            font-size: 12px;
-            margin-right: 5px;
-        }
-        .btn-edit-user:hover {
-            background-color: #0369a1;
-        }
-        .btn-view-pass {
-            background: #f1f5f9;
-            border: 1px solid #cbd5e1;
-            padding: 2px 6px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 11px;
-            font-weight: bold;
-            color: #475569;
-        }
-        .btn-view-pass:hover {
-            background: #e2e8f0;
-        }
-    </style>
 </head>
-<body>
-<div class="container">
-    <div class="erp-header">
-        <h1>Material Lifecycle Control & Inventory Ledger Systems <span style="font-size:12px; color:#4ade80;">● CLOUD LIVE</span></h1>
-        <button class="logout-btn" onclick="logout()">Logout</button>
+<body style="background-color: #0f172a;">
+
+<div class="login-wrapper" style="margin-top: 120px;">
+    <h2>j stock - ERP Login</h2>
+    <div style="background-color: #f8d7da; color: #721c24; font-weight: bold; text-align: center; margin-bottom: 15px; padding: 10px; border-radius: 4px; border: 1px solid #f5c6cb; display: none;" id="loginError">
+        ❌ Access Denied: Invalid ID or Password!
     </div>
     
-    <div class="tabs-nav">
-        <a href="index.html" class="tab-link">📦 New Entry (Fresh)</a>
-        <a href="rework.html" class="tab-link">🛠️ Gate In (Rework)</a>
-        <a href="gateout.html" class="tab-link">🚪 Gate Out (Dispatch)</a>
-        <a href="debit.html" class="tab-link">🧾 Debit Note (Vendor)</a>
-        <a href="code.html" class="tab-link">🆕 Generate Code</a>
-        <a href="ledger.html" class="tab-link">📊 Master Ledger & History</a>
-        <a href="users.html" class="tab-link">👥 Manage Users</a>
+    <div class="form-group" style="margin-bottom: 18px;">
+        <label>User ID</label>
+        <input type="text" id="loginUser" required autocomplete="off" style="text-transform:lowercase;">
     </div>
-
-    <h3 id="formTitle" style="color:var(--primary); margin-top:0;">👥 User Access Management Registry</h3>
-    
-    <form id="userRegistrationForm">
-        <input type="hidden" id="editUserIndex" value="-1">
-        <input type="hidden" id="editFirebaseKey" value="">
-        
-        <div class="form-grid">
-            <div class="form-group">
-                <label>Staff / User Name <span>*</span></label>
-                <input type="text" id="regFullName" placeholder="e.g. Ramesh Kumar" required autocomplete="off">
-            </div>
-            <div class="form-group">
-                <label>Desired User ID <span>*</span></label>
-                <input type="text" id="regUserId" placeholder="e.g. ramesh88" required autocomplete="off" style="text-transform:lowercase;">
-            </div>
-            <div class="form-group">
-                <label>Secure Password <span>*</span></label>
-                <input type="text" id="regPassword" placeholder="e.g. Pass@123" required autocomplete="off">
-            </div>
-            
-            <div class="form-group" style="grid-column: 1/-1;">
-                <label>Assign Service Permissions (कंट्रोल करें कि यूजर क्या कर सकता है)</label>
-                <div class="perm-box-grid">
-                    <label class="perm-item"><input type="checkbox" id="chkAdd" checked> 📦 Can Add Entries</label>
-                    <label class="perm-item"><input type="checkbox" id="chkDebit" checked> 🧾 Can Manage Debit Note</label>
-                    <label class="perm-item"><input type="checkbox" id="chkExcel" checked> 📊 Can Download Excel</label>
-                    <label class="perm-item"><input type="checkbox" id="chkGenCode" checked> 🆕 Can Generate Code</label>
-                    <label class="perm-item"><input type="checkbox" id="chkUsers"> 👥 Can Manage Users</label>
-                </div>
-            </div>
-            
-            <button type="submit" id="btnSubmitForm" class="btn-submit">Register New User with Permissions</button>
-            <button type="button" id="btnCancelEdit" class="btn-submit" style="background-color:#64748b; display:none; margin-top:10px;" onclick="cancelEditMode()">Cancel Update</button>
-        </div>
-    </form>
-
-    <div class="table-responsive" style="margin-top: 25px;">
-        <h4 style="margin: 0 0 10px 0; color: var(--neutral-dark);">Active ERP User Registers & Active Services</h4>
-        <table class="history-table">
-            <thead>
-                <tr>
-                    <th>Staff Name</th>
-                    <th>User ID</th>
-                    <th>System Password (क्रिप्टेड)</th>
-                    <th>Assigned Service Permissions</th>
-                    <th style="width: 20%;">Action</th>
-                </tr>
-            </thead>
-            <tbody id="usersTableBody">
-                <tr><td colspan="5" style="text-align:center; padding:15px; color:#64748b;">Loading Cloud User Registry...</td></tr>
-            </tbody>
-        </table>
+    <div class="form-group" style="margin-bottom: 25px;">
+        <label>Password</label>
+        <input type="password" id="loginPassword" required>
     </div>
+    <button class="login-btn" onclick="checkLogin()">Authenticate</button>
 </div>
 
 <script>
-    // 🎯 फायरबेस कॉन्फ़िगरेशन
+    // 🎯 फायरबेस कॉन्फ़िगरेशन चाबी
     const firebaseConfig = {
         apiKey: "AIzaSyCAOXbPwuFR3wh1QSLBXWsodupKWoRYmqs",
         authDomain: "gvm-stock-control.firebaseapp.com",
@@ -158,182 +42,63 @@
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
 
-    const session = JSON.parse(localStorage.getItem('activeSession'));
-    if(!session) { window.location.href = 'login.html'; }
-    function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
+    // सुरक्षा जांच नियम (क्लाउड सिंक के साथ)
+    function checkLogin() {
+        const u = document.getElementById('loginUser').value.trim().toLowerCase();
+        const p = document.getElementById('loginPassword').value;
+        const err = document.getElementById('loginError');
+        err.style.display = 'none'; // हर क्लिक पर पहले एरर छुपाएं
 
-    let userRegistry = [];
+        if (!u || !p) { alert("Please enter both User ID and Password!"); return; }
 
-    // 🔄 फायरबेस से लाइव यूज़र्स डेटा लोड करना
-    database.ref('systemUserRegistry').on('value', (snapshot) => {
-        userRegistry = [];
-        const data = snapshot.val();
-        
-        // मास्टर एडमिन अकाउंट का बैकअप (अगर डेटाबेस खाली हो तो)
-        let hasMaster = false;
-
-        if(data) {
-            for(let key in data) {
-                let u = { fbKey: key, ...data[key] };
-                userRegistry.push(u);
-                if(u.userId === "k88rakesh") hasMaster = true;
-            }
-        }
-
-        // सुरक्षा चक्र: अगर डेटाबेस बिल्कुल नया या खाली है, तो डिफ़ॉल्ट मास्टर अकाउंट जोड़ें
-        if(!hasMaster) {
-            const masterUser = { 
-                name: "Rakesh Kumar", 
-                userId: "k88rakesh", 
-                password: "Rinku@7004", 
-                permissions: { add: true, debit: true, excel: true, gencode: true, users: true } 
+        // 🛡️ 1. मास्टर सुरक्षा चक्र: आपका अपना फिक्स क्रेडेंशियल (इंटरनेट न होने पर भी बैकअप की तरह काम करेगा)
+        if(u === "k88rakesh" && p === "Rinku@7004") {
+            const sessionObj = {
+                userId: u,
+                permissions: { add: true, debit: true, excel: true, gencode: true, users: true }
             };
-            database.ref('systemUserRegistry').push(masterUser);
+            localStorage.setItem('activeSession', JSON.stringify(sessionObj));
+            window.location.href = 'index.html'; 
             return;
         }
 
-        // पुराने लॉगिन पेजों की अनुकूलता बनाए रखने के लिए लोकलस्टोरेज बैकअप सिंक रखें
-        localStorage.setItem('systemUserRegistry', JSON.stringify(userRegistry));
-        renderUsersTable();
-    });
+        // 🔄 2. क्लाउड वेरिफिकेशन चक्र: स्टाफ यूज़र्स के लिए फायरबेस से लाइव चेकिंग
+        database.ref('systemUserRegistry').once('value').then((snapshot) => {
+            const usersData = snapshot.val();
+            let isAuthenticated = false;
+            let loggedInUser = null;
 
-    function renderUsersTable() {
-        const body = document.getElementById('usersTableBody');
-        if(!body) return;
-        body.innerHTML = '';
+            if(usersData) {
+                for(let key in usersData) {
+                    if(usersData[key].userId === u && usersData[key].password === p) {
+                        isAuthenticated = true;
+                        loggedInUser = usersData[key];
+                        break;
+                    }
+                }
+            }
 
-        userRegistry.forEach((user, idx) => {
-            let actionButtonsHTML = '';
-            
-            if(user.userId !== "k88rakesh") {
-                actionButtonsHTML = `
-                    <button class="btn-edit-user" onclick="editUser(${idx})">Edit Power</button>
-                    <button class="btn-delete" onclick="deleteUser(${idx})">Remove</button>
-                `;
+            if(isAuthenticated && loggedInUser) {
+                // क्लाउड से स्टाफ की Assigned Permissions को सेशन में लोड करना
+                const sessionObj = {
+                    userId: loggedInUser.userId,
+                    permissions: loggedInUser.permissions || { add: true, debit: true, excel: true, gencode: true, users: false }
+                };
+                localStorage.setItem('activeSession', JSON.stringify(sessionObj));
+                window.location.href = 'index.html'; // सही लॉगिन होते ही सीधे मुख्य सिस्टम पर डाइव करेगा
             } else {
-                actionButtonsHTML = `<span style="color:#1e3a8a; font-size:12px; font-weight:bold;">Super Admin</span>`;
+                err.style.display = 'block'; // गलत क्रेडेंशियल होने पर रेड एरर एक्टिवेट होगा
             }
-
-            let p = user.permissions || { add: true, debit: true, excel: true, gencode: true, users: false };
-            let permBadges = '';
-            if(p.add) permBadges += `<span class="badge-perm" style="background:#dbeafe; color:#1e40af;">📦 Entry</span>`;
-            if(p.debit) permBadges += `<span class="badge-perm" style="background:#fee2e2; color:#991b1b;">🧾 Debit</span>`;
-            if(p.excel) permBadges += `<span class="badge-perm" style="background:#dcfce7; color:#166534;">📊 Excel</span>`;
-            if(p.gencode) permBadges += `<span class="badge-perm" style="background:#fef08a; color:#854d0e;">🆕 Code</span>`;
-            if(p.users) permBadges += `<span class="badge-perm" style="background:#f3e8ff; color:#6b21a8;">👥 Admin</span>`;
-            
-            if(!p.add && !p.debit && !p.excel && !p.gencode && !p.users) {
-                permBadges = `<span class="badge-perm" style="background:#edf2f7; color:#e53e3e;">❌ Blocked</span>`;
-            }
-
-            body.innerHTML += `
-                <tr>
-                    <td><b>${user.name}</b></td>
-                    <td><code>${user.userId}</code></td>
-                    <td>
-                        <span id="passText_${idx}" style="font-family:monospace; font-weight:bold;">••••••••</span>
-                        <button type="button" class="btn-view-pass" onclick="togglePasswordView(${idx}, '${user.password}')">👁️ Show</button>
-                    </td>
-                    <td>${permBadges}</td>
-                    <td>${actionButtonsHTML}</td>
-                </tr>`;
+        }).catch((error) => {
+            console.error("Firebase Database Error: ", error);
+            alert("Database connection timeout. Please check your network connection.");
         });
     }
 
-    function togglePasswordView(idx, realPassword) {
-        const span = document.getElementById(`passText_${idx}`);
-        const btn = span.nextElementSibling;
-        if(span.innerText === "••••••••") {
-            span.innerText = realPassword;
-            btn.innerText = "👁️ Hide";
-            span.style.color = "#0284c7";
-        } else {
-            span.innerText = "••••••••";
-            btn.innerText = "👁️ Show";
-            span.style.color = "#1e293b";
-        }
-    }
-
-    function editUser(index) {
-        const user = userRegistry[index];
-        document.getElementById('editUserIndex').value = index;
-        document.getElementById('editFirebaseKey').value = user.fbKey;
-        
-        document.getElementById('regFullName').value = user.name;
-        document.getElementById('regUserId').value = user.userId;
-        document.getElementById('regUserId').disabled = true; 
-        document.getElementById('regPassword').value = user.password;
-
-        let p = user.permissions || { add: true, debit: true, excel: true, gencode: true, users: false };
-        document.getElementById('chkAdd').checked = !!p.add;
-        document.getElementById('chkDebit').checked = !!p.debit;
-        document.getElementById('chkExcel').checked = !!p.excel;
-        document.getElementById('chkGenCode').checked = !!p.gencode;
-        document.getElementById('chkUsers').checked = !!p.users;
-
-        document.getElementById('formTitle').innerText = `🛠️ Modify Permissions for: ${user.name}`;
-        document.getElementById('btnSubmitForm').innerText = "Update & Save User Permissions";
-        document.getElementById('btnCancelEdit').style.display = "inline-block";
-        document.getElementById('userRegistrationForm').scrollIntoView({ behavior: 'smooth' });
-    }
-
-    function cancelEditMode() {
-        document.getElementById('editUserIndex').value = "-1";
-        document.getElementById('editFirebaseKey').value = "";
-        document.getElementById('userRegistrationForm').reset();
-        document.getElementById('regUserId').disabled = false;
-        
-        document.getElementById('formTitle').innerText = "👥 User Access Management Registry";
-        document.getElementById('btnSubmitForm').innerText = "Register New User with Permissions";
-        document.getElementById('btnCancelEdit').style.display = "none";
-    }
-
-    document.getElementById('userRegistrationForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        const index = parseInt(document.getElementById('editUserIndex').value);
-        const fbKey = document.getElementById('editFirebaseKey').value;
-        const fullName = document.getElementById('regFullName').value.trim();
-        const userId = document.getElementById('regUserId').value.trim().toLowerCase();
-        const password = document.getElementById('regPassword').value;
-
-        const userPermissions = {
-            add: document.getElementById('chkAdd').checked,
-            debit: document.getElementById('chkDebit').checked,
-            excel: document.getElementById('chkExcel').checked,
-            gencode: document.getElementById('chkGenCode').checked,
-            users: document.getElementById('chkUsers').checked
-        };
-
-        const userData = { name: fullName, userId: userId, password: password, permissions: userPermissions };
-
-        if(index === -1) {
-            if(userRegistry.some(user => user.userId === userId)) {
-                alert("Error: This User ID is already allocated!");
-                return;
-            }
-            database.ref('systemUserRegistry').push(userData).then(() => {
-                alert("🎉 Success: New user registered to Cloud!");
-                cancelEditMode();
-            });
-        } else {
-            database.ref('systemUserRegistry/' + fbKey).set(userData).then(() => {
-                alert("🎯 Success: User details updated on Cloud!");
-                cancelEditMode();
-            });
-        }
+    // एंटर बटन दबाने पर भी लॉगिन हो जाए, उसके लिए शॉर्टकट कुंजी
+    document.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') { checkLogin(); }
     });
-
-    function deleteUser(index) {
-        const user = userRegistry[index];
-        if(user.userId === "k88rakesh") { alert("Super Admin account cannot be removed!"); return; }
-        
-        if(confirm("Are you sure you want to permanently revoke access?")) {
-            database.ref('systemUserRegistry/' + user.fbKey).remove().then(() => {
-                alert("🗑️ Access revoked and user removed from Cloud Database.");
-                cancelEditMode();
-            });
-        }
-    }
 </script>
 </body>
 </html>
