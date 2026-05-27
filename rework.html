@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rework Management</title>
+    <title>Rework Management - Control System</title>
     <link rel="stylesheet" href="style.css">
     <style>
         /* 🎯 एडिट और डिलीट बटन की प्रोफेशनल स्टाइल */
@@ -12,6 +12,26 @@
         .btn-delete-action { background-color: #dc2626; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; }
         .btn-delete-action:hover { background-color: #b91c1c; }
         .btn-print-receipt { background-color: #007bff; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
+
+        /* 🔥 सिर्फ प्रिंट साइज को 1/4 A4 सेट किया गया है, बाकी सब सेम है */
+        @media print {
+            body * { visibility: hidden; }
+            #printSection, #printSection * { visibility: visible; }
+            #printSection {
+                position: absolute;
+                left: 0; top: 0;
+                width: 210mm;
+                height: 74.25mm;
+                box-sizing: border-box;
+                padding: 4mm 6mm;
+                margin: 0;
+                background: #fff;
+                font-family: monospace;
+                font-size: 11px;
+                line-height: 1.3;
+            }
+            @page { size: A4 portrait; margin: 0; }
+        }
     </style>
 </head>
 <body>
@@ -22,14 +42,14 @@
     </div>
     
     <div class="tabs-nav">
-    <a href="index.html" class="tab-link">📦 New Entry (Fresh)</a>
-    <a href="rework.html" class="tab-link">🛠️ Gate In (Rework)</a>
-    <a href="gateout.html" class="tab-link">🚪 Gate Out (Dispatch)</a>
-    <a href="debit.html" class="tab-link">🧾 Debit Note (Vendor)</a>
-    <a href="code.html" class="tab-link">🆕 Generate Code</a>
-    <a href="ledger.html" class="tab-link">📊 Master Ledger & History</a>
-    <a href="users.html" class="tab-link">👥 Manage Users</a>
-</div>
+        <a href="index.html" class="tab-link">📦 New Entry (Fresh)</a>
+        <a href="rework.html" class="tab-link active-rework" style="background-color: var(--success); color: white;">🛠️ Gate In (Rework)</a>
+        <a href="gateout.html" class="tab-link">🚪 Gate Out (Dispatch)</a>
+        <a href="debit.html" class="tab-link">🧾 Debit Note (Vendor)</a>
+        <a href="code.html" class="tab-link">🆕 Generate Code</a>
+        <a href="ledger.html" class="tab-link">📊 Master Ledger & History</a>
+        <a href="users.html" class="tab-link">👥 Manage Users</a>
+    </div>
 
     <h3 id="formTitleRework" style="color:var(--primary); margin: 0 0 10px 0;">🛠️ Gate In (Rework) Ledger</h3>
 
@@ -37,11 +57,14 @@
         <input type="hidden" id="editRowIndex" value="-1">
 
         <div class="form-grid">
-            <div class="form-group"><label>Gate In Date</label><input type="date" id="rwDate" max="2026-05-26" required></div>
-            <div class="form-group"><label>Party Name (Where From)</label><input type="text" id="rwPartyName" required autocomplete="off"></div>
+            <div class="form-group"><label>Challan / Bill No <span>*</span></label><input type="text" id="rwBillNo" required autocomplete="off"></div>
+            <div class="form-group"><label>Challan / Bill Date <span>*</span></label><input type="date" id="rwBillDate" required></div>
+            
+            <div class="form-group"><label>Gate Entry No <span>*</span></label><input type="text" id="rwGateEntryNo" required autocomplete="off"></div>
+            <div class="form-group"><label>Gate In Date <span>*</span></label><input type="date" id="rwDate" required></div>
+            
+            <div class="form-group"><label>Party Name (Where From) <span>*</span></label><input type="text" id="rwPartyName" required autocomplete="off"></div>
             <div class="form-group"><label>Dispatch Info Reference</label><input type="text" id="rwDispatch" required autocomplete="off"></div>
-            <div class="form-group"><label>Challan / Bill No</label><input type="text" id="rwBillNo" required autocomplete="off"></div>
-            <div class="form-group"><label>Gate Entry No</label><input type="text" id="rwGateEntryNo" required autocomplete="off"></div>
         </div>
 
         <div style="overflow-x:auto;">
@@ -53,14 +76,14 @@
             </table>
             <button type="button" class="btn-row-add" onclick="addReworkRow()">+</button>
         </div>
-        <button type="submit" id="btnSubmitForm" class="btn-submit rework-btn" style="margin-top:15px;">Save Rework Gate In</button>
-        <button type="button" id="btnCancelEdit" class="btn-submit" style="background-color:#64748b; display:none; margin-top:10px;" onclick="cancelEditMode()">Cancel Update</button>
+        <button type="submit" id="btnSubmitForm" class="btn-submit rework-btn" style="margin-top:15px; width: 100%;">Save Rework Gate In</button>
+        <button type="button" id="btnCancelEdit" class="btn-submit" style="background-color:#64748b; display:none; margin-top:10px; width: 100%;" onclick="cancelEditMode()">Cancel Update</button>
     </form>
 
     <div class="table-responsive">
         <table class="history-table">
             <thead style="background-color: var(--success);">
-                <tr><th>Date</th><th>From Party</th><th>Challan No</th><th>Gate Entry No</th><th>Items Enrolled</th><th>Action Controls</th></tr>
+                <tr><th>Gate In Date</th><th>From Party</th><th>Challan / Bill Info</th><th>Gate Entry No</th><th>Items Enrolled</th><th>Action Controls</th></tr>
             </thead>
             <tbody id="reworkHistoryBody"></tbody>
         </table>
@@ -91,7 +114,7 @@
         const body = document.getElementById('dynamicItemsBody');
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td><input type="text" required class="item-short" oninput="autofillItem(this)"></td>
+            <td><input type="text" required class="item-short" oninput="autofillItem(this)" style="text-transform:uppercase;"></td>
             <td><input type="text" required class="item-name"></td>
             <td><input type="number" min="1" required class="item-qty" oninput="clearSN(this)"></td>
             <td><select class="item-sn-req"><option value="YES">YES</option><option value="NO">NO</option></select></td>
@@ -105,6 +128,7 @@
         for(let key in masterCatalog) { const match = masterCatalog[key].find(m => m.code === code); if(match) foundName = match.name; }
         input.closest('tr').querySelector('.item-name').value = foundName;
     }
+    
     function clearSN(input) { const btn = input.closest('tr').querySelector('.btn-sn-setup'); btn.removeAttribute('data-sn'); btn.classList.remove('configured'); btn.innerText = "S/N"; }
 
     function openSNModal(btn) {
@@ -124,18 +148,34 @@
         document.getElementById('serialModal').style.display = 'none';
     }
 
-    // फॉर्म सबमिट पर नया सेव या पुराना अपडेट करने का मैकेनिज्म
     document.getElementById('reworkForm').addEventListener('submit', function(e) {
         e.preventDefault();
         let items = [];
-        document.querySelectorAll('#dynamicItemsBody tr').forEach(row => {
+        let rows = document.querySelectorAll('#dynamicItemsBody tr');
+        
+        if(rows.length === 0) { alert("Please add at least one item row!"); return; }
+
+        rows.forEach(row => {
             const qty = parseInt(row.querySelector('.item-qty').value);
             const snData = row.querySelector('.btn-sn-setup').getAttribute('data-sn');
-            items.push({ itemShort: row.querySelector('.item-short').value.toUpperCase(), itemName: row.querySelector('.item-name').value, qty: qty, serials: snData ? JSON.parse(snData) : [] });
+            items.push({ 
+                itemShort: row.querySelector('.item-short').value.toUpperCase(), 
+                itemName: row.querySelector('.item-name').value, 
+                qty: qty, 
+                serials: snData ? JSON.parse(snData) : [] 
+            });
         });
 
         const idx = parseInt(document.getElementById('editRowIndex').value);
-        const entry = { date: document.getElementById('rwDate').value, partyName: document.getElementById('rwPartyName').value.trim(), dispatch: document.getElementById('rwDispatch').value.trim(), billNo: document.getElementById('rwBillNo').value.trim(), gateEntryNo: document.getElementById('rwGateEntryNo').value.trim(), gridItems: items };
+        const entry = { 
+            date: document.getElementById('rwDate').value, 
+            billDate: document.getElementById('rwBillDate').value,
+            partyName: document.getElementById('rwPartyName').value.trim().toUpperCase(), 
+            dispatch: document.getElementById('rwDispatch').value.trim(), 
+            billNo: document.getElementById('rwBillNo').value.trim(), 
+            gateEntryNo: document.getElementById('rwGateEntryNo').value.trim(), 
+            gridItems: items 
+        };
         
         if(idx === -1) {
             reworkData.push(entry);
@@ -146,22 +186,23 @@
         }
 
         localStorage.setItem('reworkStockData', JSON.stringify(reworkData));
-        resetReworkForm(); renderHistory(); printReworkPass(entry);
+        resetReworkForm(); renderHistory();
     });
 
-    // 🎯 इतिहास तालिका में एडिट और डिलीट बटन के साथ रेंडरिंग
     function renderHistory() {
         const b = document.getElementById('reworkHistoryBody'); b.innerHTML = '';
         reworkData.forEach((r, idx) => {
-            let desc = r.gridItems.map(i => `${i.itemName} (${i.qty} Nos)`).join(', ');
+            let desc = r.gridItems.map(i => `${i.itemName} (<b>${i.qty} Nos</b>)`).join(', ');
+            let challanInfo = `No: ${r.billNo}<br>Date: ${r.billDate || 'N/A'}`;
+            
             b.innerHTML += `<tr>
                 <td>${r.date}</td>
-                <td>${r.partyName}</td>
-                <td>${r.billNo}</td>
+                <td><b>${r.partyName}</b></td>
+                <td>${challanInfo}</td>
                 <td>${r.gateEntryNo}</td>
-                <td>${desc}</td>
+                <td style="text-align:left; font-size:12px;">${desc}</td>
                 <td>
-                    <button type="button" class="btn-print-receipt" onclick='printReworkPass(${JSON.stringify(r)})'>🖨️ Print</button>
+                    <button type="button" class="btn-print-receipt" onclick='triggerPrintPass(${JSON.stringify(r)})'>🖨️ Print</button>
                     <button type="button" class="btn-edit-action" onclick="editReworkRow(${idx})">Edit</button>
                     <button type="button" class="btn-delete-action" onclick="deleteReworkRow(${idx})">Delete</button>
                 </td>
@@ -169,18 +210,17 @@
         });
     }
 
-    // 🎯 एडिट मोड: सारा डेटा वापस फॉर्म और ग्रिड टेबल में रेंडर करना
     function editReworkRow(idx) {
         const r = reworkData[idx];
         document.getElementById('editRowIndex').value = idx;
         
         document.getElementById('rwDate').value = r.date;
+        document.getElementById('rwBillDate').value = r.billDate || '';
         document.getElementById('rwPartyName').value = r.partyName;
         document.getElementById('rwDispatch').value = r.dispatch;
         document.getElementById('rwBillNo').value = r.billNo;
         document.getElementById('rwGateEntryNo').value = r.gateEntryNo;
 
-        // ग्रिड बॉडी को साफ़ करके पुराना मटीरियल लोड करना
         const body = document.getElementById('dynamicItemsBody');
         body.innerHTML = '';
         
@@ -190,7 +230,7 @@
             const snClass = item.serials.length > 0 ? 'btn-sn-setup configured' : 'btn-sn-setup';
             
             tr.innerHTML = `
-                <td><input type="text" required class="item-short" value="${item.itemShort}" oninput="autofillItem(this)"></td>
+                <td><input type="text" required class="item-short" value="${item.itemShort}" oninput="autofillItem(this)" style="text-transform:uppercase;"></td>
                 <td><input type="text" required class="item-name" value="${item.itemName}"></td>
                 <td><input type="number" min="1" required class="item-qty" value="${item.qty}" oninput="clearSN(this)"></td>
                 <td><select class="item-sn-req"><option value="YES" ${item.serials.length > 0 ? 'selected' : ''}>YES</option><option value="NO" ${item.serials.length === 0 ? 'selected' : ''}>NO</option></select></td>
@@ -199,14 +239,12 @@
             body.appendChild(tr);
         });
 
-        // फॉर्म लुक बदलना
         document.getElementById('formTitleRework').innerText = "🛠️ Modify/Edit Rework Gate In Entry";
         document.getElementById('btnSubmitForm').innerText = "Update Rework Entry";
         document.getElementById('btnCancelEdit').style.display = "inline-block";
         document.getElementById('reworkForm').scrollIntoView({ behavior: 'smooth' });
     }
 
-    // 🎯 फॉर्म रिसेट और कैंसिल मोड
     function resetReworkForm() {
         document.getElementById('editRowIndex').value = "-1";
         document.getElementById('reworkForm').reset();
@@ -215,6 +253,7 @@
         document.getElementById('formTitleRework').innerText = "🛠️ Gate In (Rework) Ledger";
         document.getElementById('btnSubmitForm').innerText = "Save Rework Gate In";
         document.getElementById('btnCancelEdit').style.display = "none";
+        applyLiveDateRestrictions();
         addReworkRow();
     }
 
@@ -222,7 +261,6 @@
         resetReworkForm();
     }
 
-    // 🎯 डिलीट मोड
     function deleteReworkRow(idx) {
         if(confirm("Are you sure you want to permanently delete this rework entry from logs?")) {
             reworkData.splice(idx, 1);
@@ -232,24 +270,51 @@
         }
     }
 
-    function printReworkPass(e) {
-        const shell = document.getElementById('printSection');
-        let lines = ''; e.gridItems.forEach(i => { lines += `<p>• ${i.itemName} [Code: ${i.itemShort}] - Qty: ${i.qty} NOS <br> <small>S/Ns: ${i.serials.join(', ')}</small></p>`; });
+    /* 🎯 शुद्ध फील्ड्स वाला 1/4 पेज कॉम्पैक्ट डिज़ाइन प्रिंट लॉजिक */
+    function triggerPrintPass(e) {
+        const shell = document.getElementById('printSection'); 
+        let lines = ''; 
+        e.gridItems.forEach(i => { 
+            lines += `• <b>${i.itemName}</b> [${i.itemShort}] - Qty: ${i.qty} NOS (S/Ns: ${i.serials.join(', ') || 'N/A'})<br>`; 
+        });
+        
         shell.innerHTML = `
-            <div style="border:3px double #000; padding:15px; width:450px; margin:auto; font-family:monospace; background:#fff;">
-                <h3 style="text-align:center; margin:0;">GVM RAIL PVT LTD - REWORK PASS</h3>
-                <hr>
-                <p><b>Gate In Entry No:</b> ${e.gateEntryNo}</p><p><b>Date:</b> ${e.date}</p>
-                <p><b>From Party Location:</b> ${e.partyName}</p>
-                <p><b>Reference Challan No:</b> ${e.billNo}</p>
-                <h4 style="border-bottom:1px solid #000; margin-bottom:5px;">ITEMS ENROLLED:</h4>
-                ${lines}
-                <br><br><p style="text-align:right;">Receiver Signatory</p>
+            <div style="border:1px solid #000; padding:6px; height:100%; box-sizing:border-box; display:flex; flex-direction:column; justify-content:space-between;">
+                <div style="text-align:center; font-weight:bold; font-size:12px; border-bottom:1px solid #000; padding-bottom:2px; text-transform:uppercase;">GVM RAIL PVT LTD - REWORK INWARD</div>
+                
+                <table style="width:100%; font-size:11px; margin-top:2px; line-height:1.2;">
+                    <tr>
+                        <td><b>Gate In Date:</b> ${e.date}</td>
+                        <td><b>Gate In No:</b> ${e.gateEntryNo}</td>
+                    </tr>
+                    <tr>
+                        <td><b>Bill / Challan No:</b> ${e.billNo}</td>
+                        <td><b>Party Name:</b> ${e.partyName}</td>
+                    </tr>
+                    <tr>
+                        <td colspan="2"><b>Challan Date:</b> ${e.billDate || 'N/A'} | <b>Dispatch Ref:</b> ${e.dispatch || 'N/A'}</td>
+                    </tr>
+                </table>
+
+                <div style="margin-top:4px; font-size:10px; border-top:1px solid #eee; padding-top:2px; flex-grow:1;">
+                    <b>ITEMS DETAILS:</b><br>${lines}
+                </div>
+                <div style="text-align:right; font-weight:bold; font-size:9px; margin-top:2px;">Receiver Signature</div>
             </div>`;
         window.print();
     }
 
-    addReworkRow(); renderHistory();
+    function applyLiveDateRestrictions() {
+        const todayStr = new Date().toISOString().split('T')[0];
+        document.getElementById('rwDate').setAttribute('max', todayStr);
+        document.getElementById('rwBillDate').setAttribute('max', todayStr);
+        document.getElementById('rwDate').value = todayStr;
+        document.getElementById('rwBillDate').value = todayStr;
+    }
+
+    applyLiveDateRestrictions();
+    renderHistory();
+    addReworkRow();
 </script>
 </body>
 </html>
