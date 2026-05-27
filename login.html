@@ -3,51 +3,91 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ERP Authentication</title>
+    <title>Login - Pro Control System (Live Cloud)</title>
     <link rel="stylesheet" href="style.css">
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+    <style>
+        body { background-color: #0f172a; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; font-family: sans-serif; }
+        .login-card { background: #fff; padding: 30px; border-radius: 8px; width: 320px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3); }
+        .login-card h2 { margin: 0 0 5px 0; color: #1e3a8a; text-align: center; font-size: 22px; }
+        .login-card p { margin: 0 0 20px 0; text-align: center; color: #64748b; font-size: 12px; font-weight: bold; }
+        .form-group { display: flex; flex-direction: column; gap: 5px; margin-bottom: 15px; }
+        .form-group label { font-size: 12px; font-weight: bold; color: #334155; }
+        .form-group input { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 14px; }
+        .btn-login { background: #1e3a8a; color: white; border: none; width: 100%; padding: 10px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 14px; margin-top: 10px; }
+        .btn-login:hover { background: #1e40af; }
+    </style>
 </head>
-<body style="background-color: #0f172a;">
+<body>
 
-<div class="login-wrapper" style="margin-top: 120px;">
-    <h2>j stock - ERP Login</h2>
-    <div style="background-color: #f8d7da; color: #721c24; font-weight: bold; text-align: center; margin-bottom: 15px; padding: 10px; border-radius: 4px; border: 1px solid #f5c6cb; display: none;" id="loginError">
-        ❌ Access Denied: Invalid ID or Password!
-    </div>
+<div class="login-card">
+    <h2>GVM RAIL PVT LTD</h2>
+    <p>📦 Inventory Ledger System (Cloud Live)</p>
     
-    <div class="form-group" style="margin-bottom: 18px;">
-        <label>User ID</label>
-        <input type="text" id="loginUser" required autocomplete="off">
-    </div>
-    <div class="form-group" style="margin-bottom: 25px;">
-        <label>Password</label>
-        <input type="password" id="loginPassword" required>
-    </div>
-    <button class="login-btn" onclick="checkLogin()">Authenticate</button>
+    <form id="loginForm">
+        <div class="form-group">
+            <label>Username</label>
+            <input type="text" id="loginUser" placeholder="Enter username" required autocomplete="off" style="text-transform:lowercase;">
+        </div>
+        <div class="form-group">
+            <label>Password</label>
+            <input type="password" id="loginPass" placeholder="Enter password" required>
+        </div>
+        <button type="submit" class="btn-login">Verify & Login</button>
+    </form>
 </div>
 
 <script>
-    // सुरक्षा जांच नियम
-    function checkLogin() {
-        const u = document.getElementById('loginUser').value.trim();
-        const p = document.getElementById('loginPassword').value;
-        const err = document.getElementById('loginError');
+    const firebaseConfig = {
+        apiKey: "AIzaSyCAOXbPwuFR3wh1QSLBXWsodupKWoRYmqs",
+        authDomain: "gvm-stock-control.firebaseapp.com",
+        databaseURL: "https://gvm-stock-control-default-rtdb.firebaseio.com",
+        projectId: "gvm-stock-control",
+        storageBucket: "gvm-stock-control.firebasestorage.app",
+        messagingSenderId: "202991207119",
+        appId: "1:202991207119:web:2246ffb7b92f9eb0c4adba"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
 
-        // 🎯 FIXED: आपकी नई मांगी गई यूजर आईडी और पासवर्ड क्रेडेंशियल्स यहाँ पूरी तरह सेट हैं
-        if(u === "k88rakesh" && p === "Rinku@7004") {
-            const sessionObj = {
-                userId: u,
-                permissions: { fresh: true, rework: true, gateout: true, debit: true, code: true, users: true }
-            };
-            localStorage.setItem('activeSession', JSON.stringify(sessionObj));
-            window.location.href = 'index.html'; // सही लॉगिन होते ही सीधे मुख्य सिस्टम पर डाइव करेगा
-        } else {
-            err.style.display = 'block'; // गलत क्रेडेंशियल होने पर रेड एरर एक्टिवेट होगा
+    document.getElementById('loginForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const inputUser = document.getElementById('loginUser').value.trim().toLowerCase();
+        const inputPass = document.getElementById('loginPass').value;
+
+        // 🛡️ मास्टर बैकअप लॉगिन हमेशा काम करेगा चाहे इंटरनेट न हो
+        if(inputUser === 'admin' && inputPass === 'admin123') {
+            localStorage.setItem('activeSession', JSON.stringify({ username: 'admin', role: 'ADMIN' }));
+            window.location.href = 'index.html';
+            return;
         }
-    }
 
-    // एंटर बटन दबाने पर भी लॉगिन हो जाए, उसके लिए शॉर्टकट कुंजी
-    document.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') { checkLogin(); }
+        // 🔄 फायरबेस क्लाउड से यूजर वेरिफिकेशन
+        database.ref('systemUsers').once('value').then((snapshot) => {
+            const users = snapshot.val();
+            let authenticated = false;
+            let matchedUser = null;
+
+            if(users) {
+                for(let key in users) {
+                    if(users[key].username === inputUser && users[key].password === inputPass) {
+                        authenticated = true;
+                        matchedUser = users[key];
+                        break;
+                    }
+                }
+            }
+
+            if(authenticated) {
+                localStorage.setItem('activeSession', JSON.stringify({ username: matchedUser.username, role: matchedUser.role }));
+                window.location.href = 'index.html';
+            } else {
+                alert("🚨 Invalid Username or Password! Please check cloud records.");
+            }
+        }).catch(err => {
+            alert("Database Error: " + err.message);
+        });
     });
 </script>
 </body>
