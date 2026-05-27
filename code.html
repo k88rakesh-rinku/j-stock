@@ -3,13 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Generate Master Code</title>
+    <title>Generate Code - Pro Control System (Live Cloud)</title>
     <link rel="stylesheet" href="style.css">
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
 </head>
 <body>
 <div class="container">
     <div class="erp-header">
-        <h1>Material Lifecycle Control & Inventory Ledger Systems</h1>
+        <h1>Material Lifecycle Control & Inventory Ledger Systems <span style="font-size:12px; color:#4ade80;">● CLOUD LIVE</span></h1>
         <button class="logout-btn" onclick="logout()">Logout</button>
     </div>
     
@@ -18,66 +20,141 @@
         <a href="rework.html" class="tab-link">🛠️ Gate In (Rework)</a>
         <a href="gateout.html" class="tab-link">🚪 Gate Out (Dispatch)</a>
         <a href="debit.html" class="tab-link">🧾 Debit Note (Vendor)</a>
-        <a href="code.html" class="tab-link active-code">🆕 Generate Code</a>
+        <a href="code.html" class="tab-link active-debit" style="background-color: var(--primary); color: white;">🆕 Generate Code</a>
+        <a href="ledger.html" class="tab-link">📊 Master Ledger & History</a>
         <a href="users.html" class="tab-link">👥 Manage Users</a>
     </div>
 
-    <h3 style="color:#6f42c1; margin-top:0;">Generate Custom Item Code (Universal Master)</h3>
+    <h3 style="color:var(--primary); margin: 0 0 10px 0;">🆕 Master Catalog - Generate Item/Model Code</h3>
     
-    <form id="codeGeneratorForm">
-        <div class="form-grid">
+    <form id="catalogForm" style="background:#f8fafc; padding:15px; border-radius:6px; border:1px solid #e2e8f0; margin-bottom:20px;">
+        <div class="form-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
             <div class="form-group">
-                <label>Company Name <span>*</span></label>
-                <input type="text" id="newCompanyInput" placeholder="e.g., OWN PRODUCTION, VINYAS" required list="existingCompaniesList">
-                <datalist id="existingCompaniesList"></datalist>
+                <label>Select Category <span>*</span></label>
+                <select id="catSelect" required>
+                    <option value="SIEMENS_BOARDS">Siemens Control Boards</option>
+                    <option value="RO_SYSTEM_PCBS">RO System PCBs</option>
+                    <option value="MICROCONTROLLER_IC">Microcontrollers & ICs</option>
+                    <option value="GENERAL_ELECTRONICS">General Components</option>
+                </select>
             </div>
             <div class="form-group">
-                <label>New Item Part Code <span>*</span></label>
-                <input type="text" id="newPartCode" placeholder="e.g., GP0021" required>
+                <label>Unique Model/Item Code <span>*</span></label>
+                <input type="text" id="catCode" placeholder="e.g. ACV-002" required autocomplete="off" style="text-transform:uppercase;">
             </div>
             <div class="form-group">
-                <label>New Item Model Name <span>*</span></label>
-                <input type="text" id="newModelName" placeholder="e.g., NTC SENSOR" required>
+                <label>Full Item Description/Name <span>*</span></label>
+                <input type="text" id="catName" placeholder="e.g. Siemens Main Control Assembly" required autocomplete="off">
             </div>
-            <button type="submit" class="btn-submit" style="background-color: #6f42c1;">Generate & Linked Code</button>
         </div>
+        <button type="submit" class="btn-submit" style="margin-top:15px; width:100%;">Save Model Code to Cloud Catalog</button>
     </form>
+
+    <div class="table-responsive">
+        <table class="history-table">
+            <thead style="background-color: var(--primary); color: white;">
+                <tr>
+                    <th>System Category</th>
+                    <th>Model Code</th>
+                    <th>Item Description Name</th>
+                    <th>Action Control</th>
+                </tr>
+            </thead>
+            <tbody id="catalogTableBody">
+                <tr><td colspan="4" style="text-align:center; padding:15px; color:#64748b;">Loading Cloud Master Catalog...</td></tr>
+            </tbody>
+        </table>
+    </div>
 </div>
 
 <script>
-    const session = JSON.parse(localStorage.getItem('activeSession'));
-    if(!session) { window.location.href = 'login.html'; }
+    const firebaseConfig = {
+        apiKey: "AIzaSyCAOXbPwuFR3wh1QSLBXWsodupKWoRYmqs",
+        authDomain: "gvm-stock-control.firebaseapp.com",
+        databaseURL: "https://gvm-stock-control-default-rtdb.firebaseio.com",
+        projectId: "gvm-stock-control",
+        storageBucket: "gvm-stock-control.firebasestorage.app",
+        messagingSenderId: "202991207119",
+        appId: "1:202991207119:web:2246ffb7b92f9eb0c4adba"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
 
+    if(!localStorage.getItem('activeSession')) { window.location.href = 'login.html'; }
     function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
 
-    const defaultCatalog = { "VINYAS": [{ code: "ACV 002", name: "SIEMENS" }], "HEX MOTO": [{ code: "T18 545", name: "INVERTER" }] };
-    let catalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || defaultCatalog;
+    let cloudCatalogList = [];
 
-    function renderDatalist() {
-        const list = document.getElementById('existingCompaniesList'); list.innerHTML = '';
-        for(let key in catalog) { list.innerHTML += `<option value="${key}">`; }
-    }
-
-    document.getElementById('codeGeneratorForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        const comp = document.getElementById('newCompanyInput').value.trim().toUpperCase();
-        const code = document.getElementById('newPartCode').value.trim().toUpperCase();
-        const name = document.getElementById('newModelName').value.trim().toUpperCase();
-
-        if(!catalog[comp]) catalog[comp] = [];
+    // 🔄 फायरबेस से मास्टर कैटलॉग डेटा को रीयल-टाइम में सुनना
+    database.ref('systemMasterCatalog').on('value', (snapshot) => {
+        cloudCatalogList = [];
+        const data = snapshot.val();
         
-        if(!catalog[comp].some(x => x.code === code)) {
-            catalog[comp].push({ code: code, name: name });
-            localStorage.setItem('systemMasterCatalog', JSON.stringify(catalog));
-            alert("🎉 Success! New code universally generated.");
-            document.getElementById('codeGeneratorForm').reset();
-            renderDatalist();
-        } else {
-            alert("This item code already exists under this company register!");
+        let localSyncObject = {}; // पुराने पेजों के ऑटोफिल बैकअप को बनाए रखने के लिए
+
+        if(data) {
+            for(let key in data) {
+                const record = { fbKey: key, ...data[key] };
+                cloudCatalogList.push(record);
+                
+                // लोकलस्टोरेज को भी बैकअप में सिंक रखें ताकि पुराने पेजों को झटका न लगे
+                if(!localSyncObject[record.category]) { localSyncObject[record.category] = []; }
+                localSyncObject[record.category].push({ code: record.code, name: record.name });
+            }
         }
+        localStorage.setItem('systemMasterCatalog', JSON.stringify(localSyncObject));
+        renderCatalogTable();
     });
 
-    renderDatalist();
+    document.getElementById('catalogForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const category = document.getElementById('catSelect').value;
+        const code = document.getElementById('catCode').value.trim().toUpperCase();
+        const name = document.getElementById('catName').value.trim();
+
+        // चेक करें कि यह कोड पहले से क्लाउड पर तो नहीं है
+        let isDuplicate = cloudCatalogList.find(item => item.code === code);
+        if(isDuplicate) {
+            alert(`🚨 Code "${code}" already exists in Catalog under Category: ${isDuplicate.category}`);
+            return;
+        }
+
+        const newModel = { category, code, name };
+
+        // सीधे गूगल क्लाउड पर डेटा पुश
+        database.ref('systemMasterCatalog').push(newModel).then(() => {
+            alert("🎉 New Model Code successfully added to Live Cloud Catalog!");
+            document.getElementById('catCode').value = '';
+            document.getElementById('catName').value = '';
+        });
+    });
+
+    function deleteCatalogItem(fbKey, code) {
+        if(confirm(`🚨 Alert: Deleting code "${code}" might stop autofill on entry forms. Proceed?`)) {
+            database.ref('systemMasterCatalog/' + fbKey).remove().then(() => {
+                alert("🗑️ Code removed from Cloud Catalog.");
+            });
+        }
+    }
+
+    function renderCatalogTable() {
+        const tbody = document.getElementById('catalogTableBody');
+        tbody.innerHTML = '';
+
+        if(cloudCatalogList.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:15px; color:#64748b;">No codes generated yet. Cloud database is empty.</td></tr>`;
+            return;
+        }
+
+        cloudCatalogList.forEach(item => {
+            tbody.innerHTML += `<tr>
+                <td><span style="font-size:11px; background:#f1f5f9; padding:2px 6px; border-radius:4px; font-weight:bold; color:#475569;">${item.category}</span></td>
+                <td><b style="color:#1e3a8a;">${item.code}</b></td>
+                <td>${item.name}</td>
+                <td><button type="button" class="btn-delete-action" onclick="deleteCatalogItem('${item.fbKey}', '${item.code}')">Delete</button></td>
+            </tr>`;
+        });
+    }
 </script>
 </body>
 </html>
