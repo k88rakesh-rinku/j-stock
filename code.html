@@ -7,6 +7,12 @@
     <link rel="stylesheet" href="style.css">
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+    <style>
+        .btn-edit-action { background-color: #0284c7; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
+        .btn-edit-action:hover { background-color: #0369a1; }
+        .btn-delete-action { background-color: #dc2626; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; }
+        .btn-delete-action:hover { background-color: #b91c1c; }
+    </style>
 </head>
 <body>
 <div class="container">
@@ -25,9 +31,11 @@
         <a href="users.html" class="tab-link">👥 Manage Users</a>
     </div>
 
-    <h3 style="color:var(--primary); margin: 0 0 10px 0;">🆕 Master Catalog - Generate Item/Model Code</h3>
+    <h3 id="formTitleCatalog" style="color:var(--primary); margin: 0 0 10px 0;">🆕 Master Catalog - Generate Item/Model Code</h3>
     
     <form id="catalogForm" style="background:#f8fafc; padding:15px; border-radius:6px; border:1px solid #e2e8f0; margin-bottom:20px;">
+        <input type="hidden" id="editFirebaseKey" value="">
+
         <div class="form-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
             <div class="form-group">
                 <label>Select Category <span>*</span></label>
@@ -47,7 +55,8 @@
                 <input type="text" id="catName" placeholder="e.g. Siemens Main Control Assembly" required autocomplete="off">
             </div>
         </div>
-        <button type="submit" class="btn-submit" style="margin-top:15px; width:100%;">Save Model Code to Cloud Catalog</button>
+        <button type="submit" id="btnSubmitCatalog" class="btn-submit" style="margin-top:15px; width:100%;">Save Model Code to Cloud Catalog</button>
+        <button type="button" id="btnCancelCatalogEdit" class="btn-submit" style="background-color:#64748b; display:none; margin-top:10px; width: 100%;" onclick="cancelCatalogEditMode()">Cancel Update</button>
     </form>
 
     <div class="table-responsive">
@@ -89,15 +98,13 @@
     database.ref('systemMasterCatalog').on('value', (snapshot) => {
         cloudCatalogList = [];
         const data = snapshot.val();
-        
-        let localSyncObject = {}; // पुराने पेजों के ऑटोफिल बैकअप को बनाए रखने के लिए
+        let localSyncObject = {}; 
 
         if(data) {
             for(let key in data) {
                 const record = { fbKey: key, ...data[key] };
                 cloudCatalogList.push(record);
                 
-                // लोकलस्टोरेज को भी बैकअप में सिंक रखें ताकि पुराने पेजों को झटका न लगे
                 if(!localSyncObject[record.category]) { localSyncObject[record.category] = []; }
                 localSyncObject[record.category].push({ code: record.code, name: record.name });
             }
@@ -106,33 +113,57 @@
         renderCatalogTable();
     });
 
+    // 📝 फॉर्म सबमिट (सेव या अपडेट) का लॉजिक
     document.getElementById('catalogForm').addEventListener('submit', function(e) {
         e.preventDefault();
+        const fbKey = document.getElementById('editFirebaseKey').value;
         const category = document.getElementById('catSelect').value;
         const code = document.getElementById('catCode').value.trim().toUpperCase();
         const name = document.getElementById('catName').value.trim();
 
-        // चेक करें कि यह कोड पहले से क्लाउड पर तो नहीं है
-        let isDuplicate = cloudCatalogList.find(item => item.code === code);
-        if(isDuplicate) {
-            alert(`🚨 Code "${code}" already exists in Catalog under Category: ${isDuplicate.category}`);
-            return;
+        const modelData = { category, code, name };
+
+        if(fbKey === "") {
+            // 🆕 न्यू कोड एंट्री मोड
+            let isDuplicate = cloudCatalogList.find(item => item.code === code);
+            if(isDuplicate) {
+                alert(`🚨 Code "${code}" already exists under Category: ${isDuplicate.category}`);
+                return;
+            }
+            database.ref('systemMasterCatalog').push(modelData).then(() => {
+                alert("🎉 New Model Code successfully added to Cloud!");
+                resetCatalogForm();
+            });
+        } else {
+            // 🛠️ एडिट/अपडेट मोड
+            database.ref('systemMasterCatalog/' + fbKey).set(modelData).then(() => {
+                alert("🎯 Item Description Name Updated Successfully on Cloud!");
+                resetCatalogForm();
+            });
         }
-
-        const newModel = { category, code, name };
-
-        // सीधे गूगल क्लाउड पर डेटा पुश
-        database.ref('systemMasterCatalog').push(newModel).then(() => {
-            alert("🎉 New Model Code successfully added to Live Cloud Catalog!");
-            document.getElementById('catCode').value = '';
-            document.getElementById('catName').value = '';
-        });
     });
+
+    // 🔄 एडिट बटन दबाने पर फॉर्म में डेटा लोड करना
+    function editCatalogItem(idx) {
+        const item = cloudCatalogList[idx];
+        document.getElementById('editFirebaseKey').value = item.fbKey;
+        document.getElementById('catSelect').value = item.category;
+        document.getElementById('catCode').value = item.code;
+        document.getElementById('catCode').setAttribute('readonly', 'true'); // कोड चेंज नहीं करने देंगे
+        document.getElementById('catCode').style.background = '#e2e8f0';
+        document.getElementById('catName').value = item.name;
+
+        document.getElementById('formTitleCatalog').innerText = "🛠️ Edit/Change Item Name in Cloud Catalog";
+        document.getElementById('btnSubmitCatalog').innerText = "Update Name & Save";
+        document.getElementById('btnCancelCatalogEdit').style.display = "inline-block";
+        document.getElementById('catalogForm').scrollIntoView({ behavior: 'smooth' });
+    }
 
     function deleteCatalogItem(fbKey, code) {
         if(confirm(`🚨 Alert: Deleting code "${code}" might stop autofill on entry forms. Proceed?`)) {
             database.ref('systemMasterCatalog/' + fbKey).remove().then(() => {
                 alert("🗑️ Code removed from Cloud Catalog.");
+                resetCatalogForm();
             });
         }
     }
@@ -142,19 +173,34 @@
         tbody.innerHTML = '';
 
         if(cloudCatalogList.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:15px; color:#64748b;">No codes generated yet. Cloud database is empty.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:15px; color:#64748b;">No codes generated yet.</td></tr>`;
             return;
         }
 
-        cloudCatalogList.forEach(item => {
+        cloudCatalogList.forEach((item, idx) => {
             tbody.innerHTML += `<tr>
                 <td><span style="font-size:11px; background:#f1f5f9; padding:2px 6px; border-radius:4px; font-weight:bold; color:#475569;">${item.category}</span></td>
                 <td><b style="color:#1e3a8a;">${item.code}</b></td>
                 <td>${item.name}</td>
-                <td><button type="button" class="btn-delete-action" onclick="deleteCatalogItem('${item.fbKey}', '${item.code}')">Delete</button></td>
+                <td>
+                    <button type="button" class="btn-edit-action" onclick="editCatalogItem(${idx})">Edit Name</button>
+                    <button type="button" class="btn-delete-action" onclick="deleteCatalogItem('${item.fbKey}', '${item.code}')">Delete</button>
+                </td>
             </tr>`;
         });
     }
+
+    function resetCatalogForm() {
+        document.getElementById('editFirebaseKey').value = "";
+        document.getElementById('catalogForm').reset();
+        document.getElementById('catCode').removeAttribute('readonly');
+        document.getElementById('catCode').style.background = '#fff';
+        document.getElementById('formTitleCatalog').innerText = "🆕 Master Catalog - Generate Item/Model Code";
+        document.getElementById('btnSubmitCatalog').innerText = "Save Model Code to Cloud Catalog";
+        document.getElementById('btnCancelCatalogEdit').style.display = "none";
+    }
+
+    function cancelCatalogEditMode() { resetCatalogForm(); }
 </script>
 </body>
 </html>
