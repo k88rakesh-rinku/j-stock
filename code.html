@@ -5,12 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Generate Master Code - Live Cloud</title>
     <link rel="stylesheet" href="style.css">
-    
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
-
     <style>
-        /* 🎯 एडिट और डिलीट बटन्स की प्रोफेशनल सीएसएस */
         .btn-edit-action { background-color: #0284c7; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
         .btn-edit-action:hover { background-color: #0369a1; }
         .btn-delete-action { background-color: #dc2626; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; }
@@ -38,7 +35,6 @@
     
     <form id="codeGeneratorForm">
         <input type="hidden" id="editFirebaseKey" value="">
-
         <div class="form-grid">
             <div class="form-group">
                 <label>Company Name <span>*</span></label>
@@ -70,14 +66,13 @@
                 </tr>
             </thead>
             <tbody id="catalogTableBody">
-                <tr><td colspan="4" style="text-align:center; padding:15px; color:#64748b;">Loading Cloud Master Catalog...</td></tr>
+                <tr><td colspan="4" style="text-align:center; padding:15px; color:#64748b;">Connecting Cloud Database...</td></tr>
             </tbody>
         </table>
     </div>
 </div>
 
 <script>
-    // 🎯 फायरबेस कॉन्फ़िगरेशन चाबी
     const firebaseConfig = {
         apiKey: "AIzaSyCAOXbPwuFR3wh1QSLBXWsodupKWoRYmqs",
         authDomain: "gvm-stock-control.firebaseapp.com",
@@ -94,53 +89,42 @@
     if(!session) { window.location.href = 'login.html'; }
     function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
 
-    // डिफ़ॉल्ट बैकअप कैटलॉग स्ट्रक्चर
+    let flatCatalogList = [];
     const defaultCatalog = { "VINYAS": [{ code: "ACV 002", name: "SIEMENS" }], "HEX MOTO": [{ code: "T18 545", name: "INVERTER" }] };
-    let flatCatalogList = []; // फायरबेस से आने वाली फ्लैट लिस्ट
 
-    // 🔄 फायरबेस से मास्टर कैटलॉग को रीयल-टाइम में सिंक करना
     database.ref('systemMasterCatalogFlat').on('value', (snapshot) => {
         flatCatalogList = [];
         const data = snapshot.val();
-        
-        let oldStructuredSync = {}; // पुराने पेजों के ऑटोफिल (Group by Company) को सपोर्ट करने के लिए
+        let oldStructuredSync = {};
 
         if(data) {
             for(let key in data) {
                 const record = { fbKey: key, ...data[key] };
                 flatCatalogList.push(record);
-                
-                // लोकलस्टोरेज को पुराने ग्रुप-वाइज ऑब्जेक्ट फॉर्म में सिंक रखें ताकि 'index' और 'gateout' न रुकें
                 if(!oldStructuredSync[record.company]) { oldStructuredSync[record.company] = []; }
                 oldStructuredSync[record.company].push({ code: record.code, name: record.name });
             }
             localStorage.setItem('systemMasterCatalog', JSON.stringify(oldStructuredSync));
         } else {
-            // अगर क्लाउड बिल्कुल खाली है, तो डिफ़ॉल्ट को सिंक करें
+            // Seed default catalog if database is fresh
             localStorage.setItem('systemMasterCatalog', JSON.stringify(defaultCatalog));
+            for(let key in defaultCatalog) {
+                defaultCatalog[key].forEach(x => {
+                    database.ref('systemMasterCatalogFlat').push({ company: key, code: x.code, name: x.name });
+                });
+            }
         }
-        
         renderDatalist();
         renderCatalogTable();
     });
 
-    // Dropdown (Datalist) कंपनियों के नाम भरने का फंक्शन
     function renderDatalist() {
         const list = document.getElementById('existingCompaniesList'); 
         list.innerHTML = '';
-        
-        // यूनिक कंपनियों की लिस्ट निकालें
         let uniqueCompanies = [...new Set(flatCatalogList.map(item => item.company))];
-        
-        // अगर लिस्ट खाली है तो डिफ़ॉल्ट कंपनियों को जोड़ दें
-        if(uniqueCompanies.length === 0) { uniqueCompanies = Object.keys(defaultCatalog); }
-        
-        uniqueCompanies.forEach(comp => {
-            list.innerHTML += `<option value="${comp}">`;
-        });
+        uniqueCompanies.forEach(comp => { list.innerHTML += `<option value="${comp}">`; });
     }
 
-    // 💾 फॉर्म सबमिट (कोड जनरेट करना या नाम अपडेट करना)
     document.getElementById('codeGeneratorForm').addEventListener('submit', function(e) {
         e.preventDefault();
         const fbKey = document.getElementById('editFirebaseKey').value;
@@ -151,38 +135,28 @@
         const modelData = { company: comp, code: code, name: name };
 
         if(fbKey === "") {
-            // 🆕 न्यू कोड जनरेशन मोड
             let isDuplicate = flatCatalogList.some(x => x.company === comp && x.code === code);
-            if(isDuplicate) {
-                alert("This item code already exists under this company register!");
-                return;
-            }
+            if(isDuplicate) { alert("This item code already exists under this company register!"); return; }
             database.ref('systemMasterCatalogFlat').push(modelData).then(() => {
-                alert("🎉 Success! New code universally generated on Cloud.");
+                alert("🎉 Success! Code generated.");
                 resetCatalogForm();
             });
         } else {
-            // 🛠️ एडिट/अपडेट नाम मोड
             database.ref('systemMasterCatalogFlat/' + fbKey).set(modelData).then(() => {
-                alert("🎯 Item Model Name Updated Successfully on Cloud!");
+                alert("🎯 Item Model Name Updated!");
                 resetCatalogForm();
             });
         }
     });
 
-    // 📋 टेबल के अंदर कोड्स लिस्ट रेंडर करना
     function renderCatalogTable() {
         const tbody = document.getElementById('catalogTableBody');
         tbody.innerHTML = '';
-
         if(flatCatalogList.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:15px; color:#64748b;">No items registered yet on cloud database.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:15px; color:#64748b;">No items registered.</td></tr>`;
             return;
         }
-
-        // लिस्ट को कंपनी के नाम के हिसाब से सॉर्ट कर देते हैं ताकि देखना आसान हो
         flatCatalogList.sort((a,b) => a.company.localeCompare(b.company));
-
         flatCatalogList.forEach((item, idx) => {
             tbody.innerHTML += `<tr>
                 <td><b>${item.company}</b></td>
@@ -196,54 +170,41 @@
         });
     }
 
-    // 📝 एडिट बटन पर क्लिक करने का लॉजिक
     function editCatalogItem(idx) {
         const item = flatCatalogList[idx];
         document.getElementById('editFirebaseKey').value = item.fbKey;
         document.getElementById('newCompanyInput').value = item.company;
         document.getElementById('newPartCode').value = item.code;
-        
-        // एडिट करते समय कंपनी और कोड को लॉक कर देंगे ताकि स्टॉक का रिलेशन न बिगड़े, सिर्फ नाम बदल सके
         document.getElementById('newCompanyInput').setAttribute('readonly', 'true');
         document.getElementById('newCompanyInput').style.background = '#e2e8f0';
         document.getElementById('newPartCode').setAttribute('readonly', 'true');
         document.getElementById('newPartCode').style.background = '#e2e8f0';
-        
         document.getElementById('newModelName').value = item.name;
-
-        document.getElementById('formTitleCatalog').innerText = "🛠️ Modify Item Model Name in Universal Master";
-        document.getElementById('btnSubmitCatalog').innerText = "Update & Save Code Name";
-        document.getElementById('btnSubmitCatalog').style.backgroundColor = "#0284c7";
+        document.getElementById('formTitleCatalog').innerText = "🛠️ Modify Item Model Name";
+        document.getElementById('btnSubmitCatalog').innerText = "Update Name";
         document.getElementById('btnCancelCatalogEdit').style.display = "inline-block";
-        document.getElementById('codeGeneratorForm').scrollIntoView({ behavior: 'smooth' });
     }
 
-    // 🗑️ डिलीट बटन का लॉजिक
     function deleteCatalogItem(fbKey, code) {
-        if(confirm(`🚨 Alert: Deleting code "${code}" will remove it from the master list and stop autofill on forms. Proceed?`)) {
+        if(confirm(`Are you sure you want to delete code "${code}"?`)) {
             database.ref('systemMasterCatalogFlat/' + fbKey).remove().then(() => {
-                alert("🗑️ Item code permanently deleted from Cloud Catalog.");
+                alert("🗑️ Item code deleted.");
                 resetCatalogForm();
             });
         }
     }
 
-    // फॉर्म को वापस नॉर्मल करने का फंक्शन
     function resetCatalogForm() {
         document.getElementById('editFirebaseKey').value = "";
         document.getElementById('codeGeneratorForm').reset();
-        
         document.getElementById('newCompanyInput').removeAttribute('readonly');
         document.getElementById('newCompanyInput').style.background = '#fff';
         document.getElementById('newPartCode').removeAttribute('readonly');
         document.getElementById('newPartCode').style.background = '#fff';
-        
         document.getElementById('formTitleCatalog').innerText = "Generate Custom Item Code (Universal Master)";
         document.getElementById('btnSubmitCatalog').innerText = "Generate & Linked Code";
-        document.getElementById('btnSubmitCatalog').style.backgroundColor = "#6f42c1";
         document.getElementById('btnCancelCatalogEdit').style.display = "none";
     }
-
     function cancelCatalogEditMode() { resetCatalogForm(); }
 </script>
 </body>
