@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ERP Authentication - Secure Backup Cloud</title>
+    <title>ERP Authentication</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
@@ -48,15 +48,16 @@
 
         if (!u || !p) { alert("Please enter both User ID and Password!"); return; }
 
-        // 🛡️ मास्टर सुरक्षा कवच: यह बिना क्लाउड चेक किए आपको तुरंत अंदर जाने देगा!
+        // Master Admin Clear Bypass
         if (u === "k88rakesh" && p === "Rinku@7004") {
             const sessionObj = {
                 userId: u,
-                permissions: { add: true, debit: true, excel: true, gencode: true, users: true }
+                // Purani aur nayi dono permissions keys de rahe hain takki koi bhi page block na kare
+                permissions: { fresh: true, rework: true, gateout: true, debit: true, code: true, users: true, add: true, debitNote: true, excel: true, gencode: true }
             };
             localStorage.setItem('activeSession', JSON.stringify(sessionObj));
             
-            // 🔄 लगे हाथ क्लाउड पर भी आपके यूज़र्स का डेटाबेस बैकअप री-क्रिएट कर देते हैं ताकि स्टाफ की सिंकिंग चालू हो जाए
+            // Backup admin on cloud
             database.ref('systemUserRegistry').once('value').then((snap) => {
                 let found = false;
                 const d = snap.val();
@@ -73,7 +74,7 @@
             return;
         }
 
-        // 👥 स्टाफ यूज़र्स के लिए लाइव क्लाउड चेकिंग लॉजिक
+        // Staff Users Live Checking
         database.ref('systemUserRegistry').once('value').then((snapshot) => {
             const usersData = snapshot.val();
             let isAuthenticated = false;
@@ -90,18 +91,21 @@
             }
 
             if(isAuthenticated && loggedInUser) {
+                let prm = loggedInUser.permissions || {};
                 const sessionObj = {
                     userId: loggedInUser.userId,
-                    permissions: loggedInUser.permissions || { add: true, debit: true, excel: true, gencode: true, users: false }
+                    permissions: {
+                        fresh: !!prm.add, rework: !!prm.add, gateout: !!prm.add,
+                        debit: !!prm.debit, code: !!prm.gencode, users: !!prm.users,
+                        add: !!prm.add, excel: !!prm.excel, gencode: !!prm.gencode
+                    }
                 };
                 localStorage.setItem('activeSession', JSON.stringify(sessionObj));
                 window.location.href = 'index.html';
             } else {
                 err.style.display = 'block';
             }
-        }).catch((e) => {
-            err.style.display = 'block';
-        });
+        }).catch((e) => { err.style.display = 'block'; });
     }
 
     document.addEventListener('keypress', function(e) {
