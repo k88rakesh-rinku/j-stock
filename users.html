@@ -8,7 +8,10 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
     <style>
-        .active-users { background-color: #6f42c1 !important; color: white !important; }
+        /* 🎨 एक्टिव टैब का बैकग्राउंड अब रॉयल ब्लू चमकेगा */
+        .active-users { background-color: #1e3a8a !important; color: white !important; font-weight: bold; }
+        .btn-edit-user { background-color: #0284c7; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-right: 5px; }
+        .btn-edit-user:hover { background-color: #0369a1; }
         .btn-delete-user { background-color: #dc2626; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; }
         .btn-delete-user:hover { background-color: #b91c1c; }
     </style>
@@ -29,9 +32,13 @@
         <a href="users.html" class="tab-link active-users">👥 Manage Users</a>
     </div>
 
-    <h3 style="color:#6f42c1; margin-top:0;">👥 Staff User Management Registry (Cloud Sync)</h3>
+    <h3 id="formTitleUsers" style="color:#1e3a8a; margin-top:0;">👥 Staff User Management Registry (Cloud Sync)</h3>
     
     <form id="userRegistrationForm">
+        <!-- 🛠️ एडिट मोड ट्रैक करने के लिए हिडन इनपुट फ़ील्ड्स -->
+        <input type="hidden" id="editFirebaseKey" value="">
+        <input type="hidden" id="editUserIndex" value="-1">
+
         <div class="form-grid">
             <div class="form-group">
                 <label>Staff Full Name <span>*</span></label>
@@ -47,8 +54,8 @@
             </div>
         </div>
 
-        <h4 style="color:#6f42c1; margin-bottom:10px; margin-top:20px;">Assign Access Permissions:</h4>
-        <div style="display: flex; gap: 20px; flex-wrap: wrap; background: #f8fafc; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0; margin-bottom: 20px;">
+        <h4 style="color:#1e3a8a; margin-bottom:10px; margin-top:20px;">Assign Access Permissions (पावर कंट्रोल करें):</h4>
+        <div style="display: flex; gap: 20px; flex-wrap: wrap; background: #f8fafc; padding: 15px; border-radius: 6px; border: 1px solid #cbd5e1; margin-bottom: 20px;">
             <label style="font-weight:bold; cursor:pointer;"><input type="checkbox" id="permAdd" checked> 📦 Inward entries (Fresh/Rework)</label>
             <label style="font-weight:bold; cursor:pointer;"><input type="checkbox" id="permDebit" checked> 🧾 Debit Notes</label>
             <label style="font-weight:bold; cursor:pointer;"><input type="checkbox" id="permGencode" checked> 🆕 Code Generation</label>
@@ -56,19 +63,20 @@
             <label style="font-weight:bold; cursor:pointer;"><input type="checkbox" id="permUsers"> 👥 Manage Other Users</label>
         </div>
 
-        <button type="submit" class="btn-submit" style="background-color: #6f42c1;">Register & Save Staff User</button>
+        <button type="submit" id="btnSubmitUser" class="btn-submit" style="background-color: #1e3a8a;">Register & Save Staff User</button>
+        <button type="button" id="btnCancelUserEdit" class="btn-submit" style="background-color:#64748b; display:none; margin-top:10px;" onclick="cancelUserEditMode()">Cancel Update</button>
     </form>
 
     <div class="table-responsive" style="margin-top: 30px;">
-        <h3 style="color:#6f42c1; margin-bottom: 10px;">📋 Active Registered Users</h3>
+        <h3 style="color:#1e3a8a; margin-bottom: 10px;">📋 Active Registered Users & System Permissions</h3>
         <table class="history-table">
-            <thead style="background-color: #6f42c1; color: white;">
+            <thead style="background-color: #1e3a8a; color: white;">
                 <tr>
                     <th>Name</th>
                     <th>User ID</th>
                     <th>Password</th>
                     <th>Permissions Granted</th>
-                    <th style="width: 15%;">Action</th>
+                    <th style="width: 22%;">Action Controls</th>
                 </tr>
             </thead>
             <tbody id="usersTableBody">
@@ -118,17 +126,16 @@
         renderUsersTable();
     });
 
-    // 💾 Register New User
+    // 💾 Submit Form (Register New or Update Existing User)
     document.getElementById('userRegistrationForm').addEventListener('submit', function(e) {
         e.preventDefault();
+        const fbKey = document.getElementById('editFirebaseKey').value;
+        const index = parseInt(document.getElementById('editUserIndex').value);
         const uid = document.getElementById('staffUserId').value.trim().toLowerCase();
         
-        if(uid === "k88rakesh") { alert("Cannot overwrite master admin ID!"); return; }
-        
-        let isDuplicate = allUsersList.some(x => x.userId === uid);
-        if(isDuplicate) { alert("This User ID is already taken!"); return; }
+        if(uid === "k88rakesh" && index === -1) { alert("Cannot duplicate master admin ID!"); return; }
 
-        const newUser = {
+        const userData = {
             name: document.getElementById('staffName').value.trim().toUpperCase(),
             userId: uid,
             password: document.getElementById('staffPassword').value.trim(),
@@ -141,15 +148,22 @@
             }
         };
 
-        database.ref('systemUserRegistry').push(newUser).then(() => {
-            alert("🎉 Staff User successfully registered on Cloud!");
-            document.getElementById('userRegistrationForm').reset();
-            document.getElementById('permAdd').checked = true;
-            document.getElementById('permDebit').checked = true;
-            document.getElementById('permGencode').checked = true;
-            document.getElementById('permExcel').checked = true;
-            document.getElementById('permUsers').checked = false;
-        });
+        if(fbKey === "") {
+            // 🆕 New User Mode
+            let isDuplicate = allUsersList.some(x => x.userId === uid);
+            if(isDuplicate) { alert("This User ID is already taken!"); return; }
+
+            database.ref('systemUserRegistry').push(userData).then(() => {
+                alert("🎉 Staff User successfully registered on Cloud!");
+                resetUserForm();
+            });
+        } else {
+            // 🛠️ Edit Mode (Update Powers)
+            database.ref('systemUserRegistry/' + fbKey).set(userData).then(() => {
+                alert("🎯 Staff Powers and Profile Updated Successfully on Cloud!");
+                resetUserForm();
+            });
+        }
     });
 
     function renderUsersTable() {
@@ -161,7 +175,7 @@
             return;
         }
 
-        allUsersList.forEach((user) => {
+        allUsersList.forEach((user, idx) => {
             let pStr = [];
             if(user.permissions) {
                 if(user.permissions.add) pStr.push("Inward");
@@ -171,27 +185,79 @@
                 if(user.permissions.users) pStr.push("User-Mgmt");
             }
             
-            let actionBtn = user.userId === "k88rakesh" ? 
-                `<span style="color:#16a34a; font-weight:bold;">Master Admin</span>` : 
-                `<button type="button" class="btn-delete-user" onclick="deleteUser('${user.fbKey}', '${user.userId}')">Delete</button>`;
+            let actionBtn = "";
+            if(user.userId === "k88rakesh") {
+                actionBtn = `<span style="color:#16a34a; font-weight:bold;">Master Admin</span>`;
+            } else {
+                actionBtn = `
+                    <button type="button" class="btn-edit-user" onclick="editUserPowers(${idx})">Edit Power</button>
+                    <button type="button" class="btn-delete-user" onclick="deleteUser('${user.fbKey}', '${user.userId}')">Delete</button>
+                `;
+            }
 
             tbody.innerHTML += `<tr>
                 <td><b>${user.name}</b></td>
                 <td><code>${user.userId}</code></td>
                 <td>${user.password}</td>
-                <td><small>${pStr.join(', ') || 'No Permissions'}</small></td>
+                <td><small><b>${pStr.join(', ') || 'No Permissions (Blocked)'}</b></small></td>
                 <td>${actionBtn}</td>
             </tr>`;
         });
     }
 
+    // 📝 एडिट पावर बटन दबाने का लॉजिक
+    function editUserPowers(idx) {
+        const user = allUsersList[idx];
+        document.getElementById('editFirebaseKey').value = user.fbKey;
+        document.getElementById('editUserIndex').value = idx;
+        
+        document.getElementById('staffName').value = user.name;
+        document.getElementById('staffUserId').value = user.userId;
+        
+        // एडिट करते समय यूजर आईडी लॉक कर देंगे ताकि सिस्टम क्रेडेंशियल्स सुरक्षित रहें
+        document.getElementById('staffUserId').setAttribute('readonly', 'true');
+        document.getElementById('staffUserId').style.background = '#e2e8f0';
+        document.getElementById('staffPassword').value = user.password;
+
+        // पुराने चेकबॉक्सेस की पावर्स लोड करना
+        let p = user.permissions || {};
+        document.getElementById('permAdd').checked = !!p.add;
+        document.getElementById('permDebit').checked = !!p.debit;
+        document.getElementById('permGencode').checked = !!p.gencode;
+        document.getElementById('permExcel').checked = !!p.excel;
+        document.getElementById('permUsers').checked = !!p.users;
+
+        document.getElementById('formTitleUsers').innerText = `🛠️ Modify Access Permissions for: ${user.name}`;
+        document.getElementById('btnSubmitUser').innerText = "Update & Save Staff Permissions";
+        document.getElementById('btnSubmitUser').style.backgroundColor = "#0284c7";
+        document.getElementById('btnCancelUserEdit').style.display = "inline-block";
+        document.getElementById('userRegistrationForm').scrollIntoView({ behavior: 'smooth' });
+    }
+
     function deleteUser(fbKey, uid) {
-        if(confirm(`Are you sure you want to delete user "${uid}"?`)) {
+        if(confirm(`Are you sure you want to permanently delete user "${uid}"?`)) {
             database.ref('systemUserRegistry/' + fbKey).remove().then(() => {
-                alert("🗑️ User deleted successfully.");
+                alert("🗑️ User deleted successfully from Cloud.");
+                resetUserForm();
             });
         }
     }
+
+    function resetUserForm() {
+        document.getElementById('editFirebaseKey').value = "";
+        document.getElementById('editUserIndex').value = "-1";
+        document.getElementById('userRegistrationForm').reset();
+        
+        document.getElementById('staffUserId').removeAttribute('readonly');
+        document.getElementById('staffUserId').style.background = '#fff';
+        
+        document.getElementById('formTitleUsers').innerText = "👥 Staff User Management Registry (Cloud Sync)";
+        document.getElementById('btnSubmitUser').innerText = "Register & Save Staff User";
+        document.getElementById('btnSubmitUser').style.backgroundColor = "#1e3a8a";
+        document.getElementById('btnCancelUserEdit').style.display = "none";
+    }
+
+    function cancelUserEditMode() { resetUserForm(); }
 </script>
 </body>
 </html>
