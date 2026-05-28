@@ -206,6 +206,28 @@
 
     document.getElementById('stockForm').addEventListener('submit', function(e) {
         e.preventDefault();
+
+        const idx = parseInt(document.getElementById('editRowIndex').value);
+        const fbKey = document.getElementById('editFirebaseKey').value;
+
+        const currentBillNo = document.getElementById('billNo').value.trim().toUpperCase();
+        const currentGateInNo = document.getElementById('gateInNo').value.trim().toUpperCase();
+        const currentBillDate = document.getElementById('billDate').value;
+
+        // 🛡️ लाइव डुप्लीकेट सुरक्षा चक्र (सिर्फ नई एंट्री करते समय चेक होगा, एडिट के समय नहीं)
+        if (idx === -1) {
+            let isDuplicate = stockData.some(voucher => 
+                voucher.billNo === currentBillNo && 
+                voucher.gateInNo === currentGateInNo && 
+                voucher.billDate === currentBillDate
+            );
+
+            if (isDuplicate) {
+                alert(`🚨 ERROR: Duplicate Entry Detected!\n\nThis Invoice No. [ ${currentBillNo} ] with Gate-In No. [ ${currentGateInNo} ] on Date [ ${currentBillDate} ] is already registered on Live Cloud!\n\nPlease check your file or records.`);
+                return; // एंट्री को यहीं रोक देगा, आगे सेव नहीं होने देगा
+            }
+        }
+
         if(tempGridItems.length === 0) {
             const code = document.getElementById('gridModelCode').value.trim().toUpperCase();
             const name = document.getElementById('gridModelName').value.trim();
@@ -217,16 +239,13 @@
             } else { alert("Please enter at least one item!"); return; }
         }
 
-        const idx = parseInt(document.getElementById('editRowIndex').value);
-        const fbKey = document.getElementById('editFirebaseKey').value;
-
         const masterVoucher = {
             companyName: document.getElementById('companyName').value.trim().toUpperCase(), 
             poNo: document.getElementById('poNo').value.trim().toUpperCase(),
-            billNo: document.getElementById('billNo').value.trim().toUpperCase(), 
-            billDate: document.getElementById('billDate').value,
+            billNo: currentBillNo, 
+            billDate: currentBillDate,
             gateInDate: document.getElementById('gateInDate').value, 
-            gateInNo: document.getElementById('gateInNo').value.trim().toUpperCase(),
+            gateInNo: currentGateInNo,
             gridItems: [...tempGridItems]
         };
 
