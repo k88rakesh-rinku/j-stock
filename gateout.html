@@ -17,6 +17,45 @@
         .btn-delete-action:hover { background-color: #b91c1c; }
         .btn-print-receipt { background-color: #007bff; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
 
+        /* 🎯 सर्च बार और ड्रॉपडाउन पैनल की नई सीएसएस स्टाइलिंग */
+        .table-filter-panel {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f1f5f9;
+            padding: 10px 15px;
+            border-radius: 6px 6px 0 0;
+            border: 1px solid #cbd5e1;
+            border-bottom: none;
+            margin-top: 25px;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        .search-input-box {
+            padding: 8px 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            font-size: 13px;
+            width: 280px;
+            text-transform: uppercase;
+        }
+        .limit-dropdown-select {
+            padding: 7px 10px;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            font-size: 13px;
+            cursor: pointer;
+            background: #fff;
+            font-weight: bold;
+        }
+        .grid-po-input {
+            width: 100%;
+            padding: 5px;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
         /* 🔥 1/4 A4 साइज प्रिंटिंग का सीएसएस */
         @media print {
             body * { visibility: hidden; }
@@ -72,7 +111,15 @@
         <div style="overflow-x:auto;">
             <table class="grid-table">
                 <thead style="background-color: var(--secondary); color: white;">
-                    <tr><th>Stock Pool Type</th><th>Model Part Code 🔍</th><th>Item Name</th><th>Qty</th><th>S/N Track</th><th>Action</th></tr>
+                    <tr>
+                        <th style="width: 15%;">Stock Pool Type</th>
+                        <th style="width: 15%;">Model Part Code 🔍</th>
+                        <th style="width: 25%;">Item Name</th>
+                        <th style="width: 10%;">Qty</th>
+                        <th style="width: 10%;">S/N Track</th>
+                        <th style="width: 20%;">PO Number / Ref</th>
+                        <th style="width: 5%;">Action</th>
+                    </tr>
                 </thead>
                 <tbody id="gateoutItemsBody"></tbody>
             </table>
@@ -82,10 +129,25 @@
         <button type="button" id="btnCancelEdit" class="btn-submit" style="background-color:#64748b; display:none; margin-top:10px; width: 100%;" onclick="cancelEditMode()">Cancel Update</button>
     </form>
 
-    <div class="table-responsive">
-        <table class="history-table">
+    <div class="table-filter-panel">
+        <div>
+            <input type="text" id="liveTableSearchBox" class="search-input-box" placeholder="🔍 Search Voucher, Vehicle, Code..." oninput="triggerTableRender()">
+        </div>
+        <div>
+            <label style="font-weight: bold; font-size: 13px; color:#475569;">Show Records:</label>
+            <select id="liveTableLimitSelect" class="limit-dropdown-select" onchange="triggerTableRender()">
+                <option value="5">5 Bills (Default)</option>
+                <option value="10">10 Bills</option>
+                <option value="15">15 Bills</option>
+                <option value="ALL">Show All Bills</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="table-responsive" style="margin-top: 0;">
+        <table class="history-table" style="border-top: none;">
             <thead style="background-color: var(--secondary); color: white;">
-                <tr><th>Voucher No</th><th>Date</th><th>Vehicle No</th><th>Party Target</th><th>Items Dispatched</th><th>Action Controls</th></tr>
+                <tr><th>Voucher No</th><th>Date</th><th>Vehicle No</th><th>Party Target</th><th>Items Dispatched & PO Info</th><th>Action Controls</th></tr>
             </thead>
             <tbody id="goHistoryBody">
                 <tr><td colspan="6" style="text-align:center; padding:15px; color:#64748b;">Loading Live Cloud Records...</td></tr>
@@ -129,6 +191,8 @@
                 gateoutData.push({ fbKey: key, ...data[key] });
             }
         }
+        // 🔥 न्यू एंट्री हमेशा टॉप (Top) पर रखने के लिए ऐरे को उल्टा कर दिया है
+        gateoutData.reverse();
         renderHistory();
     });
 
@@ -141,6 +205,7 @@
             <td><input type="text" required class="go-name"></td>
             <td><input type="number" min="1" required class="go-qty" oninput="clearSN(this)"></td>
             <td><button type="button" class="btn-sn-setup" onclick="openSNModal(this)">S/N</button></td>
+            <td><input type="text" class="grid-po-input" placeholder="e.g. PO Ref Num" style="text-transform:uppercase;"></td>
             <td><button type="button" class="btn-row-remove" onclick="this.closest('tr').remove()">×</button></td>`;
         body.appendChild(tr);
     }
@@ -180,6 +245,7 @@
             const code = row.querySelector('.go-code').value.toUpperCase();
             const qty = parseInt(row.querySelector('.go-qty').value); 
             const sn = row.querySelector('.btn-sn-setup').getAttribute('data-sn');
+            const itemPoNum = row.querySelector('.grid-po-input').value.trim().toUpperCase();
             
             if(pool === 'FRESH') {
                 let match = stockData.find(s => s.modelCode === code);
@@ -224,7 +290,14 @@
                 }
             }
 
-            items.push({ pool, code, name: row.querySelector('.go-name').value, qty, serials: sn ? JSON.parse(sn) : [] });
+            items.push({ 
+                pool, 
+                code, 
+                name: row.querySelector('.go-name').value, 
+                qty, 
+                poNumber: itemPoNum, // 💾 आइटम स्तर पर PO नंबर सेव होगा
+                serials: sn ? JSON.parse(sn) : [] 
+            });
         });
 
         if(deficit) {
@@ -238,6 +311,8 @@
         localStorage.setItem('freshStockData', JSON.stringify(stockData));
         localStorage.setItem('reworkStockData', JSON.stringify(reworkData));
 
+        let originalCreator = (idx !== -1 && gateoutData[idx]) ? (gateoutData[idx].createdBy || "k88rakesh") : session.userId;
+
         const entry = { 
             voucherNo: idx === -1 ? (gateoutData.length + 1) : gateoutData[idx].voucherNo, 
             date: document.getElementById('goDate').value, 
@@ -245,7 +320,8 @@
             partyName: document.getElementById('goPartyName').value.trim().toUpperCase(), 
             deliveryShipping: document.getElementById('goDeliveryShipping').value.trim().toUpperCase(), 
             goSendBy: document.getElementById('goSendBy').value.trim().toUpperCase(),
-            gridItems: items 
+            gridItems: items,
+            createdBy: originalCreator
         };
 
         if(idx === -1) {
@@ -302,6 +378,7 @@
             const tr = document.createElement('tr');
             const snText = item.serials && item.serials.length > 0 ? `✔ (${item.serials.length})` : 'S/N';
             const snClass = item.serials && item.serials.length > 0 ? 'btn-sn-setup configured' : 'btn-sn-setup';
+            const itemPoValue = item.poNumber || "";
 
             tr.innerHTML = `
                 <td>
@@ -314,6 +391,7 @@
                 <td><input type="text" required class="go-name" value="${item.name}"></td>
                 <td><input type="number" min="1" required class="go-qty" value="${item.qty}" oninput="clearSN(this)"></td>
                 <td><button type="button" class="${snClass}" data-sn='${JSON.stringify(item.serials || [])}' onclick="openSNModal(this)">${snText}</button></td>
+                <td><input type="text" class="grid-po-input" value="${itemPoValue}" placeholder="e.g. PO Ref Num" style="text-transform:uppercase;"></td>
                 <td><button type="button" class="btn-row-remove" onclick="this.closest('tr').remove()">×</button></td>`;
             body.appendChild(tr);
         });
@@ -339,15 +417,23 @@
 
     function cancelEditMode() { resetGateoutForm(); }
 
+    // 🔒 पासवर्ड लॉक्ड डिस्पैच डिलीट इंजन
     function deleteGateoutRow(idx) {
-        if(confirm("🚨 WARNING: Deleting this cloud record will add the dispatched stock back to inventory. Proceed?")) {
+        const passwordInput = prompt("🚨 Security Check:\nEnter Secret Password to Delete this Dispatch Record & Revert Stock:");
+        if (passwordInput === null) return;
+
+        if (passwordInput === "7004") {
             restoreStockPools(idx);
             localStorage.setItem('freshStockData', JSON.stringify(stockData));
             localStorage.setItem('reworkStockData', JSON.stringify(reworkData));
             
             const fbKey = gateoutData[idx].fbKey;
-            database.ref('gateoutStockData/' + fbKey).remove();
-            resetGateoutForm();
+            database.ref('gateoutStockData/' + fbKey).remove().then(() => {
+                alert("🗑️ Success: Dispatch entry canceled and stock successfully returned to Pools!");
+                resetGateoutForm();
+            });
+        } else {
+            alert("❌ Access Denied: Incorrect Password! Data is safe.");
         }
     }
 
@@ -355,7 +441,8 @@
         const shell = document.getElementById('printSection');
         let lines = ''; 
         e.gridItems.forEach(i => { 
-            lines += `• <b>${i.name}</b> [${i.code}] - Pool: ${i.pool} - Qty: ${i.qty} NOS (S/Ns: ${(i.serials || []).join(', ') || 'N/A'})<br>`; 
+            let poText = i.poNumber ? ` | PO: ${i.poNumber}` : '';
+            lines += `• <b>${i.name}</b> [${i.code}] - Pool: ${i.pool}${poText} - Qty: ${i.qty} NOS (S/Ns: ${(i.serials || []).join(', ') || 'N/A'})<br>`; 
         });
 
         shell.innerHTML = `
@@ -384,14 +471,62 @@
         window.print();
     }
 
+    function triggerTableRender() {
+        renderHistory();
+    }
+
     function renderHistory() {
         const b = document.getElementById('goHistoryBody'); b.innerHTML = '';
         if(gateoutData.length === 0) {
             b.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:15px; color:#64748b;">No dispatch records found on Cloud.</td></tr>`;
             return;
         }
-        gateoutData.forEach((g, idx) => {
-            let summary = g.gridItems.map(i=>`${i.name} (<b>${i.qty}</b>)`).join(', ');
+
+        const searchStr = document.getElementById('liveTableSearchBox').value.trim().toUpperCase();
+        const limitVal = document.getElementById('liveTableLimitSelect').value;
+
+        // 🔍 सर्च फ़िल्टर इंजन (वाउचर नंबर, व्हीकल नंबर, कोड, नाम)
+        let filteredList = gateoutData.filter(g => {
+            const matchVoucher = g.voucherNo ? `GVM-GO-${g.voucherNo}`.toUpperCase().includes(searchStr) : false;
+            const matchVehicle = g.vehicleNo ? g.vehicleNo.toUpperCase().includes(searchStr) : false;
+            let itemsList = g.gridItems || [];
+            const matchItems = itemsList.some(item => {
+                const matchCode = item.code ? item.code.toUpperCase().includes(searchStr) : false;
+                const matchName = item.name ? item.name.toUpperCase().includes(searchStr) : false;
+                const matchPo = item.poNumber ? item.poNumber.toUpperCase().includes(searchStr) : false;
+                return matchCode || matchName || matchPo;
+            });
+            return matchVoucher || matchVehicle || matchItems;
+        });
+
+        if(filteredList.length === 0) {
+            b.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:15px; color:#64748b;">No matching search records found.</td></tr>`;
+            return;
+        }
+
+        let viewList = filteredList;
+        if (limitVal !== "ALL") {
+            viewList = filteredList.slice(0, parseInt(limitVal));
+        }
+
+        viewList.forEach((g) => {
+            let origIdx = gateoutData.findIndex(x => x.fbKey === g.fbKey);
+            
+            let summary = "";
+            g.gridItems.forEach(i => {
+                summary += `• ${i.name} [<code>${i.code}</code>] (<b>${i.qty}</b>) - <small>${i.pool}</small>`;
+                if(i.poNumber) {
+                    summary += ` <span style="color:#0284c7; font-size:11px; font-weight:bold; background:#f0f9ff; padding:1px 4px; border-radius:3px; border:1px solid #bae6fd; margin-left:5px;">📋 PO: ${i.poNumber}</span>`;
+                }
+                summary += `<br>`;
+            });
+
+            let adminBadgeHtml = "";
+            if (session.userId === "k88rakesh") {
+                let creator = g.createdBy ? g.createdBy : "System";
+                adminBadgeHtml = `<div style="margin-bottom:5px;"><span style="font-size:10px; color:#16a34a; background:#f0fdf4; padding:2px 6px; border-radius:3px; border:1px solid #bbf7d0; font-weight:bold;">👤 User: ${creator}</span></div>`;
+            }
+
             b.innerHTML += `<tr>
                 <td>GVM-GO-${g.voucherNo}</td>
                 <td>${g.date}</td>
@@ -399,9 +534,10 @@
                 <td><b>${g.partyName}</b></td>
                 <td style="text-align:left; font-size:12px;">${summary}</td>
                 <td>
+                    ${adminBadgeHtml}
                     <button type="button" class="btn-print-receipt" onclick='printDispatchPass(${JSON.stringify(g)})'>🖨️ Print</button>
-                    <button type="button" class="btn-edit-action" onclick="editGateoutRow(${idx})">Edit</button>
-                    <button type="button" class="btn-delete-action" onclick="deleteGateoutRow(${idx})">Delete</button>
+                    <button type="button" class="btn-edit-action" onclick="editGateoutRow(${origIdx})">Edit</button>
+                    <button type="button" class="btn-delete-action" onclick="deleteGateoutRow(${origIdx})">Delete</button>
                 </td>
             </tr>`;
         });
