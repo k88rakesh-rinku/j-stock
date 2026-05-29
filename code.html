@@ -12,7 +12,21 @@
         .btn-edit-action:hover { background-color: #0369a1; }
         .btn-delete-action { background-color: #dc2626; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; }
         .btn-delete-action:hover { background-color: #b91c1c; }
-        .active-code { background-color: #6f42c1 !important; color: white !important; }
+        .active-code { background-color: #1e3a8a !important; color: white !important; font-weight: bold; }
+        
+        /* 📑 PO सब-फ़ॉर्म बॉक्स की सुंदर स्टाइलिंग */
+        .po-input-box {
+            background: #f8fafc;
+            border: 2px dashed #cbd5e1;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 15px;
+            display: none;
+            grid-column: span 1;
+        }
+        .po-box-open { display: block !important; border-color: #0284c7; background: #f0f9ff; }
+        .badge-po-yes { background: #0284c7; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+        .badge-po-no { background: #64748b; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -27,12 +41,12 @@
         <a href="rework.html" class="tab-link">🛠️ Gate In (Rework)</a>
         <a href="gateout.html" class="tab-link">🚪 Gate Out (Dispatch)</a>
         <a href="debit.html" class="tab-link">🧾 Debit Note (Vendor)</a>
-        <a href="code.html" class="tab-link" style="background-color: #1e3a8a; color: white; font-weight: bold;">🆕 Generate Code</a>
+        <a href="code.html" class="tab-link active-code">🆕 Generate Code</a>
         <a href="ledger.html" class="tab-link">📊 Master Ledger & History</a>
         <a href="users.html" class="tab-link">👥 Manage Users</a>
     </div>
 
-    <h3 id="formTitleCatalog" style="color:#6f42c1; margin-top:0;">Generate Custom Item Code (Universal Master)</h3>
+    <h3 id="formTitleCatalog" style="color:#1e3a8a; margin-top:0;">Generate Custom Item Code (Universal Master)</h3>
     
     <form id="codeGeneratorForm">
         <input type="hidden" id="editFirebaseKey" value="">
@@ -50,24 +64,52 @@
                 <label>New Item Model Name <span>*</span></label>
                 <input type="text" id="newModelName" placeholder="e.g., NTC SENSOR" required style="text-transform:uppercase;">
             </div>
-            <button type="submit" id="btnSubmitCatalog" class="btn-submit" style="background-color: #6f42c1;">Generate & Linked Code</button>
+            
+            <div class="form-group">
+                <label>Has Purchase Order (PO)? <span>*</span></label>
+                <select id="hasPO" required onchange="togglePOFields()">
+                    <option value="NO">NO</option>
+                    <option value="YES">YES</option>
+                </select>
+            </div>
+        </div>
+
+        <div id="poFormBox" class="po-input-box">
+            <h4 style="margin: 0 0 10px 0; color:#0369a1;">📋 Link Purchase Order (PO) Information</h4>
+            <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                <div class="form-group" style="flex: 1; min-width: 180px;">
+                    <label>PO Number <span>*</span></label>
+                    <input type="text" id="poNumber" placeholder="e.g., PO-2026-88" style="text-transform:uppercase;">
+                </div>
+                <div class="form-group" style="flex: 1; min-width: 150px;">
+                    <label>Total PO Ordered Qty <span>*</span></label>
+                    <input type="number" min="1" id="poTotalQty" placeholder="e.g., 1000">
+                </div>
+            </div>
+        </div>
+
+        <div style="margin-top: 15px;">
+            <button type="submit" id="btnSubmitCatalog" class="btn-submit" style="background-color: #1e3a8a;">Generate & Linked Code</button>
             <button type="button" id="btnCancelCatalogEdit" class="btn-submit" style="background-color:#64748b; display:none; margin-top:10px;" onclick="cancelCatalogEditMode()">Cancel Update</button>
         </div>
     </form>
 
     <div class="table-responsive" style="margin-top: 30px;">
-        <h3 style="color:#6f42c1; margin-bottom: 10px;">📋 Generated Codes Master Catalog List</h3>
+        <h3 style="color:#1e3a8a; margin-bottom: 10px;">📋 Generated Codes & PO Master Catalog List</h3>
         <table class="history-table">
-            <thead style="background-color: #6f42c1; color: white;">
+            <thead style="background-color: #1e3a8a; color: white;">
                 <tr>
                     <th>Company Name</th>
                     <th>Model Part Code</th>
                     <th>Model Item Description / Name</th>
+                    <th>PO Linked?</th>
+                    <th>PO Number</th>
+                    <th>Total PO Qty</th>
                     <th style="width: 20%;">Action Controls</th>
                 </tr>
             </thead>
             <tbody id="catalogTableBody">
-                <tr><td colspan="4" style="text-align:center; padding:15px; color:#64748b;">Connecting Cloud Database...</td></tr>
+                <tr><td colspan="7" style="text-align:center; padding:15px; color:#64748b;">Connecting Cloud Database...</td></tr>
             </tbody>
         </table>
     </div>
@@ -107,11 +149,10 @@
             }
             localStorage.setItem('systemMasterCatalog', JSON.stringify(oldStructuredSync));
         } else {
-            // Seed default catalog if database is fresh
             localStorage.setItem('systemMasterCatalog', JSON.stringify(defaultCatalog));
             for(let key in defaultCatalog) {
                 defaultCatalog[key].forEach(x => {
-                    database.ref('systemMasterCatalogFlat').push({ company: key, code: x.code, name: x.name });
+                    database.ref('systemMasterCatalogFlat').push({ company: key, code: x.code, name: x.name, hasPO: "NO", poNumber: "", poTotalQty: 0 });
                 });
             }
         }
@@ -126,25 +167,60 @@
         uniqueCompanies.forEach(comp => { list.innerHTML += `<option value="${comp}">`; });
     }
 
+    // 🔄 PO बॉक्स दिखाने या छिपाने का लॉजिक
+    function togglePOFields() {
+        const hasPO = document.getElementById('hasPO').value;
+        const box = document.getElementById('poFormBox');
+        if(hasPO === "YES") {
+            box.classList.add('po-box-open');
+            document.getElementById('poNumber').required = true;
+            document.getElementById('poTotalQty').required = true;
+        } else {
+            box.classList.remove('po-box-open');
+            document.getElementById('poNumber').required = false;
+            document.getElementById('poTotalQty').required = false;
+            document.getElementById('poNumber').value = '';
+            document.getElementById('poTotalQty').value = '';
+        }
+    }
+
     document.getElementById('codeGeneratorForm').addEventListener('submit', function(e) {
         e.preventDefault();
         const fbKey = document.getElementById('editFirebaseKey').value;
         const comp = document.getElementById('newCompanyInput').value.trim().toUpperCase();
         const code = document.getElementById('newPartCode').value.trim().toUpperCase();
         const name = document.getElementById('newModelName').value.trim().toUpperCase();
+        const poStatus = document.getElementById('hasPO').value;
+        
+        let pNum = "";
+        let pQty = 0;
 
-        const modelData = { company: comp, code: code, name: name };
+        if(poStatus === "YES") {
+            pNum = document.getElementById('poNumber').value.trim().toUpperCase();
+            pQty = parseInt(document.getElementById('poTotalQty').value) || 0;
+            if(!pNum || pQty <= 0) { alert("Please enter valid PO configuration details!"); return; }
+        }
+
+        const modelData = { 
+            company: comp, 
+            code: code, 
+            name: name,
+            hasPO: poStatus,
+            poNumber: pNum,
+            poTotalQty: pQty,
+            lastUpdatedBy: session.userId
+        };
 
         if(fbKey === "") {
             let isDuplicate = flatCatalogList.some(x => x.company === comp && x.code === code);
             if(isDuplicate) { alert("This item code already exists under this company register!"); return; }
             database.ref('systemMasterCatalogFlat').push(modelData).then(() => {
-                alert("🎉 Success! Code generated.");
+                alert("🎉 Success! Code generated & PO Saved.");
                 resetCatalogForm();
             });
         } else {
             database.ref('systemMasterCatalogFlat/' + fbKey).set(modelData).then(() => {
-                alert("🎯 Item Model Name Updated!");
+                alert("🎯 Item Model Configuration Updated!");
                 resetCatalogForm();
             });
         }
@@ -154,17 +230,28 @@
         const tbody = document.getElementById('catalogTableBody');
         tbody.innerHTML = '';
         if(flatCatalogList.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:15px; color:#64748b;">No items registered.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:15px; color:#64748b;">No items registered.</td></tr>`;
             return;
         }
-        flatCatalogList.sort((a,b) => a.company.localeCompare(b.company));
-        flatCatalogList.forEach((item, idx) => {
+        
+        // लेटेस्ट एंट्री को ऊपर दिखाने के लिए लिस्ट को उल्टा कर रहे हैं
+        let sortedList = [...flatCatalogList].reverse();
+        
+        sortedList.forEach((item) => {
+            let origIdx = flatCatalogList.findIndex(x => x.fbKey === item.fbKey);
+            let poBadge = item.hasPO === "YES" ? `<span class="badge-po-yes">YES</span>` : `<span class="badge-po-no">NO</span>`;
+            let displayPoNo = item.poNumber ? item.poNumber : "-";
+            let displayPoQty = item.poTotalQty ? item.poTotalQty : "-";
+
             tbody.innerHTML += `<tr>
                 <td><b>${item.company}</b></td>
                 <td><code>${item.code}</code></td>
                 <td>${item.name}</td>
+                <td>${poBadge}</td>
+                <td><b>${displayPoNo}</b></td>
+                <td><b>${displayPoQty}</b></td>
                 <td>
-                    <button type="button" class="btn-edit-action" onclick="editCatalogItem(${idx})">Edit Name</button>
+                    <button type="button" class="btn-edit-action" onclick="editCatalogItem(${origIdx})">Edit Configuration</button>
                     <button type="button" class="btn-delete-action" onclick="deleteCatalogItem('${item.fbKey}', '${item.code}')">Delete</button>
                 </td>
             </tr>`;
@@ -176,22 +263,39 @@
         document.getElementById('editFirebaseKey').value = item.fbKey;
         document.getElementById('newCompanyInput').value = item.company;
         document.getElementById('newPartCode').value = item.code;
+        
         document.getElementById('newCompanyInput').setAttribute('readonly', 'true');
         document.getElementById('newCompanyInput').style.background = '#e2e8f0';
         document.getElementById('newPartCode').setAttribute('readonly', 'true');
         document.getElementById('newPartCode').style.background = '#e2e8f0';
+        
         document.getElementById('newModelName').value = item.name;
-        document.getElementById('formTitleCatalog').innerText = "🛠️ Modify Item Model Name";
-        document.getElementById('btnSubmitCatalog').innerText = "Update Name";
+        
+        // एडिट मोड में पुराना PO डेटा लोड करना
+        const pStatus = item.hasPO ? item.hasPO : "NO";
+        document.getElementById('hasPO').value = pStatus;
+        togglePOFields();
+        
+        if(pStatus === "YES") {
+            document.getElementById('poNumber').value = item.poNumber || "";
+            document.getElementById('poTotalQty').value = item.poTotalQty || "";
+        }
+
+        document.getElementById('formTitleCatalog').innerText = "🛠️ Modify Item Model & PO Configuration";
+        document.getElementById('btnSubmitCatalog').innerText = "Update Configuration";
         document.getElementById('btnCancelCatalogEdit').style.display = "inline-block";
+        document.getElementById('codeGeneratorForm').scrollIntoView({ behavior: 'smooth' });
     }
 
     function deleteCatalogItem(fbKey, code) {
-        if(confirm(`Are you sure you want to delete code "${code}"?`)) {
+        const passwordInput = prompt(`🔑 Security Check:\nEnter Secret Password to Delete Code/PO Master "${code}":`);
+        if (passwordInput === "7004") {
             database.ref('systemMasterCatalogFlat/' + fbKey).remove().then(() => {
-                alert("🗑️ Item code deleted.");
+                alert("🗑️ Master Code and linked PO data completely wiped out.");
                 resetCatalogForm();
             });
+        } else if (passwordInput !== null) {
+            alert("❌ Access Denied: Incorrect Password!");
         }
     }
 
@@ -202,6 +306,7 @@
         document.getElementById('newCompanyInput').style.background = '#fff';
         document.getElementById('newPartCode').removeAttribute('readonly');
         document.getElementById('newPartCode').style.background = '#fff';
+        document.getElementById('poFormBox').classList.remove('po-box-open');
         document.getElementById('formTitleCatalog').innerText = "Generate Custom Item Code (Universal Master)";
         document.getElementById('btnSubmitCatalog').innerText = "Generate & Linked Code";
         document.getElementById('btnCancelCatalogEdit').style.display = "none";
