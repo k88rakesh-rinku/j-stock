@@ -18,6 +18,38 @@
         .btn-edit-action { background-color: #0284c7; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
         .btn-delete-action { background-color: #dc2626; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; }
         
+        /* 🎯 सर्च बार और ड्रॉपडाउन पैनल की नई सीएसएस स्टाइलिंग */
+        .table-filter-panel {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f1f5f9;
+            padding: 10px 15px;
+            border-radius: 6px 6px 0 0;
+            border: 1px solid #cbd5e1;
+            border-bottom: none;
+            margin-top: 25px;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        .search-input-box {
+            padding: 8px 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            font-size: 13px;
+            width: 260px;
+            text-transform: uppercase;
+        }
+        .limit-dropdown-select {
+            padding: 7px 10px;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            font-size: 13px;
+            cursor: pointer;
+            background: #fff;
+            font-weight: bold;
+        }
+
         @media print {
             body * { visibility: hidden; }
             #printSection, #printSection * { visibility: visible; }
@@ -115,8 +147,24 @@
         <button class="btn-excel" onclick="exportFreshToExcel()">Download Excel</button>
     </div>
 
-    <div class="table-responsive">
-        <table class="history-table">
+    <!-- 🔍 स्मार्ट सर्च बॉक्स और व्यू-लिमिट फ़िल्टर पैनल (नया जोड़ा गया) -->
+    <div class="table-filter-panel">
+        <div>
+            <input type="text" id="liveTableSearchBox" class="search-input-box" placeholder="🔍 Search Company or Bill No..." oninput="triggerTableRender()">
+        </div>
+        <div>
+            <label style="font-weight: bold; font-size: 13px; color:#475569;">Show Records:</label>
+            <select id="liveTableLimitSelect" class="limit-dropdown-select" onchange="triggerTableRender()">
+                <option value="5">5 Bills (Default)</option>
+                <option value="10">10 Bills</option>
+                <option value="15">15 Bills</option>
+                <option value="ALL">Show All Bills</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="table-responsive" style="margin-top: 0;">
+        <table class="history-table" style="border-top: none;">
             <thead style="background-color: #007bff; color: white;">
                 <tr>
                     <th>Company</th><th>Bill / PO Info</th><th>Dates</th><th>Gate-In No</th><th>Items Inwarded Details</th><th>Action</th>
@@ -162,6 +210,8 @@
                 stockData.push({ fbKey: key, ...data[key] });
             }
         }
+        // 🔥 न्यू बिल को हमेशा टॉप (Top) पर रखने के लिए ऐरे को उल्टा कर दिया है
+        stockData.reverse();
         renderTable();
     });
 
@@ -214,7 +264,7 @@
         const currentGateInNo = document.getElementById('gateInNo').value.trim().toUpperCase();
         const currentBillDate = document.getElementById('billDate').value;
 
-        // 🛡️ लाइव डुप्लीकेट सुरक्षा चक्र (सिर्फ नई एंट्री करते समय चेक होगा, एडिट के समय नहीं)
+        // 🛡️ लाइव डुप्लीकेट सुरक्षा चक्र
         if (idx === -1) {
             let isDuplicate = stockData.some(voucher => 
                 voucher.billNo === currentBillNo && 
@@ -224,7 +274,7 @@
 
             if (isDuplicate) {
                 alert(`🚨 ERROR: Duplicate Entry Detected!\n\nThis Invoice No. [ ${currentBillNo} ] with Gate-In No. [ ${currentGateInNo} ] on Date [ ${currentBillDate} ] is already registered on Live Cloud!\n\nPlease check your file or records.`);
-                return; // एंट्री को यहीं रोक देगा, आगे सेव नहीं होने देगा
+                return;
             }
         }
 
@@ -261,6 +311,11 @@
         cancelEditMode(); 
     });
 
+    // 🔄 फ़िल्टर चेंज ट्रिगर करने वाला फ़ंक्शन
+    function triggerTableRender() {
+        renderTable();
+    }
+
     function renderTable() {
         const body = document.getElementById('tableBody'); body.innerHTML = '';
         document.getElementById('lowStockAlert').style.display = 'none';
@@ -270,7 +325,34 @@
             return;
         }
 
-        stockData.forEach((i, idx) => {
+        // 🔍 सर्च और ड्रॉपडाउन लिमिट की वैल्यू निकालना
+        const searchStr = document.getElementById('liveTableSearchBox').value.trim().toUpperCase();
+        const limitVal = document.getElementById('liveTableLimitSelect').value;
+
+        // १. पहले सर्च बार के कीवर्ड से रिकॉर्ड्स को फ़िल्टर करेंगे
+        let filteredList = stockData.filter(i => {
+            return (i.companyName && i.companyName.includes(searchStr)) || 
+                   (i.billNo && i.billNo.includes(searchStr)) || 
+                   (i.gateInNo && i.gateInNo.includes(searchStr));
+        });
+
+        if(filteredList.length === 0) {
+            body.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:15px; color:#64748b;">No matching search records found.</td></tr>`;
+            return;
+        }
+
+        // २. ड्रॉपडाउन लिमिट के अनुसार ऐरे को कट (Slice) करना
+        let viewList = filteredList;
+        if (limitVal !== "ALL") {
+            const maxRows = parseInt(limitVal);
+            viewList = filteredList.slice(0, maxRows);
+        }
+
+        // ३. फाइनल फ़िल्टर किए हुए रिकॉर्ड्स को टेबल में दिखाना
+        viewList.forEach((i) => {
+            // ओरिजिनल stockData इंडेक्स ढूंढना ताकि एडिट/डिलीट बटन बिल्कुल सटीक काम करें
+            let origIdx = stockData.findIndex(x => x.fbKey === i.fbKey);
+
             let itemsHtml = "";
             let itemsList = i.gridItems || [{ modelCode: i.modelCode, modelName: i.modelName, qty: i.qty, receiveQty: i.receiveQty }];
             itemsList.forEach(item => {
@@ -281,8 +363,8 @@
                 <td><b>${i.companyName}</b></td><td>Bill: ${i.billNo}<br>PO: ${i.poNo}</td><td>Bill: ${i.billDate}<br>Gate-In: ${i.gateInDate}</td><td>${i.gateInNo}</td><td style="text-align:left;">${itemsHtml}</td>
                 <td>
                     <button type="button" class="btn-print-receipt" onclick='triggerGateInReceipt(${JSON.stringify(i)})'>🖨️ Print</button>
-                    <button type="button" class="btn-edit-action" onclick="editFreshRow(${idx})">Edit</button>
-                    <button type="button" class="btn-delete-action" onclick="deleteFreshRow(${idx})">Delete</button>
+                    <button type="button" class="btn-edit-action" onclick="editFreshRow(${origIdx})">Edit</button>
+                    <button type="button" class="btn-delete-action" onclick="deleteFreshRow(${origIdx})">Delete</button>
                 </td>
             </tr>`;
         });
@@ -381,7 +463,6 @@
         document.getElementById('freshFromDate').value = todayStr; document.getElementById('freshToDate').value = todayStr;
     }
     
-    // एक्सेल एक्सपोर्ट का पुराना लोकल लॉजिक बनाए रखा गया है
     function exportFreshToExcel() {
         let csv = "Company,Bill No,PO No,Bill Date,Gate-In Date,Gate-In No,ItemsDetails\n";
         stockData.forEach(i => {
