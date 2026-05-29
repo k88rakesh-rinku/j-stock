@@ -149,6 +149,7 @@
         <button class="btn-excel" onclick="exportFreshToExcel()">Download Excel</button>
     </div>
 
+    <!-- 🔍 स्मार्ट सर्च बॉक्स और व्यू-लिमिट फ़िल्टर पैनल (बिल, कोड और आइटम नाम के लिए) -->
     <div class="table-filter-panel">
         <div>
             <input type="text" id="liveTableSearchBox" class="search-input-box" placeholder="🔍 Search Bill No, Code or Item Name..." oninput="triggerTableRender()">
@@ -286,9 +287,12 @@
             const rQty = parseInt(document.getElementById('gridRecQty').value);
             if(code && name && !isNaN(bQty) && !isNaN(rQty)) {
                 if(bQty !== rQty) { alert("Error: Bill Qty and Receive Qty must match!"); return; }
-                tempGridItems.push({ modelCode: code, modelName: name, qty: bQty, receiveQty: rQty });
+                tempGridItems.push({ modelCode: code, modelCode, modelName: name, qty: bQty, receiveQty: rQty });
             } else { alert("Please enter at least one item!"); return; }
         }
+
+        // 👤 पुराने वाउचर को एडिट करते समय उसका मूल 'createdBy' यूजर ही बना रहेगा, नई एंट्री पर करंट सत्र की ID जाएगी
+        let originalCreator = (idx !== -1 && stockData[idx]) ? (stockData[idx].createdBy || "k88rakesh") : session.userId;
 
         const masterVoucher = {
             companyName: document.getElementById('companyName').value.trim().toUpperCase(), 
@@ -297,7 +301,9 @@
             billDate: currentBillDate,
             gateInDate: document.getElementById('gateInDate').value, 
             gateInNo: currentGateInNo,
-            gridItems: [...tempGridItems]
+            gridItems: [...tempGridItems],
+            // 🔒 यहाँ चुपके से डेटाबेस में यूज़र की ID सुरक्षित हो रही है भाई
+            createdBy: originalCreator
         };
 
         // 🎯 फायरबेस पर लाइव अपडेट या सेव लॉजिक
@@ -328,12 +334,10 @@
         const searchStr = document.getElementById('liveTableSearchBox').value.trim().toUpperCase();
         const limitVal = document.getElementById('liveTableLimitSelect').value;
 
-        // 🔍 १. सिर्फ बिल नंबर, मॉडल कोड या मॉडल नेम के आधार पर फ़िल्टर लॉजिक (कंपनी नाम हटा दिया गया है)
+        // 🔍 १. सिर्फ बिल नंबर, मॉडल कोड या मॉडल नेम के आधार पर फ़िल्टर लॉजिक
         let filteredList = stockData.filter(i => {
-            // बिल नंबर से मैच चेक करें
             const matchBill = i.billNo ? i.billNo.toUpperCase().includes(searchStr) : false;
             
-            // ग्रिड के अंदर के आइटम्स (कोड या नाम) से मैच चेक करें
             let itemsList = i.gridItems || [{ modelCode: i.modelCode, modelName: i.modelName }];
             const matchItems = itemsList.some(item => {
                 const matchCode = item.modelCode ? item.modelCode.toUpperCase().includes(searchStr) : false;
@@ -356,7 +360,7 @@
             viewList = filteredList.slice(0, maxRows);
         }
 
-        // ३. फाइनल फ़िल्टर किए हुए रिकॉर्ड्स को टेबल में दिखाना
+        // 🛡️ सुरक्षात्मक रेंडर इंजन: स्टाफ को एक्स्ट्रा कुछ नहीं दिखेगा, डेटा सुरक्षित रहेगा
         viewList.forEach((i) => {
             let origIdx = stockData.findIndex(x => x.fbKey === i.fbKey);
 
