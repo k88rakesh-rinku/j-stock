@@ -63,6 +63,10 @@
         .badge-dispatch-out { background-color: #6c757d; }
         .badge-debit-out { background-color: #dc3545; }
         
+        /* 🔵 PO प्रकार की विशिष्ट स्टाइलिंग */
+        .badge-po-pur { background-color: #16a34a; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+        .badge-po-sal { background-color: #b45309; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+        
         .summary-card-grid {
             display: flex;
             gap: 15px;
@@ -145,6 +149,28 @@
     </div>
 
     <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px;">
+        <h3 style="color:#1e3a8a; margin: 0;">📋 Live Purchase / Sale Orders (PO) Pending Balance Matrix</h3>
+    </div>
+    <div class="table-responsive" style="margin-top: 10px; margin-bottom: 30px;">
+        <table class="history-table" id="poBalanceLedgerTable" style="border: 2px solid #1e3a8a;">
+            <thead style="background-color: #1e3a8a; color: white;">
+                <tr>
+                    <th>PO Number</th>
+                    <th>PO Route Type</th>
+                    <th>Linked Item Code</th>
+                    <th>Item Description</th>
+                    <th>Total Ordered Qty</th>
+                    <th>Actual Executed Qty</th>
+                    <th>Pending PO Balance</th>
+                </tr>
+            </thead>
+            <tbody id="poLedgerBody">
+                <tr><td colspan="7" style="text-align:center; padding:12px; color:#64748b;">Processing Live Cloud PO Balances...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px;">
         <h3 style="color:var(--primary); margin: 0;">📋 Live Current Stock Stockrooms Overview</h3>
         <button class="btn-excel" onclick="exportStockLedgerToExcel()">📊 Download Stock Excel</button>
     </div>
@@ -191,30 +217,99 @@
     let reworkData = [];
     let gateoutData = [];
     let debitData = [];
+    let flatCatalogPOList = []; // 🤖 लाइव PO कैटलॉग डेटा होल्ड करने के लिए
     let masterCatalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
 
     let currentSearchedCode = "";
     let currentSearchedName = "";
 
-    // 🔄 चारों डेटाबेस टेबल्स को एक साथ लाइव सुनना
+    // 🔄 चारों डेटाबेस टेबल्स + कैटलॉग को लाइव सुनना
     Promise.all([
         database.ref('freshStockVouchers').once('value'),
         database.ref('reworkStockData').once('value'),
         database.ref('gateoutStockData').once('value'),
-        database.ref('debitNotes').once('value')
+        database.ref('debitNotes').once('value'),
+        database.ref('systemMasterCatalogFlat').once('value')
     ]).then((snapshots) => {
-        // डेटा असाइन करें
         if(snapshots[0].val()) Object.values(snapshots[0].val()).forEach(v => freshData.push(v));
         if(snapshots[1].val()) Object.values(snapshots[1].val()).forEach(v => reworkData.push(v));
         if(snapshots[2].val()) Object.values(snapshots[2].val()).forEach(v => gateoutData.push(v));
         if(snapshots[3].val()) Object.values(snapshots[3].val()).forEach(v => debitData.push(v));
+        if(snapshots[4].val()) flatCatalogPOList = Object.values(snapshots[4].val());
 
-        // लाइव सुनना चालू करें ताकि कोई भी बदलाव हो तो लेज़र तुरंत अपडेट हो
-        database.ref('freshStockVouchers').on('value', s => { freshData = s.val() ? Object.values(s.val()) : []; renderMasterLedgerTable(); });
-        database.ref('reworkStockData').on('value', s => { reworkData = s.val() ? Object.values(s.val()) : []; renderMasterLedgerTable(); });
-        database.ref('gateoutStockData').on('value', s => { gateoutData = s.val() ? Object.values(s.val()) : []; renderMasterLedgerTable(); });
-        database.ref('debitNotes').on('value', s => { debitData = s.val() ? Object.values(s.val()) : []; renderMasterLedgerTable(); });
+        // रीयल-टाइम लाइव लिसनर्स चालू करें
+        database.ref('freshStockVouchers').on('value', s => { freshData = s.val() ? Object.values(s.val()) : []; renderAllTables(); });
+        database.ref('reworkStockData').on('value', s => { reworkData = s.val() ? Object.values(s.val()) : []; renderAllTables(); });
+        database.ref('gateoutStockData').on('value', s => { gateoutData = s.val() ? Object.values(s.val()) : []; renderAllTables(); });
+        database.ref('debitNotes').on('value', s => { debitData = s.val() ? Object.values(s.val()) : []; renderAllTables(); });
+        database.ref('systemMasterCatalogFlat').on('value', s => { flatCatalogPOList = s.val() ? Object.values(s.val()) : []; renderAllTables(); });
     });
+
+    function renderAllTables() {
+        renderPOBalanceTable();
+        renderMasterLedgerTable();
+    }
+
+    // 🤖 २. मुख्य गणना इंजन: लाइव PO बैलेंस मैट्रिक्स रेंडर
+    function renderPOBalanceTable() {
+        const poBody = document.getElementById('poLedgerBody');
+        poBody.innerHTML = '';
+
+        // केवल वही आइटम्स छानें जिनमें PO उपलब्ध (hasPO == 'YES') है
+        let activePOs = flatCatalogPOList.filter(x => x.hasPO === "YES" && x.poNumber);
+
+        if(activePOs.length === 0) {
+            poBody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:12px; color:#64748b;">No active Purchase or Sale Orders registered in Master Database.</td></tr>`;
+            return;
+        }
+
+        activePOs.forEach(p => {
+            let poNum = p.poNumber.trim().toUpperCase();
+            let pCode = p.code.trim().toUpperCase();
+            let totalOrdered = parseInt(p.poTotalQty || 0);
+            let executedQty = 0;
+
+            if (p.poType === "PURCHASE") {
+                // खरीद PO का मिलान Fresh Gate-In वाउचर्स के साथ करना
+                freshData.forEach(f => {
+                    if (f.poNo && f.poNo.trim().toUpperCase() === poNum) {
+                        if (f.gridItems) {
+                            f.gridItems.forEach(gi => {
+                                if ((gi.modelCode || "").trim().toUpperCase() === pCode) {
+                                    executedQty += parseInt(gi.qty || gi.receiveQty || 0);
+                                }
+                            });
+                        }
+                    }
+                });
+            } else if (p.poType === "SALE") {
+                // बिक्री PO का मिलान Gate Out (Dispatch) वाउचर्स के साथ करना
+                gateoutData.forEach(g => {
+                    if (g.gridItems) {
+                        g.gridItems.forEach(gi => {
+                            if (gi.poNumber && gi.poNumber.trim().toUpperCase() === poNum && (gi.code || "").trim().toUpperCase() === pCode) {
+                                executedQty += parseInt(gi.qty || 0);
+                            }
+                        });
+                    }
+                });
+            }
+
+            let pendingBalance = totalOrdered - executedQty;
+            let typeBadgeHtml = p.poType === "PURCHASE" ? `<span class="badge-po-pur">PURCHASE</span>` : `<span class="badge-po-sal">SALE</span>`;
+
+            poBody.innerHTML += `
+                <tr>
+                    <td><b style="color:#1e3a8a;">${poNum}</b></td>
+                    <td>${typeBadgeHtml}</td>
+                    <td><code>${pCode}</code></td>
+                    <td style="text-align:left;">${p.name}</td>
+                    <td><b>${totalOrdered} NOS</b></td>
+                    <td style="color:#0284c7;"><b>${executedQty} NOS</b></td>
+                    <td><b style="color:${pendingBalance > 0 ? '#b45309':'#16a34a'}; background:${pendingBalance > 0 ? '#fff7ed':'#f0fdf4'}; padding:3px 8px; border-radius:4px; border:1px solid ${pendingBalance > 0 ? '#fed7aa':'#bbf7d0'};">${pendingBalance} NOS</b></td>
+                </tr>`;
+        });
+    }
 
     function renderMasterLedgerTable() {
         const body = document.getElementById('masterLedgerBody');
@@ -258,11 +353,11 @@
                 });
 
                 // 4. Debit Note Calculations
+                let debitCount = 0;
                 debitData.forEach(d => {
                     if (d.gridItems) {
                         d.gridItems.forEach(gi => {
                             if ((gi.code || "").trim().toUpperCase() === code) {
-                                // आपके पुराने डेबिट लॉजिक के अनुसार डायरेक्ट स्टॉक कटौती
                                 freshBal -= parseInt(gi.qty || 0); 
                             }
                         });
@@ -383,7 +478,6 @@
                         let qty = parseInt(gi.qty || 0);
                         totalOut += qty;
                         
-                        // सीरियल नंबर के एरे या मैट्रिक्स स्ट्रक्चर को हैंडल करना
                         let snString = 'N/A';
                         if (gi.serials && gi.serials.length > 0) {
                             snString = gi.serials.map(s => `[${s.boardType} S#${s.setNum}: ${s.sn}]`).join(' ');
@@ -436,24 +530,44 @@
         wrapper.scrollIntoView({ behavior: 'smooth' });
     }
 
+    // 📈 एक्सेल डाउनलोड इंजन (PO वाइज पेंडिंग स्टॉक विवरण के समावेशन के साथ)
     function exportStockLedgerToExcel() {
-        let table = document.getElementById("stockLedgerTable");
         let csv = [];
+        
+        // सेक्शन १: PO रिपोर्ट
+        csv.push("--- PURCHASE / SALE ORDERS (PO) STATUS SHEET ---");
+        csv.push("PO Number,PO Route Type,Item Code,Item Description,Total Ordered Qty,Executed Qty,Pending PO Balance");
+        let activePOs = flatCatalogPOList.filter(x => x.hasPO === "YES" && x.poNumber);
+        activePOs.forEach(p => {
+            let poNum = p.poNumber.trim().toUpperCase(); let pCode = p.code.trim().toUpperCase(); let totalOrdered = parseInt(p.poTotalQty || 0); let executedQty = 0;
+            if (p.poType === "PURCHASE") {
+                freshData.forEach(f => { if (f.poNo && f.poNo.trim().toUpperCase() === poNum) { if (f.gridItems) { f.gridItems.forEach(gi => { if ((gi.modelCode || "").trim().toUpperCase() === pCode) executedQty += parseInt(gi.qty || gi.receiveQty || 0); }); } } });
+            } else if (p.poType === "SALE") {
+                gateoutData.forEach(g => { if (g.gridItems) { g.gridItems.forEach(gi => { if (gi.poNumber && gi.poNumber.trim().toUpperCase() === poNum && (gi.code || "").trim().toUpperCase() === pCode) executedQty += parseInt(gi.qty || 0); }); } });
+            }
+            csv.push(`"${poNum}","${p.poType}","${pCode}","${p.name.replace(/"/g, '""')}","${totalOrdered}","${executedQty}","${totalOrdered - executedQty}"`);
+        });
+
+        csv.push("\n"); // ब्लैंक लाइन
+
+        // सेक्शन २: करंट वेयरहाउस स्टॉक
+        csv.push("--- LIVE CURRENT STOCKROOMS OVERVIEW ---");
         csv.push("Company Name,Model Code,Model Item Description,Current Fresh Pool Balance,Current Rework Pool Balance");
+        let table = document.getElementById("stockLedgerTable");
         let rows = table.querySelectorAll("tbody tr");
         rows.forEach(row => {
             let cols = row.querySelectorAll("td");
             if(cols.length >= 5) {
                 let rowData = [];
-                cols.forEach(col => { rowData.push(col.innerText.replace(/,/g, "").trim()); });
+                cols.forEach(col => { rowData.push(`"${col.innerText.replace(/,/g, "").trim()}"`); });
                 csv.push(rowData.join(","));
             }
         });
+
         let csvString = csv.join("\n");
         let blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
-        let link = document.createElement("a");
-        link.href = URL.createObjectURL(blob);
-        link.setAttribute("download", "GVM_Live_Stock_Ledger_Report.csv");
+        let link = document.createElement("a"); link.href = URL.createObjectURL(blob);
+        link.setAttribute("download", "GVM_Live_PO_and_Stock_Ledger.csv");
         document.body.appendChild(link); link.click(); document.body.removeChild(link);
     }
 
