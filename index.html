@@ -18,7 +18,7 @@
         .btn-edit-action { background-color: #0284c7; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
         .btn-delete-action { background-color: #dc2626; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; }
         
-        /* 🎯 सर्च बार और ड्रॉपडाउन पैनल की नई सीएसएस स्टाइलिंग */
+        /* 🎯 सर्च बार और ड्रॉपडाउन पैनल की सीएसएस स्टाइलिंग */
         .table-filter-panel {
             display: flex;
             justify-content: space-between;
@@ -287,7 +287,7 @@
             const rQty = parseInt(document.getElementById('gridRecQty').value);
             if(code && name && !isNaN(bQty) && !isNaN(rQty)) {
                 if(bQty !== rQty) { alert("Error: Bill Qty and Receive Qty must match!"); return; }
-                tempGridItems.push({ modelCode: code, modelCode, modelName: name, qty: bQty, receiveQty: rQty });
+                tempGridItems.push({ modelCode: code, modelName: name, qty: bQty, receiveQty: rQty });
             } else { alert("Please enter at least one item!"); return; }
         }
 
@@ -370,9 +370,18 @@
                 itemsHtml += `• <code>${item.modelCode}</code> - ${item.modelName} (<b>${item.qty} NOS</b>)<br>`;
                 if(parseInt(item.qty) < 5) document.getElementById('lowStockAlert').style.display = 'block';
             });
+
+            // 👤 एडमिन के लिए गुप्त यूजर ट्रैकिंग बैज (सिर्फ बटन्स के पास नीचे दिखेगा)
+            let adminBadgeHtml = "";
+            if (session.userId === "k88rakesh") {
+                let creator = i.createdBy ? i.createdBy : "System";
+                adminBadgeHtml = `<div style="margin-bottom:5px;"><span style="font-size:10px; color:#16a34a; background:#f0fdf4; padding:2px 6px; border-radius:3px; border:1px solid #bbf7d0; font-weight:bold;">👤 User: ${creator}</span></div>`;
+            }
+
             body.innerHTML += `<tr>
                 <td><b>${i.companyName}</b></td><td>Bill: ${i.billNo}<br>PO: ${i.poNo}</td><td>Bill: ${i.billDate}<br>Gate-In: ${i.gateInDate}</td><td>${i.gateInNo}</td><td style="text-align:left;">${itemsHtml}</td>
                 <td>
+                    ${adminBadgeHtml}
                     <button type="button" class="btn-print-receipt" onclick='triggerGateInReceipt(${JSON.stringify(i)})'>🖨️ Print</button>
                     <button type="button" class="btn-edit-action" onclick="editFreshRow(${origIdx})">Edit</button>
                     <button type="button" class="btn-delete-action" onclick="deleteFreshRow(${origIdx})">Delete</button>
@@ -412,11 +421,20 @@
         applyLiveDateRestrictions();
     }
 
+    // 🔒 पासवर्ड लॉक्ड डिलीट इंजन
     function deleteFreshRow(idx) {
-        if(confirm("Are you sure you want to delete this cloud record?")) { 
+        const passwordInput = prompt("🔑 Security Check:\nEnter Secret Password to Delete this Cloud Record:");
+        
+        if (passwordInput === null) return; // यूज़र ने कैंसिल कर दिया
+
+        if (passwordInput === "7004") {
             const fbKey = stockData[idx].fbKey;
-            database.ref('freshStockVouchers/' + fbKey).remove();
-            cancelEditMode(); 
+            database.ref('freshStockVouchers/' + fbKey).remove().then(() => {
+                alert("🗑️ Success: Cloud Record completely wiped out.");
+                cancelEditMode(); 
+            });
+        } else {
+            alert("❌ Access Denied: Incorrect Password! Record is safe.");
         }
     }
 
