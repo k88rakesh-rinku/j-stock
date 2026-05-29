@@ -27,6 +27,10 @@
         .po-box-open { display: block !important; border-color: #0284c7; background: #f0f9ff; }
         .badge-po-yes { background: #0284c7; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; }
         .badge-po-no { background: #64748b; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+        
+        /* 🟢 PURCHASE और SALE टाइप के सुंदर कलर बैज */
+        .badge-type-pur { background-color: #16a34a; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+        .badge-type-sal { background-color: #b45309; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -66,7 +70,7 @@
             </div>
             
             <div class="form-group">
-                <label>Has Purchase Order (PO)? <span>*</span></label>
+                <label>Has Purchase / Sale Order (PO)? <span>*</span></label>
                 <select id="hasPO" required onchange="togglePOFields()">
                     <option value="NO">NO</option>
                     <option value="YES">YES</option>
@@ -75,13 +79,22 @@
         </div>
 
         <div id="poFormBox" class="po-input-box">
-            <h4 style="margin: 0 0 10px 0; color:#0369a1;">📋 Link Purchase Order (PO) Information</h4>
+            <h4 style="margin: 0 0 10px 0; color:#0369a1;">📋 Link Purchase / Sale Order (PO) Information</h4>
             <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                
+                <div class="form-group" style="flex: 1; min-width: 160px;">
+                    <label>PO Route Type <span>*</span></label>
+                    <select id="poType">
+                        <option value="PURCHASE">PURCHASE PO (Incoming / Fresh In)</option>
+                        <option value="SALE">SALE PO (Outgoing / Gate Out)</option>
+                    </select>
+                </div>
+
                 <div class="form-group" style="flex: 1; min-width: 180px;">
                     <label>PO Number <span>*</span></label>
                     <input type="text" id="poNumber" placeholder="e.g., PO-2026-88" style="text-transform:uppercase;">
                 </div>
-                <div class="form-group" style="flex: 1; min-width: 150px;">
+                <div class="form-group" style="flex: 1; min-width: 120px;">
                     <label>Total PO Ordered Qty <span>*</span></label>
                     <input type="number" min="1" id="poTotalQty" placeholder="e.g., 1000">
                 </div>
@@ -103,13 +116,14 @@
                     <th>Model Part Code</th>
                     <th>Model Item Description / Name</th>
                     <th>PO Linked?</th>
+                    <th>PO Type</th>
                     <th>PO Number</th>
                     <th>Total PO Qty</th>
-                    <th style="width: 20%;">Action Controls</th>
+                    <th style="width: 15%;">Action Controls</th>
                 </tr>
             </thead>
             <tbody id="catalogTableBody">
-                <tr><td colspan="7" style="text-align:center; padding:15px; color:#64748b;">Connecting Cloud Database...</td></tr>
+                <tr><td colspan="8" style="text-align:center; padding:15px; color:#64748b;">Connecting Cloud Database...</td></tr>
             </tbody>
         </table>
     </div>
@@ -152,7 +166,7 @@
             localStorage.setItem('systemMasterCatalog', JSON.stringify(defaultCatalog));
             for(let key in defaultCatalog) {
                 defaultCatalog[key].forEach(x => {
-                    database.ref('systemMasterCatalogFlat').push({ company: key, code: x.code, name: x.name, hasPO: "NO", poNumber: "", poTotalQty: 0 });
+                    database.ref('systemMasterCatalogFlat').push({ company: key, code: x.code, name: x.name, hasPO: "NO", poType: "-", poNumber: "", poTotalQty: 0 });
                 });
             }
         }
@@ -173,12 +187,15 @@
         const box = document.getElementById('poFormBox');
         if(hasPO === "YES") {
             box.classList.add('po-box-open');
+            document.getElementById('poType').required = true;
             document.getElementById('poNumber').required = true;
             document.getElementById('poTotalQty').required = true;
         } else {
             box.classList.remove('po-box-open');
+            document.getElementById('poType').required = false;
             document.getElementById('poNumber').required = false;
             document.getElementById('poTotalQty').required = false;
+            document.getElementById('poType').value = 'PURCHASE';
             document.getElementById('poNumber').value = '';
             document.getElementById('poTotalQty').value = '';
         }
@@ -192,10 +209,12 @@
         const name = document.getElementById('newModelName').value.trim().toUpperCase();
         const poStatus = document.getElementById('hasPO').value;
         
+        let pType = "-";
         let pNum = "";
         let pQty = 0;
 
         if(poStatus === "YES") {
+            pType = document.getElementById('poType').value;
             pNum = document.getElementById('poNumber').value.trim().toUpperCase();
             pQty = parseInt(document.getElementById('poTotalQty').value) || 0;
             if(!pNum || pQty <= 0) { alert("Please enter valid PO configuration details!"); return; }
@@ -206,6 +225,7 @@
             code: code, 
             name: name,
             hasPO: poStatus,
+            poType: pType, // PURCHASE या SALE सेव होगा
             poNumber: pNum,
             poTotalQty: pQty,
             lastUpdatedBy: session.userId
@@ -215,12 +235,12 @@
             let isDuplicate = flatCatalogList.some(x => x.company === comp && x.code === code);
             if(isDuplicate) { alert("This item code already exists under this company register!"); return; }
             database.ref('systemMasterCatalogFlat').push(modelData).then(() => {
-                alert("🎉 Success! Code generated & PO Saved.");
+                alert("🎉 Success! Code generated & Routed PO Saved.");
                 resetCatalogForm();
             });
         } else {
             database.ref('systemMasterCatalogFlat/' + fbKey).set(modelData).then(() => {
-                alert("🎯 Item Model Configuration Updated!");
+                alert("🎯 Item Configuration Updated!");
                 resetCatalogForm();
             });
         }
@@ -230,16 +250,21 @@
         const tbody = document.getElementById('catalogTableBody');
         tbody.innerHTML = '';
         if(flatCatalogList.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:15px; color:#64748b;">No items registered.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:15px; color:#64748b;">No items registered.</td></tr>`;
             return;
         }
         
-        // लेटेस्ट एंट्री को ऊपर दिखाने के लिए लिस्ट को उल्टा कर रहे हैं
         let sortedList = [...flatCatalogList].reverse();
         
         sortedList.forEach((item) => {
             let origIdx = flatCatalogList.findIndex(x => x.fbKey === item.fbKey);
             let poBadge = item.hasPO === "YES" ? `<span class="badge-po-yes">YES</span>` : `<span class="badge-po-no">NO</span>`;
+            
+            let typeBadge = "-";
+            if(item.hasPO === "YES") {
+                typeBadge = item.poType === "PURCHASE" ? `<span class="badge-type-pur">PURCHASE</span>` : `<span class="badge-type-sal">SALE</span>`;
+            }
+
             let displayPoNo = item.poNumber ? item.poNumber : "-";
             let displayPoQty = item.poTotalQty ? item.poTotalQty : "-";
 
@@ -248,6 +273,7 @@
                 <td><code>${item.code}</code></td>
                 <td>${item.name}</td>
                 <td>${poBadge}</td>
+                <td>${typeBadge}</td>
                 <td><b>${displayPoNo}</b></td>
                 <td><b>${displayPoQty}</b></td>
                 <td>
@@ -271,12 +297,12 @@
         
         document.getElementById('newModelName').value = item.name;
         
-        // एडिट मोड में पुराना PO डेटा लोड करना
         const pStatus = item.hasPO ? item.hasPO : "NO";
         document.getElementById('hasPO').value = pStatus;
         togglePOFields();
         
         if(pStatus === "YES") {
+            document.getElementById('poType').value = item.poType || "PURCHASE";
             document.getElementById('poNumber').value = item.poNumber || "";
             document.getElementById('poTotalQty').value = item.poTotalQty || "";
         }
