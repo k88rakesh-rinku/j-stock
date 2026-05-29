@@ -17,6 +17,46 @@
         .btn-delete-action:hover { background-color: #b91c1c; }
         .btn-print-receipt { background-color: #007bff; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
 
+        /* 🎯 सर्च बार और ड्रॉपडाउन पैनल की सीएसएस स्टाइलिंग */
+        .table-filter-panel {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f1f5f9;
+            padding: 10px 15px;
+            border-radius: 6px 6px 0 0;
+            border: 1px solid #cbd5e1;
+            border-bottom: none;
+            margin-top: 25px;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        .search-input-box {
+            padding: 8px 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            font-size: 13px;
+            width: 280px;
+            text-transform: uppercase;
+        }
+        .limit-dropdown-select {
+            padding: 7px 10px;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            font-size: 13px;
+            cursor: pointer;
+            background: #fff;
+            font-weight: bold;
+        }
+
+        .grid-remarks-input {
+            width: 100%;
+            padding: 5px;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
         /* 🔥 सिर्फ प्रिंट साइज को 1/4 A4 सेट किया गया है, बाकी सब सेम है */
         @media print {
             body * { visibility: hidden; }
@@ -75,7 +115,15 @@
         <div style="overflow-x:auto;">
             <table class="grid-table">
                 <thead style="background-color: var(--success); color: white;">
-                    <tr><th>Item Code 🔍</th><th>Item Display Name</th><th>Qty</th><th>S/N Req?</th><th>Serial Configuration</th><th>Action</th></tr>
+                    <tr>
+                        <th style="width:15%;">Item Code 🔍</th>
+                        <th style="width:25%;">Item Display Name</th>
+                        <th style="width:10%;">Qty</th>
+                        <th style="width:12%;">S/N Req?</th>
+                        <th style="width:10%;">Configuration</th>
+                        <th style="width:23%;">Item Remarks / Other Name</th>
+                        <th style="width:5%;">Action</th>
+                    </tr>
                 </thead>
                 <tbody id="dynamicItemsBody"></tbody>
             </table>
@@ -85,10 +133,25 @@
         <button type="button" id="btnCancelEdit" class="btn-submit" style="background-color:#64748b; display:none; margin-top:10px; width: 100%;" onclick="cancelEditMode()">Cancel Update</button>
     </form>
 
-    <div class="table-responsive">
-        <table class="history-table">
+    <div class="table-filter-panel">
+        <div>
+            <input type="text" id="liveTableSearchBox" class="search-input-box" placeholder="🔍 Search Bill No, Code or Item Name..." oninput="triggerTableRender()">
+        </div>
+        <div>
+            <label style="font-weight: bold; font-size: 13px; color:#475569;">Show Records:</label>
+            <select id="liveTableLimitSelect" class="limit-dropdown-select" onchange="triggerTableRender()">
+                <option value="5">5 Bills (Default)</option>
+                <option value="10">10 Bills</option>
+                <option value="15">15 Bills</option>
+                <option value="ALL">Show All Bills</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="table-responsive" style="margin-top: 0;">
+        <table class="history-table" style="border-top: none;">
             <thead style="background-color: var(--success); color: white;">
-                <tr><th>Gate In Date</th><th>From Party</th><th>Challan / Bill Info</th><th>Gate Entry No</th><th>Items Enrolled</th><th>Action Controls</th></tr>
+                <tr><th>Gate In Date</th><th>From Party</th><th>Challan / Bill Info</th><th>Gate Entry No</th><th>Items Enrolled & Specific Remarks</th><th>Action Controls</th></tr>
             </thead>
             <tbody id="reworkHistoryBody">
                 <tr><td colspan="6" style="text-align:center; padding:15px; color:#64748b;">Loading Live Cloud Records...</td></tr>
@@ -138,7 +201,7 @@
                 reworkData.push({ fbKey: key, ...data[key] });
             }
         }
-        // पुराने लेज़र पेजों के कैलकुलेशन सपोर्ट के लिए लोकलस्टोरेज बैकअप भी बनाए रखेंगे
+        reworkData.reverse();
         localStorage.setItem('reworkStockData', JSON.stringify(reworkData));
         renderHistory();
     });
@@ -152,6 +215,7 @@
             <td><input type="number" min="1" required class="item-qty" oninput="clearSN(this)"></td>
             <td><select class="item-sn-req"><option value="YES">YES</option><option value="NO">NO</option></select></td>
             <td><button type="button" class="btn-sn-setup" onclick="openSNModal(this)">S/N</button></td>
+            <td><input type="text" class="grid-remarks-input" placeholder="e.g. Item details/remarks"></td>
             <td><button type="button" class="btn-row-remove" onclick="this.closest('tr').remove()">×</button></td>`;
         body.appendChild(tr);
     }
@@ -191,10 +255,13 @@
         rows.forEach(row => {
             const qty = parseInt(row.querySelector('.item-qty').value);
             const snData = row.querySelector('.btn-sn-setup').getAttribute('data-sn');
+            const itemRemarks = row.querySelector('.grid-remarks-input').value.trim();
+            
             items.push({ 
                 itemShort: row.querySelector('.item-short').value.toUpperCase(), 
                 itemName: row.querySelector('.item-name').value, 
                 qty: qty, 
+                remarks: itemRemarks, // 💾 आइटम स्तर पर रिमार्क क्लाउड में सेव होगा
                 serials: snData ? JSON.parse(snData) : [] 
             });
         });
@@ -202,26 +269,52 @@
         const idx = parseInt(document.getElementById('editRowIndex').value);
         const fbKey = document.getElementById('editFirebaseKey').value;
 
+        const currentBillNo = document.getElementById('rwBillNo').value.trim().toUpperCase();
+        const currentGateInNo = document.getElementById('rwGateEntryNo').value.trim().toUpperCase();
+        const currentBillDate = document.getElementById('rwBillDate').value;
+
+        // 🛡️ डुप्लीकेट सुरक्षा चक्र
+        if (idx === -1) {
+            let isDuplicate = reworkData.some(voucher => 
+                voucher.billNo === currentBillNo && 
+                voucher.gateEntryNo === currentGateInNo && 
+                voucher.billDate === currentBillDate
+            );
+            if (isDuplicate) {
+                alert(`🚨 ERROR: Duplicate Rework Entry Detected!\n\nThis Invoice No. [ ${currentBillNo} ] with Gate Entry No. [ ${currentGateInNo} ] on Date [ ${currentBillDate} ] is already registered!\n\nPlease check your records.`);
+                return;
+            }
+        }
+
+        let originalCreator = (idx !== -1 && reworkData[idx]) ? (reworkData[idx].createdBy || "k88rakesh") : session.userId;
+
         const entry = { 
             date: document.getElementById('rwDate').value, 
-            billDate: document.getElementById('rwBillDate').value,
+            billDate: currentBillDate,
             partyName: document.getElementById('rwPartyName').value.trim().toUpperCase(), 
             dispatch: document.getElementById('rwDispatch').value.trim().toUpperCase(), 
-            billNo: document.getElementById('rwBillNo').value.trim().toUpperCase(), 
-            gateEntryNo: document.getElementById('rwGateEntryNo').value.trim().toUpperCase(), 
-            gridItems: items 
+            billNo: currentBillNo, 
+            gateEntryNo: currentGateInNo, 
+            gridItems: items,
+            createdBy: originalCreator
         };
         
         if(idx === -1) {
-            database.ref('reworkStockData').push(entry);
-            alert("🎉 Rework Gate In entry saved successfully to Cloud!");
+            database.ref('reworkStockData').push(entry).then(() => {
+                alert("🎉 Rework Gate In entry saved successfully to Cloud!");
+                resetReworkForm();
+            });
         } else {
-            database.ref('reworkStockData/' + fbKey).set(entry);
-            alert("🎯 Cloud Entry updated successfully!");
+            database.ref('reworkStockData/' + fbKey).set(entry).then(() => {
+                alert("🎯 Cloud Entry updated successfully!");
+                resetReworkForm();
+            });
         }
-
-        resetReworkForm();
     });
+
+    function triggerTableRender() {
+        renderHistory();
+    }
 
     function renderHistory() {
         const b = document.getElementById('reworkHistoryBody'); b.innerHTML = '';
@@ -229,10 +322,53 @@
             b.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:15px; color:#64748b;">No rework records found on Cloud.</td></tr>`;
             return;
         }
-        reworkData.forEach((r, idx) => {
-            let desc = r.gridItems.map(i => `${i.itemName} (<b>${i.qty} Nos</b>)`).join(', ');
+
+        const searchStr = document.getElementById('liveTableSearchBox').value.trim().toUpperCase();
+        const limitVal = document.getElementById('liveTableLimitSelect').value;
+
+        let filteredList = reworkData.filter(r => {
+            const matchBill = r.billNo ? r.billNo.toUpperCase().includes(searchStr) : false;
+            let itemsList = r.gridItems || [];
+            const matchItems = itemsList.some(item => {
+                const matchCode = item.itemShort ? item.itemShort.toUpperCase().includes(searchStr) : false;
+                const matchName = item.itemName ? item.itemName.toUpperCase().includes(searchStr) : false;
+                const matchRem = item.remarks ? item.remarks.toUpperCase().includes(searchStr) : false;
+                return matchCode || matchName || matchRem;
+            });
+            return matchBill || matchItems;
+        });
+
+        if(filteredList.length === 0) {
+            b.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:15px; color:#64748b;">No matching search records found.</td></tr>`;
+            return;
+        }
+
+        let viewList = filteredList;
+        if (limitVal !== "ALL") {
+            viewList = filteredList.slice(0, parseInt(limitVal));
+        }
+
+        viewList.forEach((r) => {
+            let origIdx = reworkData.findIndex(x => x.fbKey === r.fbKey);
+            
+            let desc = "";
+            (r.gridItems || []).forEach(i => {
+                desc += `• <b>${i.itemName}</b> [<code>${i.itemShort}</code>] (<b>${i.qty} Nos</b>)`;
+                // ✍️ हर आइटम के ठीक नीचे उसका विशिष्ट रिमार्क दिखाएं
+                if(i.remarks) {
+                    desc += ` <span style="color:#b45309; font-size:11px; font-weight:bold; background:#fff7ed; padding:1px 4px; border-radius:3px; border:1px solid #ffedd5; margin-left:5px;">📝 Rem: ${i.remarks}</span>`;
+                }
+                desc += `<br>`;
+            });
+
             let challanInfo = `No: ${r.billNo}<br>Date: ${r.billDate || 'N/A'}`;
             
+            let adminBadgeHtml = "";
+            if (session.userId === "k88rakesh") {
+                let creator = r.createdBy ? r.createdBy : "System";
+                adminBadgeHtml = `<div style="margin-bottom:5px;"><span style="font-size:10px; color:#16a34a; background:#f0fdf4; padding:2px 6px; border-radius:3px; border:1px solid #bbf7d0; font-weight:bold;">👤 User: ${creator}</span></div>`;
+            }
+
             b.innerHTML += `<tr>
                 <td>${r.date}</td>
                 <td><b>${r.partyName}</b></td>
@@ -240,9 +376,10 @@
                 <td>${r.gateEntryNo}</td>
                 <td style="text-align:left; font-size:12px;">${desc}</td>
                 <td>
+                    ${adminBadgeHtml}
                     <button type="button" class="btn-print-receipt" onclick='triggerPrintPass(${JSON.stringify(r)})'>🖨️ Print</button>
-                    <button type="button" class="btn-edit-action" onclick="editReworkRow(${idx})">Edit</button>
-                    <button type="button" class="btn-delete-action" onclick="deleteReworkRow(${idx})">Delete</button>
+                    <button type="button" class="btn-edit-action" onclick="editReworkRow(${origIdx})">Edit</button>
+                    <button type="button" class="btn-delete-action" onclick="deleteReworkRow(${origIdx})">Delete</button>
                 </td>
             </tr>`;
         });
@@ -267,6 +404,7 @@
             const tr = document.createElement('tr');
             const snText = item.serials && item.serials.length > 0 ? `✔ Loaded (${item.serials.length})` : 'S/N';
             const snClass = item.serials && item.serials.length > 0 ? 'btn-sn-setup configured' : 'btn-sn-setup';
+            const itemRemarksValue = item.remarks || "";
             
             tr.innerHTML = `
                 <td><input type="text" required class="item-short" value="${item.itemShort}" oninput="autofillItem(this)" style="text-transform:uppercase;"></td>
@@ -274,6 +412,7 @@
                 <td><input type="number" min="1" required class="item-qty" value="${item.qty}" oninput="clearSN(this)"></td>
                 <td><select class="item-sn-req"><option value="YES" ${item.serials && item.serials.length > 0 ? 'selected' : ''}>YES</option><option value="NO" ${!item.serials || item.serials.length === 0 ? 'selected' : ''}>NO</option></select></td>
                 <td><button type="button" class="${snClass}" data-sn='${JSON.stringify(item.serials || [])}' onclick="openSNModal(this)">${snText}</button></td>
+                <td><input type="text" class="grid-remarks-input" value="${item.remarks || ''}" placeholder="e.g. Item details/remarks"></td>
                 <td><button type="button" class="btn-row-remove" onclick="this.closest('tr').remove()">×</button></td>`;
             body.appendChild(tr);
         });
@@ -299,11 +438,19 @@
 
     function cancelEditMode() { resetReworkForm(); }
 
+    // 🔒 पासवर्ड लॉक्ड डिलीट इंजन
     function deleteReworkRow(idx) {
-        if(confirm("Are you sure you want to permanently delete this cloud rework entry?")) {
+        const passwordInput = prompt("🔑 Security Check:\nEnter Secret Password to Delete Rework Record:");
+        if (passwordInput === null) return; 
+
+        if (passwordInput === "7004") {
             const fbKey = reworkData[idx].fbKey;
-            database.ref('reworkStockData/' + fbKey).remove();
-            resetReworkForm();
+            database.ref('reworkStockData/' + fbKey).remove().then(() => {
+                alert("🗑️ Success: Cloud Record completely wiped out.");
+                resetReworkForm();
+            });
+        } else {
+            alert("❌ Access Denied: Incorrect Password! Record is safe.");
         }
     }
 
@@ -311,7 +458,8 @@
         const shell = document.getElementById('printSection'); 
         let lines = ''; 
         e.gridItems.forEach(i => { 
-            lines += `• <b>${i.itemName}</b> [${i.itemShort}] - Qty: ${i.qty} NOS (S/Ns: ${(i.serials || []).join(', ') || 'N/A'})<br>`; 
+            let remText = i.remarks ? ` | Rem: ${i.remarks}` : '';
+            lines += `• <b>${i.itemName}</b> [${i.itemShort}] - Qty: ${i.qty} NOS ${remText} (S/Ns: ${(i.serials || []).join(', ') || 'N/A'})<br>`; 
         });
         
         shell.innerHTML = `
@@ -319,17 +467,9 @@
                 <div style="text-align:center; font-weight:bold; font-size:12px; border-bottom:1px solid #000; padding-bottom:2px; text-transform:uppercase;">GVM RAIL PVT LTD - REWORK INWARD</div>
                 
                 <table style="width:100%; font-size:11px; margin-top:2px; line-height:1.2;">
-                    <tr>
-                        <td><b>Gate In Date:</b> ${e.date}</td>
-                        <td><b>Gate In No:</b> ${e.gateEntryNo}</td>
-                    </tr>
-                    <tr>
-                        <td><b>Bill / Challan No:</b> ${e.billNo}</td>
-                        <td><b>Party Name:</b> ${e.partyName}</td>
-                    </tr>
-                    <tr>
-                        <td colspan="2"><b>Challan Date:</b> ${e.billDate || 'N/A'} | <b>Dispatch Ref:</b> ${e.dispatch || 'N/A'}</td>
-                    </tr>
+                    <tr><td><b>Gate In Date:</b> ${e.date}</td><td><b>Gate In No:</b> ${e.gateEntryNo}</td></tr>
+                    <tr><td><b>Bill / Challan No:</b> ${e.billNo}</td><td><b>Party Name:</b> ${e.partyName}</td></tr>
+                    <tr><td colspan="2"><b>Challan Date:</b> ${e.billDate || 'N/A'} | <b>Dispatch Ref:</b> ${e.dispatch || 'N/A'}</td></tr>
                 </table>
 
                 <div style="margin-top:4px; font-size:10px; border-top:1px solid #eee; padding-top:2px; flex-grow:1;">
@@ -346,6 +486,19 @@
         document.getElementById('rwBillDate').setAttribute('max', todayStr);
         document.getElementById('rwDate').value = todayStr;
         document.getElementById('rwBillDate').value = todayStr;
+    }
+
+    // 📈 एक्सेल एक्सपोर्ट इंजन (आइटम स्तर के रिमार्क्स सपोर्ट के साथ)
+    function exportReworkToExcel() {
+        let csv = "Date,From Party,Challan No,Challan Date,Gate Entry No,Item Code,Item Name,Qty,Item Remarks\n";
+        reworkData.forEach(r => {
+            (r.gridItems || []).forEach(i => {
+                csv += `"${r.date}","${r.partyName}","${r.billNo}","${r.billDate || ''}","${r.gateEntryNo}","${i.itemShort}","${i.itemName}","${i.qty}","${i.remarks || ''}"\n`;
+            });
+        });
+        let blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        let link = document.createElement("a"); link.href = URL.createObjectURL(blob);
+        link.setAttribute("download", "Rework_Inward_Ledger.csv"); link.click();
     }
 
     applyLiveDateRestrictions();
