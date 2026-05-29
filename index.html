@@ -37,7 +37,7 @@
             border: 1px solid #cbd5e1;
             border-radius: 4px;
             font-size: 13px;
-            width: 260px;
+            width: 280px;
             text-transform: uppercase;
         }
         .limit-dropdown-select {
@@ -102,8 +102,10 @@
             </div>
             <div class="form-group"><label>PO No.</label><input type="text" id="poNo" required autocomplete="off" style="text-transform:uppercase;"></div>
             <div class="form-group"><label>Bill / Invoice No.</label><input type="text" id="billNo" required autocomplete="off" style="text-transform:uppercase;"></div>
-            <div class="form-group"><label>Bill Date</label><input type="date" id="billDate" required></div>
-            <div class="form-group"><label>Gate-In Date</label><input type="date" id="gateInDate" required></div>
+            <div class="form-grid-inner" style="display: contents;">
+                <div class="form-group"><label>Bill Date</label><input type="date" id="billDate" required></div>
+                <div class="form-group"><label>Gate-In Date</label><input type="date" id="gateInDate" required></div>
+            </div>
             <div class="form-group"><label>Gate-In No.</label><input type="text" id="gateInNo" required autocomplete="off" style="text-transform:uppercase;"></div>
         </div>
 
@@ -147,10 +149,9 @@
         <button class="btn-excel" onclick="exportFreshToExcel()">Download Excel</button>
     </div>
 
-    <!-- 🔍 स्मार्ट सर्च बॉक्स और व्यू-लिमिट फ़िल्टर पैनल (नया जोड़ा गया) -->
     <div class="table-filter-panel">
         <div>
-            <input type="text" id="liveTableSearchBox" class="search-input-box" placeholder="🔍 Search Company or Bill No..." oninput="triggerTableRender()">
+            <input type="text" id="liveTableSearchBox" class="search-input-box" placeholder="🔍 Search Bill No, Code or Item Name..." oninput="triggerTableRender()">
         </div>
         <div>
             <label style="font-weight: bold; font-size: 13px; color:#475569;">Show Records:</label>
@@ -311,7 +312,6 @@
         cancelEditMode(); 
     });
 
-    // 🔄 फ़िल्टर चेंज ट्रिगर करने वाला फ़ंक्शन
     function triggerTableRender() {
         renderTable();
     }
@@ -325,15 +325,23 @@
             return;
         }
 
-        // 🔍 सर्च और ड्रॉपडाउन लिमिट की वैल्यू निकालना
         const searchStr = document.getElementById('liveTableSearchBox').value.trim().toUpperCase();
         const limitVal = document.getElementById('liveTableLimitSelect').value;
 
-        // १. पहले सर्च बार के कीवर्ड से रिकॉर्ड्स को फ़िल्टर करेंगे
+        // 🔍 १. सिर्फ बिल नंबर, मॉडल कोड या मॉडल नेम के आधार पर फ़िल्टर लॉजिक (कंपनी नाम हटा दिया गया है)
         let filteredList = stockData.filter(i => {
-            return (i.companyName && i.companyName.includes(searchStr)) || 
-                   (i.billNo && i.billNo.includes(searchStr)) || 
-                   (i.gateInNo && i.gateInNo.includes(searchStr));
+            // बिल नंबर से मैच चेक करें
+            const matchBill = i.billNo ? i.billNo.toUpperCase().includes(searchStr) : false;
+            
+            // ग्रिड के अंदर के आइटम्स (कोड या नाम) से मैच चेक करें
+            let itemsList = i.gridItems || [{ modelCode: i.modelCode, modelName: i.modelName }];
+            const matchItems = itemsList.some(item => {
+                const matchCode = item.modelCode ? item.modelCode.toUpperCase().includes(searchStr) : false;
+                const matchName = item.modelName ? item.modelName.toUpperCase().includes(searchStr) : false;
+                return matchCode || matchName;
+            });
+
+            return matchBill || matchItems;
         });
 
         if(filteredList.length === 0) {
@@ -350,7 +358,6 @@
 
         // ३. फाइनल फ़िल्टर किए हुए रिकॉर्ड्स को टेबल में दिखाना
         viewList.forEach((i) => {
-            // ओरिजिनल stockData इंडेक्स ढूंढना ताकि एडिट/डिलीट बटन बिल्कुल सटीक काम करें
             let origIdx = stockData.findIndex(x => x.fbKey === i.fbKey);
 
             let itemsHtml = "";
