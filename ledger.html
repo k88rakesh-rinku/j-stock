@@ -122,7 +122,10 @@
     <div id="searchResultWrapper" style="display: none; margin-bottom: 35px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
             <h3 id="resultTitle" style="color: #0f172a; margin: 0;"></h3>
-            <button class="btn-excel" id="btnPrintHist" style="background-color: #475569;" onclick="printFilteredHistory()">🖨️ Print History</button>
+            <div style="display: flex; gap: 8px;">
+                <button class="btn-excel" id="btnExportHistExcel" style="background-color: #16a34a;" onclick="exportFilteredHistoryToExcel()">📊 Download History Excel</button>
+                <button class="btn-excel" id="btnPrintHist" style="background-color: #475569;" onclick="printFilteredHistory()">🖨️ Print History</button>
+            </div>
         </div>
         
         <div class="summary-card-grid">
@@ -150,6 +153,7 @@
 
     <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px;">
         <h3 style="color:#1e3a8a; margin: 0;">📋 Live Purchase / Sale Orders (PO) Pending Balance Matrix</h3>
+        <button class="btn-excel" style="background-color: #0284c7;" onclick="exportPOMatrixOnlyToExcel()">📥 Download PO Matrix Excel</button>
     </div>
     <div class="table-responsive" style="margin-top: 10px; margin-bottom: 30px;">
         <table class="history-table" id="poBalanceLedgerTable" style="border: 2px solid #1e3a8a;">
@@ -196,7 +200,6 @@
 <div id="printSearchSection"></div>
 
 <script>
-    // 🎯 फायरबेस कॉन्फ़िगरेशन
     const firebaseConfig = {
         apiKey: "AIzaSyCAOXbPwuFR3wh1QSLBXWsodupKWoRYmqs",
         authDomain: "gvm-stock-control.firebaseapp.com",
@@ -217,13 +220,13 @@
     let reworkData = [];
     let gateoutData = [];
     let debitData = [];
-    let flatCatalogPOList = []; // 🤖 लाइव PO कैटलॉग डेटा होल्ड करने के लिए
+    let flatCatalogPOList = []; 
     let masterCatalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
 
     let currentSearchedCode = "";
     let currentSearchedName = "";
+    let globalTimelineData = []; // 🛠️ यहाँ नया कोड सेट करा है: एक्सेल डाउनलोड के लिए टाइमलाइन का ग्लोबल बैकअप वेरिएबल
 
-    // 🔄 चारों डेटाबेस टेबल्स + कैटलॉग को लाइव सुनना
     Promise.all([
         database.ref('freshStockVouchers').once('value'),
         database.ref('reworkStockData').once('value'),
@@ -237,7 +240,6 @@
         if(snapshots[3].val()) Object.values(snapshots[3].val()).forEach(v => debitData.push(v));
         if(snapshots[4].val()) flatCatalogPOList = Object.values(snapshots[4].val());
 
-        // रीयल-टाइम लाइव लिसनर्स चालू करें
         database.ref('freshStockVouchers').on('value', s => { freshData = s.val() ? Object.values(s.val()) : []; renderAllTables(); });
         database.ref('reworkStockData').on('value', s => { reworkData = s.val() ? Object.values(s.val()) : []; renderAllTables(); });
         database.ref('gateoutStockData').on('value', s => { gateoutData = s.val() ? Object.values(s.val()) : []; renderAllTables(); });
@@ -248,14 +250,13 @@
     function renderAllTables() {
         renderPOBalanceTable();
         renderMasterLedgerTable();
+        if(currentSearchedCode) { triggerCodeSearch(); } // एक्टिव सर्च रिफ्रेश
     }
 
-    // 🤖 २. मुख्य गणना इंजन: लाइव PO बैलेंस मैट्रिक्स रेंडर
     function renderPOBalanceTable() {
         const poBody = document.getElementById('poLedgerBody');
         poBody.innerHTML = '';
 
-        // केवल वही आइटम्स छानें जिनमें PO उपलब्ध (hasPO == 'YES') है
         let activePOs = flatCatalogPOList.filter(x => x.hasPO === "YES" && x.poNumber);
 
         if(activePOs.length === 0) {
@@ -270,7 +271,6 @@
             let executedQty = 0;
 
             if (p.poType === "PURCHASE") {
-                // खरीद PO का मिलान Fresh Gate-In वाउचर्स के साथ करना
                 freshData.forEach(f => {
                     if (f.poNo && f.poNo.trim().toUpperCase() === poNum) {
                         if (f.gridItems) {
@@ -283,7 +283,6 @@
                     }
                 });
             } else if (p.poType === "SALE") {
-                // बिक्री PO का मिलान Gate Out (Dispatch) वाउचर्स के साथ करना
                 gateoutData.forEach(g => {
                     if (g.gridItems) {
                         g.gridItems.forEach(gi => {
@@ -321,7 +320,6 @@
                 let code = model.code.trim().toUpperCase();
                 let freshBal = 0;
                 
-                // 1. Fresh Calculations
                 freshData.forEach(f => {
                     if (f.gridItems) {
                         f.gridItems.forEach(gi => {
@@ -330,7 +328,6 @@
                     }
                 });
 
-                // 2. Rework Calculations
                 let reworkBal = 0;
                 reworkData.forEach(r => {
                     if (r.gridItems) {
@@ -340,7 +337,6 @@
                     }
                 });
 
-                // 3. Gateout Calculations
                 gateoutData.forEach(g => {
                     if (g.gridItems) {
                         g.gridItems.forEach(gi => {
@@ -352,8 +348,6 @@
                     }
                 });
 
-                // 4. Debit Note Calculations
-                let debitCount = 0;
                 debitData.forEach(d => {
                     if (d.gridItems) {
                         d.gridItems.forEach(gi => {
@@ -388,7 +382,7 @@
         const historyBody = document.getElementById('searchHistoryBody');
         historyBody.innerHTML = '';
 
-        let timeline = [];
+        globalTimelineData = []; // रीसेट बैकअप
         let totalIn = 0;
         let totalOut = 0;
         let codeExistsInCatalog = false;
@@ -410,19 +404,18 @@
             return;
         }
 
-        // 1. Fresh Vouchers Timeline
         freshData.forEach(f => {
             if (f.gridItems) {
                 f.gridItems.forEach(gi => {
                     if ((gi.modelCode || "").trim().toUpperCase() === targetCode) {
                         let qty = parseInt(gi.qty || gi.receiveQty || 0);
                         totalIn += qty;
-                        timeline.push({
+                        globalTimelineData.push({
                             date: f.gateInDate || f.billDate,
                             type: '📦 FRESH IN',
                             ref: `Bill/Inv: ${f.billNo || 'N/A'}`,
                             party: f.companyName || matchedCompanyName,
-                            qty: `+${qty} NOS`,
+                            qty: `+${qty}`,
                             sns: 'N/A'
                         });
                     }
@@ -430,47 +423,44 @@
             }
         });
 
-        // 2. Rework Inward Timeline
         reworkData.forEach(r => {
             if (r.gridItems) {
                 r.gridItems.forEach(gi => {
                     if ((gi.itemShort || "").trim().toUpperCase() === targetCode) {
                         let qty = parseInt(gi.qty || 0);
                         totalIn += qty;
-                        timeline.push({
+                        globalTimelineData.push({
                             date: r.date,
                             type: '🛠️ REWORK IN',
                             ref: `Gate Entry: ${r.gateEntryNo} / Challan: ${r.billNo}`,
                             party: r.partyName,
-                            qty: `+${qty} NOS`,
-                            sns: gi.serials ? gi.serials.join(', ') : 'N/A'
+                            qty: `+${qty}`,
+                            sns: gi.serials ? gi.serials.join(' ') : 'N/A'
                         });
                     }
                 });
             }
         });
 
-        // 3. Gate Out Dispatch Timeline
         gateoutData.forEach(g => {
             if (g.gridItems) {
                 g.gridItems.forEach(gi => {
                     if ((gi.code || "").trim().toUpperCase() === targetCode) {
                         let qty = parseInt(gi.qty || 0);
                         totalOut += qty;
-                        timeline.push({
+                        globalTimelineData.push({
                             date: g.date,
                             type: `🚪 DISPATCH (${gi.pool})`,
-                            ref: `Voucher No: GVM-GO-${g.voucherNo} / Vehicle: ${g.vehicleNo}`,
+                            ref: `GVM-GO-${g.voucherNo} / Vehicle: ${g.vehicleNo}`,
                             party: g.partyName,
-                            qty: `-${qty} NOS`,
-                            sns: gi.serials ? gi.serials.join(', ') : 'N/A'
+                            qty: `-${qty}`,
+                            sns: gi.serials ? gi.serials.join(' ') : 'N/A'
                         });
                     }
                 });
             }
         });
 
-        // 4. Debit Notes Vendor Return Timeline
         debitData.forEach(d => {
             if (d.gridItems) {
                 d.gridItems.forEach(gi => {
@@ -483,12 +473,12 @@
                             snString = gi.serials.map(s => `[${s.boardType} S#${s.setNum}: ${s.sn}]`).join(' ');
                         }
 
-                        timeline.push({
+                        globalTimelineData.push({
                             date: d.date,
                             type: `🧾 DEBIT NOTE`,
-                            ref: `DN Ref: GVM-DN-${d.noteNo} / Bill Ref: ${d.refNo}`,
+                            ref: `GVM-DN-${d.noteNo} / Bill Ref: ${d.refNo}`,
                             party: d.vendorName,
-                            qty: `-${qty} NOS`,
+                            qty: `-${qty}`,
                             sns: snString
                         });
                     }
@@ -496,19 +486,21 @@
             }
         });
 
-        timeline.sort((a, b) => new Date(a.date) - new Date(b.date));
+        globalTimelineData.sort((a, b) => new Date(a.date) - new Date(b.date));
 
         document.getElementById('resultTitle').innerText = `📊 Timeline Log for: ${targetCode} [${currentSearchedName}]`;
         document.getElementById('txtCompName').innerText = matchedCompanyName;
         document.getElementById('txtTotalIn').innerText = `${totalIn} NOS`;
         document.getElementById('txtTotalOut').innerText = `${totalOut} NOS`;
 
-        if (timeline.length === 0) {
+        if (globalTimelineData.length === 0) {
             historyBody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#64748b; font-weight:bold; padding:15px;">ℹ️ No transaction history logged yet for this model code. Current stock is 0.</td></tr>`;
             document.getElementById('btnPrintHist').style.display = "none";
+            document.getElementById('btnExportHistExcel').style.display = "none";
         } else {
             document.getElementById('btnPrintHist').style.display = "inline-block";
-            timeline.forEach(row => {
+            document.getElementById('btnExportHistExcel').style.display = "inline-block";
+            globalTimelineData.forEach(row => {
                 let badgeClass = "badge-fresh-in";
                 if(row.type.includes("REWORK")) badgeClass = "badge-rework-in";
                 if(row.type.includes("DISPATCH")) badgeClass = "badge-dispatch-out";
@@ -520,7 +512,7 @@
                         <td><span class="badge-type ${badgeClass}">${row.type}</span></td>
                         <td><code>${row.ref}</code></td>
                         <td><b>${row.party}</b></td>
-                        <td><b>${row.qty}</b></td>
+                        <td><b>${row.qty} NOS</b></td>
                         <td style="max-width:200px; font-size:11px; word-break:break-all;">${row.sns || 'N/A'}</td>
                     </tr>`;
             });
@@ -530,27 +522,52 @@
         wrapper.scrollIntoView({ behavior: 'smooth' });
     }
 
-    // 📈 एक्सेल डाउनलोड इंजन (PO वाइज पेंडिंग स्टॉक विवरण के समावेशन के साथ)
-    function exportStockLedgerToExcel() {
-        let csv = [];
+    // 🛠️ यहाँ नया कोड सेट करा है: सिर्फ सर्च किए गए आइटम कोड की पूरी टाइमलाइन हिस्ट्री एक्सेल डाउनलोड इंजन (Row-by-Row Clean)
+    function exportFilteredHistoryToExcel() {
+        if (!currentSearchedCode || globalTimelineData.length === 0) { alert("No search log to export!"); return; }
         
-        // सेक्शन १: PO रिपोर्ट
-        csv.push("--- PURCHASE / SALE ORDERS (PO) STATUS SHEET ---");
-        csv.push("PO Number,PO Route Type,Item Code,Item Description,Total Ordered Qty,Executed Qty,Pending PO Balance");
+        let csv = `TIMELINE LOG REPORT FOR MODEL: ${currentSearchedCode} [${currentSearchedName}]\n`;
+        csv += "Transaction Date,Log Type,Ref Voucher Info,Party / Destination,Quantity Change,Included Serial Numbers\n";
+        
+        globalTimelineData.forEach(row => {
+            csv += `"${row.date}","${row.type}","${row.ref}","${row.party}","${row.qty}","${row.sns || ''}"\n`;
+        });
+        
+        let blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+        let link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.setAttribute("download", `${currentSearchedCode}_Lifecycle_History.csv`);
+        document.body.appendChild(link); link.click(); document.body.removeChild(link);
+    }
+
+    // 🛠️ यहाँ नया कोड सेट करा है: सिर्फ पीओ मैट्रिक्स बैलेंस शीट का साफ एक्सेल डाउनलोड इंजन (Row-by-Row Split)
+    function exportPOMatrixOnlyToExcel() {
+        let csv = "PO Number,PO Route Type,Linked Item Code,Item Description,Total Ordered Qty,Actual Executed Qty,Pending PO Balance\n";
         let activePOs = flatCatalogPOList.filter(x => x.hasPO === "YES" && x.poNumber);
+        
         activePOs.forEach(p => {
-            let poNum = p.poNumber.trim().toUpperCase(); let pCode = p.code.trim().toUpperCase(); let totalOrdered = parseInt(p.poTotalQty || 0); let executedQty = 0;
+            let poNum = p.poNumber.trim().toUpperCase(); 
+            let pCode = p.code.trim().toUpperCase(); 
+            let totalOrdered = parseInt(p.poTotalQty || 0); 
+            let executedQty = 0;
+            
             if (p.poType === "PURCHASE") {
                 freshData.forEach(f => { if (f.poNo && f.poNo.trim().toUpperCase() === poNum) { if (f.gridItems) { f.gridItems.forEach(gi => { if ((gi.modelCode || "").trim().toUpperCase() === pCode) executedQty += parseInt(gi.qty || gi.receiveQty || 0); }); } } });
             } else if (p.poType === "SALE") {
                 gateoutData.forEach(g => { if (g.gridItems) { g.gridItems.forEach(gi => { if (gi.poNumber && gi.poNumber.trim().toUpperCase() === poNum && (gi.code || "").trim().toUpperCase() === pCode) executedQty += parseInt(gi.qty || 0); }); } });
             }
-            csv.push(`"${poNum}","${p.poType}","${pCode}","${p.name.replace(/"/g, '""')}","${totalOrdered}","${executedQty}","${totalOrdered - executedQty}"`);
+            csv += `"${poNum}","${p.poType}","${pCode}","${p.name.replace(/"/g, '""')}","${totalOrdered}","${executedQty}","${totalOrdered - executedQty}"\n`;
         });
 
-        csv.push("\n"); // ब्लैंक लाइन
+        let blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+        let link = document.createElement("a"); link.href = URL.createObjectURL(blob);
+        link.setAttribute("download", "GVM_POs_Pending_Balance_Matrix.csv");
+        document.body.appendChild(link); link.click(); document.body.removeChild(link);
+    }
 
-        // सेक्शन २: करंट वेयरहाउस स्टॉक
+    // 📦 पुराना होल स्टॉक एक्सेल डाउनलोड इंजन
+    function exportStockLedgerToExcel() {
+        let csv = [];
         csv.push("--- LIVE CURRENT STOCKROOMS OVERVIEW ---");
         csv.push("Company Name,Model Code,Model Item Description,Current Fresh Pool Balance,Current Rework Pool Balance");
         let table = document.getElementById("stockLedgerTable");
@@ -558,16 +575,19 @@
         rows.forEach(row => {
             let cols = row.querySelectorAll("td");
             if(cols.length >= 5) {
-                let rowData = [];
-                cols.forEach(col => { rowData.push(`"${col.innerText.replace(/,/g, "").trim()}"`); });
-                csv.push(rowData.join(","));
+                let compName = cols[0].innerText.replace(/"/g, '""').trim();
+                let mCode = cols[1].innerText.replace(/"/g, '""').trim();
+                let mDesc = cols[2].innerText.replace(/"/g, '""').trim();
+                let freshBal = cols[3].innerText.replace(/ NOS/g, "").trim();
+                let reworkBal = cols[4].innerText.replace(/ NOS/g, "").trim();
+                csv.push(`"${compName}","${mCode}","${mDesc}","${freshBal}","${reworkBal}"`);
             }
         });
 
         let csvString = csv.join("\n");
         let blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
         let link = document.createElement("a"); link.href = URL.createObjectURL(blob);
-        link.setAttribute("download", "GVM_Live_PO_and_Stock_Ledger.csv");
+        link.setAttribute("download", "GVM_Warehouse_Stock_Ledger.csv");
         document.body.appendChild(link); link.click(); document.body.removeChild(link);
     }
 
