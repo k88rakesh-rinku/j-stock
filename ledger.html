@@ -63,10 +63,26 @@
         .badge-dispatch-out { background-color: #6c757d; }
         .badge-debit-out { background-color: #dc3545; }
         
-        /* 🔵 PO प्रकार की विशिष्ट स्टाइलिंग */
         .badge-po-pur { background-color: #16a34a; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; }
         .badge-po-sal { background-color: #b45309; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; }
         
+        /* ⚡ क्विक हिस्ट्री एक्शन बटन स्टाइल */
+        .btn-quick-view {
+            background-color: #2563eb;
+            color: white;
+            border: none;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .btn-quick-view:hover {
+            background-color: #1d4ed8;
+            transform: scale(1.05);
+        }
+
         .summary-card-grid {
             display: flex;
             gap: 15px;
@@ -114,7 +130,7 @@
     <div class="search-container">
         <div class="search-group">
             <label>Enter Model Part Code</label>
-            <input type="text" id="searchPartCode" placeholder="e.g. GP0018" autocomplete="off">
+            <input type="text" id="searchPartCode" placeholder="e.g. GP0013" autocomplete="off">
         </div>
         <button type="button" class="btn-search-trigger" onclick="triggerCodeSearch()">Search History Control</button>
     </div>
@@ -151,10 +167,11 @@
         </div>
     </div>
 
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px;">
-        <h3 style="color:#1e3a8a; margin: 0;">📋 Live Purchase / Sale Orders (PO) Pending Balance Matrix</h3>
-        <button class="btn-excel" style="background-color: #0284c7;" onclick="exportPOMatrixOnlyToExcel()">📥 Download PO Matrix Excel</button>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 30px; background: #f1f5f9; padding: 10px 15px; border-radius: 6px; border: 1px solid #cbd5e1;">
+        <h3 style="color:#1e3a8a; margin: 0; font-size: 16px;">📋 Live Purchase / Sale Orders (PO) Pending Balance Matrix</h3>
+        <button class="btn-excel" style="background-color: #0284c7; margin: 0; padding: 8px 16px;" onclick="exportPOMatrixOnlyToExcel()">📥 Download PO Matrix Excel</button>
     </div>
+    
     <div class="table-responsive" style="margin-top: 10px; margin-bottom: 30px;">
         <table class="history-table" id="poBalanceLedgerTable" style="border: 2px solid #1e3a8a;">
             <thead style="background-color: #1e3a8a; color: white;">
@@ -166,10 +183,11 @@
                     <th>Total Ordered Qty</th>
                     <th>Actual Executed Qty</th>
                     <th>Pending PO Balance</th>
+                    <th style="background-color: #1d4ed8; text-align: center;">Quick Action</th>
                 </tr>
             </thead>
             <tbody id="poLedgerBody">
-                <tr><td colspan="7" style="text-align:center; padding:12px; color:#64748b;">Processing Live Cloud PO Balances...</td></tr>
+                <tr><td colspan="8" style="text-align:center; padding:12px; color:#64748b;">Processing Live Cloud PO Balances...</td></tr>
             </tbody>
         </table>
     </div>
@@ -200,7 +218,6 @@
 <div id="printSearchSection"></div>
 
 <script>
-    // 🎯 फायरबेस कॉन्फ़िगरेशन
     const firebaseConfig = {
         apiKey: "AIzaSyCAOXbPwuFR3wh1QSLBXWsodupKWoRYmqs",
         authDomain: "gvm-stock-control.firebaseapp.com",
@@ -251,9 +268,10 @@
     function renderAllTables() {
         renderPOBalanceTable();
         renderMasterLedgerTable();
-        if(currentSearchedCode) { triggerCodeSearch(); } 
+        if(currentSearchedCode) { runSilentSearchRefresh(); } 
     }
 
+    // ⚡ PO टेबल में डायरेक्ट हिस्ट्री लोडर बटन सेट किया है
     function renderPOBalanceTable() {
         const poBody = document.getElementById('poLedgerBody');
         poBody.innerHTML = '';
@@ -261,7 +279,7 @@
         let activePOs = flatCatalogPOList.filter(x => x.hasPO === "YES" && x.poNumber);
 
         if(activePOs.length === 0) {
-            poBody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:12px; color:#64748b;">No active Purchase or Sale Orders registered in Master Database.</td></tr>`;
+            poBody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:12px; color:#64748b;">No active Purchase or Sale Orders registered.</td></tr>`;
             return;
         }
 
@@ -307,8 +325,15 @@
                     <td><b>${totalOrdered} NOS</b></td>
                     <td style="color:#0284c7;"><b>${executedQty} NOS</b></td>
                     <td><b style="color:${pendingBalance > 0 ? '#b45309':'#16a34a'}; background:${pendingBalance > 0 ? '#fff7ed':'#f0fdf4'}; padding:3px 8px; border-radius:4px; border:1px solid ${pendingBalance > 0 ? '#fed7aa':'#bbf7d0'};">${pendingBalance} NOS</b></td>
+                    <td style="text-align:center;"><button class="btn-quick-view" onclick="quickSearchFromPO('${pCode}')">🔍 View History</button></td>
                 </tr>`;
         });
+    }
+
+    // ⚡ बिना टाइप किए डायरेक्ट PO रो से सर्च करने का मैकेनिज्म
+    function quickSearchFromPO(targetItemCode) {
+        document.getElementById('searchPartCode').value = targetItemCode;
+        triggerCodeSearch();
     }
 
     function renderMasterLedgerTable() {
@@ -377,7 +402,14 @@
     function triggerCodeSearch() {
         const targetCode = document.getElementById('searchPartCode').value.trim().toUpperCase();
         if (!targetCode) { alert("Please input a Model Part Code first!"); return; }
+        executeTimelineSearch(targetCode, true);
+    }
 
+    function runSilentSearchRefresh() {
+        if(currentSearchedCode) { executeTimelineSearch(currentSearchedCode, false); }
+    }
+
+    function executeTimelineSearch(targetCode, shouldScroll) {
         currentSearchedCode = targetCode;
         const wrapper = document.getElementById('searchResultWrapper');
         const historyBody = document.getElementById('searchHistoryBody');
@@ -400,7 +432,7 @@
         }
 
         if (!codeExistsInCatalog) {
-            alert("Error: This Model Code does not exist in System Master Catalog! Generate Code first.");
+            alert("Error: This Model Code does not exist in System Master Catalog!");
             wrapper.style.display = "none";
             return;
         }
@@ -411,13 +443,10 @@
                     if ((gi.modelCode || "").trim().toUpperCase() === targetCode) {
                         let qty = parseInt(gi.qty || gi.receiveQty || 0);
                         totalIn += qty;
-                        
-                        // 🛠️ यहाँ सुधारा गया है: 'Bill/Inv:' हटा कर सिर्फ शुद्ध क्लीन वैल्यू सेव कर रहे हैं
                         let rawRef = (f.billNo || 'N/A').replace('Bill/Inv:', '').trim();
-                        
                         globalTimelineData.push({
                             date: f.gateInDate || f.billDate,
-                            type: 'FRESH IN', // 🧼 इमोजी कचरा साफ़ करा
+                            type: 'FRESH IN',
                             ref: rawRef,
                             party: f.companyName || matchedCompanyName,
                             qty: qty,
@@ -434,12 +463,10 @@
                     if ((gi.itemShort || "").trim().toUpperCase() === targetCode) {
                         let qty = parseInt(gi.qty || 0);
                         totalIn += qty;
-                        
                         let rawRef = (r.gateEntryNo || 'N/A').replace('Gate Entry:', '').trim();
-
                         globalTimelineData.push({
                             date: r.date,
-                            type: 'REWORK IN', // 🧼 इमोजी कचरा साफ़ करा
+                            type: 'REWORK IN',
                             ref: `${rawRef} / Challan: ${r.billNo || ''}`,
                             party: r.partyName,
                             qty: qty,
@@ -458,7 +485,7 @@
                         totalOut += qty;
                         globalTimelineData.push({
                             date: g.date,
-                            type: `DISPATCH (${gi.pool})`, // 🧼 इमोजी कचरा साफ़ करा
+                            type: `DISPATCH (${gi.pool})`,
                             ref: `GO-${g.voucherNo} / Vehicle: ${g.vehicleNo || ''}`,
                             party: g.partyName,
                             qty: -qty,
@@ -475,15 +502,13 @@
                     if ((gi.code || "").trim().toUpperCase() === targetCode) {
                         let qty = parseInt(gi.qty || 0);
                         totalOut += qty;
-                        
                         let snString = 'N/A';
                         if (gi.serials && gi.serials.length > 0) {
                             snString = gi.serials.map(s => `[${s.boardType} S#${s.setNum}: ${s.sn}]`).join(' ');
                         }
-
                         globalTimelineData.push({
                             date: d.date,
-                            type: 'DEBIT NOTE', // 🧼 इमोजी कचरा साफ़ करा
+                            type: 'DEBIT NOTE',
                             ref: `DN-${d.noteNo} / Bill: ${d.refNo || ''}`,
                             party: d.vendorName,
                             qty: -qty,
@@ -529,27 +554,28 @@
         }
 
         wrapper.style.display = "block";
-        wrapper.scrollIntoView({ behavior: 'smooth' });
+        if(shouldScroll) { wrapper.scrollIntoView({ behavior: 'smooth' }); }
     }
 
-    // 🛠️ यहाँ नया कोड सेट करा है: एक्सेल रेंडर इंजन विथ BOM एनकोडिंग (कचरा फिक्स + हेडिंग स्प्लिट)
+    // 🛠️ पहली इमेज के अनुसार: एक्सेल मेन कस्टमाइज्ड हेडिंग को पूरी तरह मर्ज (A1:F1) करके टॉप पर सेट किया
     function exportFilteredHistoryToExcel() {
         if (!currentSearchedCode || globalTimelineData.length === 0) { alert("No search log to export!"); return; }
         
         let csv = "";
-        // 🔝 १. पहली रो में सिर्फ आपकी विशिष्ट कस्टमाइज्ड हेडिंग आएगी भाई
-        csv += `TIMELINE LOG REPORT FOR MODEL: ${currentSearchedCode} [${currentSearchedName}]\n`;
-        // 🔝 २. दूसरी रो खाली रखी है ताकि हेडर और डेटा आपस में चिपके नहीं
-        csv += "\n";
-        // 🔝 ३. तीसरी रो में साफ-सुथरे क्लीन कॉलम के नाम आएंगे
+        
+        // 🔝 १. पहली रो में मुख्य हेडिंग को एक्सेल के ६ कॉलम के अनुसार खाली कॉमा लगाकर पूरी तरह मर्ज किया भाई
+        csv += `"TIMELINE LOG REPORT FOR MODEL: ${currentSearchedCode} [${currentSearchedName}]",,,,,\n`;
+        
+        // 🔝 २. दूसरी रो खाली छोड़ी ताकि गैप बना रहे
+        csv += ",,,,,\n";
+        
+        // 🔝 ३. तीसरी रो में हेडर कॉलम के नाम
         csv += "Transaction Date,Log Type,Ref Voucher Info,Party / Destination,Quantity Change,Included Serial Numbers\n";
         
         globalTimelineData.forEach(row => {
-            // शुद्ध विदाउट इमोजी क्लीन डेटा रो कतार सेट करी है
             csv += `"${row.date}","${row.type}","${row.ref}","${row.party}","${row.qty}","${row.sns || ''}"\n`;
         });
         
-        // 🧼 UTF-8 BOM जोड़ दिया है ताकि माइक्रोसॉफ्ट एक्सेल में कचरा अक्षर कभी न छपें!
         let blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
         let link = document.createElement("a");
         link.href = URL.createObjectURL(blob);
