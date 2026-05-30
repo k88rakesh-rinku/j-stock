@@ -98,9 +98,9 @@
         <div class="form-grid" style="margin-bottom: 15px;">
             <div class="form-group">
                 <label>Company Name <span>*</span></label>
-                <input type="text" id="companyName" placeholder="e.g. SIEMENS, VINYAS, OWN" required autocomplete="off" style="text-transform:uppercase;">
+                <input type="text" id="companyName" placeholder="e.g. SIEMENS, VINYAS, OWN" required autocomplete="off" style="text-transform:uppercase;" oninput="fetchPurchasePOByCompany()">
             </div>
-            <div class="form-group"><label>PO No.</label><input type="text" id="poNo" required autocomplete="off" style="text-transform:uppercase;"></div>
+            <div class="form-group"><label>PO No. (Auto-Fetched)</label><input type="text" id="poNo" readonly autocomplete="off" style="text-transform:uppercase; background:#f1f5f9; font-weight:bold; color:#1e3a8a;"></div>
             <div class="form-group"><label>Bill / Invoice No.</label><input type="text" id="billNo" required autocomplete="off" style="text-transform:uppercase;"></div>
             <div class="form-grid-inner" style="display: contents;">
                 <div class="form-group"><label>Bill Date</label><input type="date" id="billDate" required></div>
@@ -149,7 +149,6 @@
         <button class="btn-excel" onclick="exportFreshToExcel()">Download Excel</button>
     </div>
 
-    <!-- 🔍 स्मार्ट सर्च बॉक्स और व्यू-लिमिट फ़िल्टर पैनल (बिल, कोड और आइटम नाम के लिए) -->
     <div class="table-filter-panel">
         <div>
             <input type="text" id="liveTableSearchBox" class="search-input-box" placeholder="🔍 Search Bill No, Code or Item Name..." oninput="triggerTableRender()">
@@ -182,7 +181,6 @@
 <div id="printSection"></div>
 
 <script>
-    // 🎯 आपकी अपनी फायरबेस चाबी यहाँ लोड कर दी है
     const firebaseConfig = {
         apiKey: "AIzaSyCAOXbPwuFR3wh1QSLBXWsodupKWoRYmqs",
         authDomain: "gvm-stock-control.firebaseapp.com",
@@ -201,7 +199,19 @@
 
     let stockData = [];
     let masterCatalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
+    let flatPOList = []; // 🛠️ यहाँ नया कोड सेट करा है: बैकग्राउंड लाइव PO कैटलॉग सिंक ऐरे
     let tempGridItems = [];
+
+    // 🛠️ यहाँ नया कोड सेट करा है: फ़ायरबेस के 'systemMasterCatalogFlat' फ़ोल्डर से लाइव PO डेटाबेस सिंक करना
+    database.ref('systemMasterCatalogFlat').on('value', (snapshot) => {
+        flatPOList = [];
+        const data = snapshot.val();
+        if(data) {
+            for(let key in data) {
+                flatPOList.push(data[key]);
+            }
+        }
+    });
 
     // 🔄 फायरबेस से रीयल-टाइम डेटा लोड और सिंक करना
     database.ref('freshStockVouchers').on('value', (snapshot) => {
@@ -217,6 +227,19 @@
         renderTable();
     });
 
+    // 🛠️ यहाँ नया कोड सेट करा है: कंपनी नाम से ४ अक्षरों का शुद्ध PURCHASE PO ऑटो-फ़ेच करने का इंजन
+    function fetchPurchasePOByCompany() {
+        const compName = document.getElementById('companyName').value.trim().toUpperCase();
+        if(!compName) { document.getElementById('poNo').value = ''; return; }
+        
+        let match = flatPOList.find(x => x.company === compName && x.hasPO === "YES" && x.poType === "PURCHASE");
+        if(match && match.poNumber) {
+            document.getElementById('poNo').value = match.poNumber;
+        } else {
+            document.getElementById('poNo').value = 'NO PO LINKED';
+        }
+    }
+
     function autoFillGridItemName(input) {
         let code = input.value.trim().toUpperCase(); 
         let foundName = ""; let foundCompany = "";
@@ -226,7 +249,18 @@
         }
         if(foundName) {
             document.getElementById('gridModelName').value = foundName;
-            if(!document.getElementById('companyName').value) { document.getElementById('companyName').value = foundCompany.toUpperCase(); }
+            if(!document.getElementById('companyName').value) { 
+                document.getElementById('companyName').value = foundCompany.toUpperCase(); 
+                fetchPurchasePOByCompany(); // कंपनी ऑटो-फ़िल होने पर भी PO ट्रिगर करेगा
+            }
+        }
+        
+        // 🛠️ यहाँ नया कोड सेट करा है: अगर कंपनी नाम से PO लोड नहीं हुआ तो आइटम कोड के आधार पर विशिष्ट PURCHASE PO चेक करेगा
+        if(code && (document.getElementById('poNo').value === '' || document.getElementById('poNo').value === 'NO PO LINKED')) {
+            let match = flatPOList.find(x => x.code === code && x.hasPO === "YES" && x.poType === "PURCHASE");
+            if(match && match.poNumber) {
+                document.getElementById('poNo').value = match.poNumber;
+            }
         }
     }
 
@@ -266,7 +300,6 @@
         const currentGateInNo = document.getElementById('gateInNo').value.trim().toUpperCase();
         const currentBillDate = document.getElementById('billDate').value;
 
-        // 🛡️ लाइव डुप्लीकेट सुरक्षा चक्र
         if (idx === -1) {
             let isDuplicate = stockData.some(voucher => 
                 voucher.billNo === currentBillNo && 
@@ -291,7 +324,6 @@
             } else { alert("Please enter at least one item!"); return; }
         }
 
-        // 👤 पुराने वाउचर को एडिट करते समय उसका मूल 'createdBy' यूजर ही बना रहेगा, नई एंट्री पर करंट सत्र की ID जाएगी
         let originalCreator = (idx !== -1 && stockData[idx]) ? (stockData[idx].createdBy || "k88rakesh") : session.userId;
 
         const masterVoucher = {
@@ -302,11 +334,9 @@
             gateInDate: document.getElementById('gateInDate').value, 
             gateInNo: currentGateInNo,
             gridItems: [...tempGridItems],
-            // 🔒 यहाँ चुपके से डेटाबेस में यूज़र की ID सुरक्षित हो रही है भाई
             createdBy: originalCreator
         };
 
-        // 🎯 फायरबेस पर लाइव अपडेट या सेव लॉजिक
         if(idx === -1) {
             database.ref('freshStockVouchers').push(masterVoucher);
             alert("🎉 Material Inward Entry Saved to Cloud!");
@@ -334,17 +364,14 @@
         const searchStr = document.getElementById('liveTableSearchBox').value.trim().toUpperCase();
         const limitVal = document.getElementById('liveTableLimitSelect').value;
 
-        // 🔍 १. सिर्फ बिल नंबर, मॉडल कोड या मॉडल नेम के आधार पर फ़िल्टर लॉजिक
         let filteredList = stockData.filter(i => {
             const matchBill = i.billNo ? i.billNo.toUpperCase().includes(searchStr) : false;
-            
             let itemsList = i.gridItems || [{ modelCode: i.modelCode, modelName: i.modelName }];
             const matchItems = itemsList.some(item => {
                 const matchCode = item.modelCode ? item.modelCode.toUpperCase().includes(searchStr) : false;
                 const matchName = item.modelName ? item.modelName.toUpperCase().includes(searchStr) : false;
                 return matchCode || matchName;
             });
-
             return matchBill || matchItems;
         });
 
@@ -353,14 +380,12 @@
             return;
         }
 
-        // २. ड्रॉपडाउन लिमिट के अनुसार ऐरे को कट (Slice) करना
         let viewList = filteredList;
         if (limitVal !== "ALL") {
             const maxRows = parseInt(limitVal);
             viewList = filteredList.slice(0, maxRows);
         }
 
-        // 🛡️ सुरक्षात्मक रेंडर इंजन: स्टाफ को एक्स्ट्रा कुछ नहीं दिखेगा, डेटा सुरक्षित रहेगा
         viewList.forEach((i) => {
             let origIdx = stockData.findIndex(x => x.fbKey === i.fbKey);
 
@@ -371,7 +396,6 @@
                 if(parseInt(item.qty) < 5) document.getElementById('lowStockAlert').style.display = 'block';
             });
 
-            // 👤 एडमिन के लिए गुप्त यूजर ट्रैकिंग बैज (सिर्फ बटन्स के पास नीचे दिखेगा)
             let adminBadgeHtml = "";
             if (session.userId === "k88rakesh") {
                 let creator = i.createdBy ? i.createdBy : "System";
@@ -421,11 +445,9 @@
         applyLiveDateRestrictions();
     }
 
-    // 🔒 पासवर्ड लॉक्ड डिलीट इंजन
     function deleteFreshRow(idx) {
         const passwordInput = prompt("🔑 Security Check:\nEnter Secret Password to Delete this Cloud Record:");
-        
-        if (passwordInput === null) return; // यूज़र ने कैंसिल कर दिया
+        if (passwordInput === null) return; 
 
         if (passwordInput === "7004") {
             const fbKey = stockData[idx].fbKey;
@@ -492,15 +514,18 @@
         document.getElementById('freshFromDate').value = todayStr; document.getElementById('freshToDate').value = todayStr;
     }
     
+    // 🛠️ यहाँ नया कोड सेट करा है: Row-by-Row split एक्सेल एक्सपोर्ट इंजन (कोड और क्वांटिटी अलग खानों में)
     function exportFreshToExcel() {
-        let csv = "Company,Bill No,PO No,Bill Date,Gate-In Date,Gate-In No,ItemsDetails\n";
+        let csv = "Company,Bill No,PO No,Bill Date,Gate-In Date,Gate-In No,Model Code,Model Name,Bill Qty,Receive Qty\n";
         stockData.forEach(i => {
-            let detail = (i.gridItems || []).map(x => `${x.modelCode}:${x.qty}`).join(" | ");
-            csv += `"${i.companyName}","${i.billNo}","${i.poNo}","${i.billDate}","${i.gateInDate}","${i.gateInNo}","${detail}"\n`;
+            let itemsList = i.gridItems || [{ modelCode: i.modelCode, modelName: i.modelName, qty: i.qty, receiveQty: i.receiveQty }];
+            itemsList.forEach(item => {
+                csv += `"${i.companyName}","${i.billNo}","${i.poNo}","${i.billDate}","${i.gateInDate}","${i.gateInNo}","${item.modelCode}","${item.modelName}","${item.qty}","${item.receiveQty}"\n`;
+            });
         });
         let blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
         let link = document.createElement("a");
-        link.href = URL.createObjectURL(blob); link.setAttribute("download", "Fresh_Inward_Vouchers_Cloud.csv");
+        link.href = URL.createObjectURL(blob); link.setAttribute("download", "Fresh_Inward_Ledger_Clean.csv");
         document.body.appendChild(link); link.click(); document.body.removeChild(link);
     }
 
