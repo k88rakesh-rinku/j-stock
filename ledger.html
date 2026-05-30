@@ -200,6 +200,7 @@
 <div id="printSearchSection"></div>
 
 <script>
+    // 🎯 फायरबेस कॉन्फ़िगरेशन
     const firebaseConfig = {
         apiKey: "AIzaSyCAOXbPwuFR3wh1QSLBXWsodupKWoRYmqs",
         authDomain: "gvm-stock-control.firebaseapp.com",
@@ -225,7 +226,7 @@
 
     let currentSearchedCode = "";
     let currentSearchedName = "";
-    let globalTimelineData = []; // 🛠️ यहाँ नया कोड सेट करा है: एक्सेल डाउनलोड के लिए टाइमलाइन का ग्लोबल बैकअप वेरिएबल
+    let globalTimelineData = []; 
 
     Promise.all([
         database.ref('freshStockVouchers').once('value'),
@@ -250,7 +251,7 @@
     function renderAllTables() {
         renderPOBalanceTable();
         renderMasterLedgerTable();
-        if(currentSearchedCode) { triggerCodeSearch(); } // एक्टिव सर्च रिफ्रेश
+        if(currentSearchedCode) { triggerCodeSearch(); } 
     }
 
     function renderPOBalanceTable() {
@@ -382,7 +383,7 @@
         const historyBody = document.getElementById('searchHistoryBody');
         historyBody.innerHTML = '';
 
-        globalTimelineData = []; // रीसेट बैकअप
+        globalTimelineData = []; 
         let totalIn = 0;
         let totalOut = 0;
         let codeExistsInCatalog = false;
@@ -410,12 +411,16 @@
                     if ((gi.modelCode || "").trim().toUpperCase() === targetCode) {
                         let qty = parseInt(gi.qty || gi.receiveQty || 0);
                         totalIn += qty;
+                        
+                        // 🛠️ यहाँ सुधारा गया है: 'Bill/Inv:' हटा कर सिर्फ शुद्ध क्लीन वैल्यू सेव कर रहे हैं
+                        let rawRef = (f.billNo || 'N/A').replace('Bill/Inv:', '').trim();
+                        
                         globalTimelineData.push({
                             date: f.gateInDate || f.billDate,
-                            type: '📦 FRESH IN',
-                            ref: `Bill/Inv: ${f.billNo || 'N/A'}`,
+                            type: 'FRESH IN', // 🧼 इमोजी कचरा साफ़ करा
+                            ref: rawRef,
                             party: f.companyName || matchedCompanyName,
-                            qty: `+${qty}`,
+                            qty: qty,
                             sns: 'N/A'
                         });
                     }
@@ -429,12 +434,15 @@
                     if ((gi.itemShort || "").trim().toUpperCase() === targetCode) {
                         let qty = parseInt(gi.qty || 0);
                         totalIn += qty;
+                        
+                        let rawRef = (r.gateEntryNo || 'N/A').replace('Gate Entry:', '').trim();
+
                         globalTimelineData.push({
                             date: r.date,
-                            type: '🛠️ REWORK IN',
-                            ref: `Gate Entry: ${r.gateEntryNo} / Challan: ${r.billNo}`,
+                            type: 'REWORK IN', // 🧼 इमोजी कचरा साफ़ करा
+                            ref: `${rawRef} / Challan: ${r.billNo || ''}`,
                             party: r.partyName,
-                            qty: `+${qty}`,
+                            qty: qty,
                             sns: gi.serials ? gi.serials.join(' ') : 'N/A'
                         });
                     }
@@ -450,10 +458,10 @@
                         totalOut += qty;
                         globalTimelineData.push({
                             date: g.date,
-                            type: `🚪 DISPATCH (${gi.pool})`,
-                            ref: `GVM-GO-${g.voucherNo} / Vehicle: ${g.vehicleNo}`,
+                            type: `DISPATCH (${gi.pool})`, // 🧼 इमोजी कचरा साफ़ करा
+                            ref: `GO-${g.voucherNo} / Vehicle: ${g.vehicleNo || ''}`,
                             party: g.partyName,
-                            qty: `-${qty}`,
+                            qty: -qty,
                             sns: gi.serials ? gi.serials.join(' ') : 'N/A'
                         });
                     }
@@ -475,10 +483,10 @@
 
                         globalTimelineData.push({
                             date: d.date,
-                            type: `🧾 DEBIT NOTE`,
-                            ref: `GVM-DN-${d.noteNo} / Bill Ref: ${d.refNo}`,
+                            type: 'DEBIT NOTE', // 🧼 इमोजी कचरा साफ़ करा
+                            ref: `DN-${d.noteNo} / Bill: ${d.refNo || ''}`,
                             party: d.vendorName,
-                            qty: `-${qty}`,
+                            qty: -qty,
                             sns: snString
                         });
                     }
@@ -506,13 +514,15 @@
                 if(row.type.includes("DISPATCH")) badgeClass = "badge-dispatch-out";
                 if(row.type.includes("DEBIT")) badgeClass = "badge-debit-out";
 
+                let signQty = row.qty > 0 ? `+${row.qty}` : `${row.qty}`;
+
                 historyBody.innerHTML += `
                     <tr>
                         <td>${row.date}</td>
                         <td><span class="badge-type ${badgeClass}">${row.type}</span></td>
                         <td><code>${row.ref}</code></td>
                         <td><b>${row.party}</b></td>
-                        <td><b>${row.qty} NOS</b></td>
+                        <td><b>${signQty} NOS</b></td>
                         <td style="max-width:200px; font-size:11px; word-break:break-all;">${row.sns || 'N/A'}</td>
                     </tr>`;
             });
@@ -522,25 +532,31 @@
         wrapper.scrollIntoView({ behavior: 'smooth' });
     }
 
-    // 🛠️ यहाँ नया कोड सेट करा है: सिर्फ सर्च किए गए आइटम कोड की पूरी टाइमलाइन हिस्ट्री एक्सेल डाउनलोड इंजन (Row-by-Row Clean)
+    // 🛠️ यहाँ नया कोड सेट करा है: एक्सेल रेंडर इंजन विथ BOM एनकोडिंग (कचरा फिक्स + हेडिंग स्प्लिट)
     function exportFilteredHistoryToExcel() {
         if (!currentSearchedCode || globalTimelineData.length === 0) { alert("No search log to export!"); return; }
         
-        let csv = `TIMELINE LOG REPORT FOR MODEL: ${currentSearchedCode} [${currentSearchedName}]\n`;
+        let csv = "";
+        // 🔝 १. पहली रो में सिर्फ आपकी विशिष्ट कस्टमाइज्ड हेडिंग आएगी भाई
+        csv += `TIMELINE LOG REPORT FOR MODEL: ${currentSearchedCode} [${currentSearchedName}]\n`;
+        // 🔝 २. दूसरी रो खाली रखी है ताकि हेडर और डेटा आपस में चिपके नहीं
+        csv += "\n";
+        // 🔝 ३. तीसरी रो में साफ-सुथरे क्लीन कॉलम के नाम आएंगे
         csv += "Transaction Date,Log Type,Ref Voucher Info,Party / Destination,Quantity Change,Included Serial Numbers\n";
         
         globalTimelineData.forEach(row => {
+            // शुद्ध विदाउट इमोजी क्लीन डेटा रो कतार सेट करी है
             csv += `"${row.date}","${row.type}","${row.ref}","${row.party}","${row.qty}","${row.sns || ''}"\n`;
         });
         
-        let blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+        // 🧼 UTF-8 BOM जोड़ दिया है ताकि माइक्रोसॉफ्ट एक्सेल में कचरा अक्षर कभी न छपें!
+        let blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
         let link = document.createElement("a");
         link.href = URL.createObjectURL(blob);
-        link.setAttribute("download", `${currentSearchedCode}_Lifecycle_History.csv`);
+        link.setAttribute("download", `${currentSearchedCode}_Clean_History_Log.csv`);
         document.body.appendChild(link); link.click(); document.body.removeChild(link);
     }
 
-    // 🛠️ यहाँ नया कोड सेट करा है: सिर्फ पीओ मैट्रिक्स बैलेंस शीट का साफ एक्सेल डाउनलोड इंजन (Row-by-Row Split)
     function exportPOMatrixOnlyToExcel() {
         let csv = "PO Number,PO Route Type,Linked Item Code,Item Description,Total Ordered Qty,Actual Executed Qty,Pending PO Balance\n";
         let activePOs = flatCatalogPOList.filter(x => x.hasPO === "YES" && x.poNumber);
@@ -559,13 +575,12 @@
             csv += `"${poNum}","${p.poType}","${pCode}","${p.name.replace(/"/g, '""')}","${totalOrdered}","${executedQty}","${totalOrdered - executedQty}"\n`;
         });
 
-        let blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+        let blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
         let link = document.createElement("a"); link.href = URL.createObjectURL(blob);
         link.setAttribute("download", "GVM_POs_Pending_Balance_Matrix.csv");
         document.body.appendChild(link); link.click(); document.body.removeChild(link);
     }
 
-    // 📦 पुराना होल स्टॉक एक्सेल डाउनलोड इंजन
     function exportStockLedgerToExcel() {
         let csv = [];
         csv.push("--- LIVE CURRENT STOCKROOMS OVERVIEW ---");
@@ -585,7 +600,7 @@
         });
 
         let csvString = csv.join("\n");
-        let blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
+        let blob = new Blob(["\uFEFF" + csvString], { type: "text/csv;charset=utf-8;" });
         let link = document.createElement("a"); link.href = URL.createObjectURL(blob);
         link.setAttribute("download", "GVM_Warehouse_Stock_Ledger.csv");
         document.body.appendChild(link); link.click(); document.body.removeChild(link);
