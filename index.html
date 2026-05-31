@@ -202,7 +202,7 @@
 <div id="printSection"></div>
 
 <script>
-    /* 📑 लाइव क्लाउड फायरबेस क्रेडेंशियल कॉन्फ़िगरेशन  */
+    /* 📑 लाइव क्लाउड फायरबेस क्रेडेंशियल कॉन्फ़िगरेशन सेटअप */
     const firebaseConfig = {
         apiKey: "AIzaSyCAOXbPwuFR3wh1QSLBXWsodupKWoRYmqs",
         authDomain: "gvm-stock-control.firebaseapp.com",
@@ -215,7 +215,7 @@
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
 
-    /* 📑 एक्टिव यूजर सुरक्षा ट्रैकिंग सुरक्षा चक्र */
+    /* 📑 एक्टिव यूजर सत्र सुरक्षा ट्रैकिंग सुरक्षा चक्र */
     const session = JSON.parse(localStorage.getItem('activeSession'));
     if(!session) { window.location.href = 'login.html'; }
     function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
@@ -224,7 +224,7 @@
     let masterCatalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
     let flatPOList = []; 
     let tempGridItems = [];
-    let lastActiveFocusedInputId = "companyName";
+    let lastActiveFocusedInputId = "companyName"; /* 📑 कर्सर मेमोरी ट्रैक करने का ग्लोबल वेरिएबल */
 
     /* 📑 फायरबेस 'systemMasterCatalogFlat' फ़ोल्डर से लाइव PO डेटाबेस रीयल-टाइम सिंक */
     database.ref('systemMasterCatalogFlat').on('value', (snapshot) => {
@@ -250,18 +250,16 @@
         renderTable();
     });
 
-    /* 🛠️ यहाँ नया कोड सेट करा है: क्वांटिटी ख़त्म होने पर PO को हाइड (Hide) करने का लाइव कैलकुलेशन इंजन */
+    /* 📑 क्वांटिटी ख़त्म होने पर PO को हाइड (Hide) करने का लाइव कैलकुलेशन इंजन */
     function updatePODropdownOptions(filteredPOs, currentEditingPONo = null) {
         const selectBox = document.getElementById('poNo');
         selectBox.innerHTML = '';
 
-        // कुल ऑर्डर क्वांटिटी में से पहले रिसीव हो चुके माल को घटाकर चेक करना
         let validPOs = filteredPOs.filter(p => {
             let poNum = p.poNumber.trim().toUpperCase();
             let pCode = p.code.trim().toUpperCase();
             let totalOrdered = parseInt(p.poTotalQty || 0);
             
-            // अगर एडिट मोड खुला है, तो उस इनवॉइस के पुराने PO नंबर को हमेशा शो होने देना है
             if(currentEditingPONo && poNum === currentEditingPONo.trim().toUpperCase()) {
                 return true;
             }
@@ -294,7 +292,7 @@
         });
     }
 
-    /* 📑 कंपनी नाम से जुड़े सारे एक्टिव PURCHASE PO ड्रॉपडाउन में लोड करने का इंजन */
+    /* 📑 कंपनी नाम से जुड़े सारे एक्टिव PURCHASE POं को लोड करने का इंजन */
     function fetchPurchasePOOptions() {
         const compName = document.getElementById('companyName').value.trim().toUpperCase();
         if(!compName) { 
@@ -346,7 +344,7 @@
         document.getElementById('gridBillQty').value = '';
         document.getElementById('gridRecQty').value = '';
         
-        /* 🛠️ कर्सर मेमोरी ट्रैकर अपडेट कर कोड बॉक्स पर रिफोकस */
+        /* 🛠️ कर्सर मेमोरी को तुरंत अगले इनपुट पर शिफ्ट करा */
         lastActiveFocusedInputId = 'gridModelCode';
         document.getElementById('gridModelCode').focus();
     }
@@ -496,7 +494,6 @@
 
         document.getElementById('companyName').value = d.companyName; 
         
-        /* 🛠️ यहाँ सुधारा गया है: एडिट मोड पर क्लिक करते ही सारे पुराने और नए PO ऑप्शंस को लाइव लोड कर देगा विदाउट लॉकिंग */
         let matches = flatPOList.filter(x => x.company === d.companyName.toUpperCase() && x.hasPO === "YES" && x.poType === "PURCHASE");
         
         if(d.gridItems && d.gridItems.length > 0) {
@@ -628,10 +625,13 @@
             field.addEventListener('focus', function() {
                 if (this.id) { lastActiveFocusedInputId = this.id; }
             });
+            field.addEventListener('mousedown', function() {
+                if (this.id) { lastActiveFocusedInputId = this.id; }
+            });
         });
     }
 
-    /* 🛠️ विंडो विजिबिलिटी और पेज शो ट्रिगर (बुलेटप्रूफ रिफोकस गियर) */
+    /* 🛠️ यहाँ नया कोड सेट करा है: ग्लोबल क्लिपबोर्ड इंटरसेप्ट गियर (बिना बॉक्स क्लिक सीधे पेस्ट इंजन) */
     function applyBulletproofRefocusEngine() {
         document.addEventListener('click', function(e) {
             if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'SELECT' && e.target.tagName !== 'BUTTON') {
@@ -645,6 +645,28 @@
 
         window.addEventListener('focus', function() { refocusLastElement(); });
         window.addEventListener('pageshow', function() { refocusLastElement(); });
+
+        /* 🔥 महा-इंजन लोड करा: जब यूजर बाहर से आकर सीधे टैब पर Ctrl+V दबाएगा */
+        document.addEventListener('paste', function(e) {
+            if (lastActiveFocusedInputId) {
+                const targetEl = document.getElementById(lastActiveFocusedInputId);
+                if (targetEl) {
+                    // १. अगर डिब्बे पर पहले से कर्सर एक्टिव नहीं है, तो उसे जबरन फोकस दें
+                    if (document.activeElement !== targetEl) {
+                        targetEl.focus();
+                    }
+                    
+                    // २. ब्राउज़र के इनपुट डिले को मैनेज करने के लिए 10ms का गैप देकर वैल्यू क्लीन सेट करें
+                    setTimeout(() => {
+                        let text = targetEl.value;
+                        // अगर एक्सेल की वजह से टेक्स्ट दो बार चिपक गया हो, तो आधा साफ़ करें
+                        if (text.length > 0 && text.length % 2 === 0 && text.substring(0, text.length/2) === text.substring(text.length/2)) {
+                            targetEl.value = text.substring(0, text.length/2);
+                        }
+                    }, 10);
+                }
+            }
+        });
     }
 
     function refocusLastElement() {
@@ -658,7 +680,7 @@
                         targetEl.value = '';
                         targetEl.value = val;
                     }
-                }, 40);
+                }, 30);
             }
         }
     }
