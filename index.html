@@ -118,7 +118,7 @@
             <div class="form-group">
                 <label>PO Number (Select Order) <span>*</span></label>
                 <select id="poNo" class="po-dropdown-select" required>
-                    <option value="">-- TYPE COMPANY OR CODE FIRST --</option>
+                    <option value="">-- AUTO SELECT PO --</option>
                 </select>
             </div>
 
@@ -224,7 +224,7 @@
     let masterCatalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
     let flatPOList = []; 
     let tempGridItems = [];
-    let lastActiveFocusedInputId = null; /* 📑 एक्सेल कॉपी पेस्ट के समय कर्सर मेमोरी ट्रैक करने का वेरिएबल */
+    let lastActiveFocusedInputId = "companyName"; /* 📑 डिफ़ॉल्ट रूप से कंपनी नेम बॉक्स सेट करा है */
 
     /* 📑 फायरबेस 'systemMasterCatalogFlat' फ़ोल्डर से लाइव PO डेटाबेस रीयल-टाइम सिंक */
     database.ref('systemMasterCatalogFlat').on('value', (snapshot) => {
@@ -319,7 +319,8 @@
         document.getElementById('gridBillQty').value = '';
         document.getElementById('gridRecQty').value = '';
         
-        /* 🛠️ रो ऐड होते ही कर्सर वापस पहले वाले कोड डिब्बे पर अपने आप आ जाएगा */
+        /* 🛠️ कर्सर मेमोरी ट्रैकर अपडेट कर कोड बॉक्स पर रिफोकस */
+        lastActiveFocusedInputId = 'gridModelCode';
         document.getElementById('gridModelCode').focus();
     }
 
@@ -460,7 +461,7 @@
         });
     }
 
-    /* 📑 पुराने इनवार्ड वाउचर को वापस फॉर्म के अंदर एडिट मोड में लोड करने का ढांचा */
+    /* 📑 पुराने इनवार्ड वाउचर को वापस फॉर्म के अंदर एडिट ... */
     function editFreshRow(idx) {
         const d = stockData[idx]; 
         document.getElementById('editRowIndex').value = idx;
@@ -468,7 +469,6 @@
 
         document.getElementById('companyName').value = d.companyName; 
         
-        /* 🛠️ यहाँ सुधारा गया है: एडिट मोड पर क्लिक करते ही कंपनी/कोड से जुड़े सारे पुराने और नए PO ऑप्शंस को लाइव लोड कर देगा */
         let matches = flatPOList.filter(x => x.company === d.companyName.toUpperCase() && x.hasPO === "YES" && x.poType === "PURCHASE");
         
         if(d.gridItems && d.gridItems.length > 0) {
@@ -478,8 +478,6 @@
         }
 
         updatePODropdownOptions(matches);
-        
-        /* जो पीओ पहले से सेव था, उसे लिस्ट में सेलेक्टेड रखेगा */
         document.getElementById('poNo').value = d.poNo;
 
         document.getElementById('billNo').value = d.billNo;
@@ -506,6 +504,7 @@
         document.getElementById('btnSubmitForm').innerText = "Final Save Inward Voucher"; 
         document.getElementById('btnCancelEdit').style.display = "none";
         applyLiveDateRestrictions();
+        lastActiveFocusedInputId = "companyName";
     }
 
     /* 📑 सुरक्षा पासवर्ड (7004) लॉक्ड डिलीट इंजन */
@@ -596,23 +595,54 @@
     }
 
     /* 🛠️ यहाँ नया कोड सेट करा है: पूरे फॉर्म के इनपुट बॉक्स पर कर्सर मेमोरी ट्रैकिंग इंजन सेट किया है */
-    document.querySelectorAll('input').forEach(inputField => {
-        inputField.addEventListener('focus', function() {
-            lastActiveFocusedInputId = this.id;
+    function trackInputFocusMemory() {
+        document.querySelectorAll('form input, form select').forEach(field => {
+            field.addEventListener('focus', function() {
+                if (this.id) { lastActiveFocusedInputId = this.id; }
+            });
         });
-    });
+    }
 
-    /* 🛠️ यहाँ नया कोड सेट करा है: विंडो ऑटो-रिफोकस मैकेनिज्म (Excel से डाटा कॉपी करके टैब पर लौटते ही कर्सर खुद एक्टिवेट हो जाएगा) */
-    window.onfocus = function() {
+    /* 🛠️ यहाँ नया कोड सेट करा है: विंडो विजिबिलिटी और पेज शो ट्रिगर (बुलेटप्रूफ रिफोकस गियर) */
+    function applyBulletproofRefocusEngine() {
+        // १. जब यूजर एक्सेल से डाटा कॉपी करके इस विंडो पर कहीं भी क्लिक करे
+        document.addEventListener('click', function(e) {
+            // अगर क्लिक किसी दूसरे इनपुट पर न हुआ हो, तभी पुराना रिफोकस करें
+            if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'SELECT' && e.target.tagName !== 'BUTTON') {
+                refocusLastElement();
+            }
+        });
+
+        // २. जब यूजर टैब स्विच करके वापस लौटे
+        document.addEventListener('visibilitychange', function() {
+            if (document.visibilityState === 'visible') { refocusLastElement(); }
+        });
+
+        // ३. विंडोज़ फोकस बैकअप ट्रिगर
+        window.addEventListener('focus', function() { refocusLastElement(); });
+        window.addEventListener('pageshow', function() { refocusLastElement(); });
+    }
+
+    function refocusLastElement() {
         if (lastActiveFocusedInputId) {
-            const elementToFocus = document.getElementById(lastActiveFocusedInputId);
-            if (elementToFocus) {
-                setTimeout(() => { elementToFocus.focus(); }, 50);
+            const targetEl = document.getElementById(lastActiveFocusedInputId);
+            if (targetEl && document.activeElement !== targetEl) {
+                setTimeout(() => { 
+                    targetEl.focus(); 
+                    // अगर इनपुट बॉक्स है, तो कर्सर को टेक्स्ट के बिल्कुल अंत में ले जाएं
+                    if (targetEl.tagName === 'INPUT' && (targetEl.type === 'text' || targetEl.type === 'number')) {
+                        const val = targetEl.value;
+                        targetEl.value = '';
+                        targetEl.value = val;
+                    }
+                }, 40);
             }
         }
-    };
+    }
 
     applyLiveDateRestrictions();
+    trackInputFocusMemory();
+    applyBulletproofRefocusEngine();
 </script>
 </body>
 </html>
