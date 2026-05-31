@@ -224,7 +224,7 @@
     let masterCatalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
     let flatPOList = []; 
     let tempGridItems = [];
-    let lastActiveFocusedInputId = "companyName"; /* 📑 कर्सर मेमोरी ट्रैक करने का ग्लोबल वेरिएबल */
+    let lastActiveFocusedInputId = "companyName";
 
     /* 📑 फायरबेस 'systemMasterCatalogFlat' फ़ोल्डर से लाइव PO डेटाबेस रीयल-टाइम सिंक */
     database.ref('systemMasterCatalogFlat').on('value', (snapshot) => {
@@ -344,7 +344,6 @@
         document.getElementById('gridBillQty').value = '';
         document.getElementById('gridRecQty').value = '';
         
-        /* 🛠️ कर्सर मेमोरी को तुरंत अगले इनपुट पर शिफ्ट करा */
         lastActiveFocusedInputId = 'gridModelCode';
         document.getElementById('gridModelCode').focus();
     }
@@ -360,7 +359,7 @@
         });
     }
 
-    /* 📑 फॉर्म फाइनल सबमिशन इंजन (डुप्लीकेट वाउचर चेकिंग इंजन के साथ) */
+    /* 🛠️ यहाँ नया कोड सेट करा है: सेम बिल + सेम गेट आईडी + डिफरेंट मॉडल पर (Yes/No) कन्फर्मेशन और सेम मॉडल पर सख्त ब्लॉक गियर */
     document.getElementById('stockForm').addEventListener('submit', function(e) {
         e.preventDefault();
 
@@ -371,19 +370,7 @@
         const currentGateInNo = document.getElementById('gateInNo').value.trim().toUpperCase();
         const currentBillDate = document.getElementById('billDate').value;
 
-        if (idx === -1) {
-            let isDuplicate = stockData.some(voucher => 
-                voucher.billNo === currentBillNo && 
-                voucher.gateInNo === currentGateInNo && 
-                voucher.billDate === currentBillDate
-            );
-
-            if (isDuplicate) {
-                alert(`🚨 ERROR: Duplicate Entry Detected!\n\nThis Invoice No. [ ${currentBillNo} ] with Gate-In No. [ ${currentGateInNo} ] on Date [ ${currentBillDate} ] is already registered on Live Cloud!\n\nPlease check your file or records.`);
-                return;
-            }
-        }
-
+        // यदि ग्रिड खाली है तो डिब्बे की वैल्यू को टेम्पररी ऐरे में डालो
         if(tempGridItems.length === 0) {
             const code = document.getElementById('gridModelCode').value.trim().toUpperCase();
             const name = document.getElementById('gridModelName').value.trim();
@@ -393,6 +380,31 @@
                 if(bQty !== rQty) { alert("Error: Bill Qty and Receive Qty must match!"); return; }
                 tempGridItems.push({ modelCode: code, modelName: name, qty: bQty, receiveQty: rQty });
             } else { alert("Please enter at least one item!"); return; }
+        }
+
+        if (idx === -1) {
+            // १. चेक करें कि क्या यह बिल नंबर और गेट-इन नंबर पहले से मौजूद है
+            let matchingVouchers = stockData.filter(v => v.billNo === currentBillNo && v.gateInNo === currentGateInNo);
+
+            if (matchingVouchers.length > 0) {
+                // २. चेक करें कि क्या इनमें से किसी वाउचर में वही सेम मॉडल कोड भी उपलब्ध है
+                let hasSameModel = matchingVouchers.some(v => {
+                    let items = v.gridItems || [];
+                    return items.some(item => tempGridItems.some(t => t.modelCode === item.modelCode.toUpperCase()));
+                });
+
+                if (hasSameModel) {
+                    // अगर बिल, गेट आईडी और मॉडल तीनों सेम हैं -> सख्त ब्लॉक!
+                    alert(`🚨 ERROR: Duplicate Entry Blocked!\n\nThis Bill No. [ ${currentBillNo} ] with Gate-In No. [ ${currentGateInNo} ] already has this Model Code registered on Cloud!`);
+                    return;
+                } else {
+                    // अगर बिल और गेट आईडी सेम हैं लेकिन मॉडल अलग है -> Yes/No चेतावनी!
+                    let confirmSave = confirm(`⚠️ ALERT: Bill Found!\n\nThis Bill No. [ ${currentBillNo} ] & Gate-In No. [ ${currentGateInNo} ] is already entered in system with another item!\n\nDo you want to add this new model to this existing bill?`);
+                    if (!confirmSave) {
+                        return; // यूजर ने No करा, एंट्री रोक दो भाई
+                    }
+                }
+            }
         }
 
         let originalCreator = (idx !== -1 && stockData[idx]) ? (stockData[idx].createdBy || "k88rakesh") : session.userId;
@@ -631,7 +643,7 @@
         });
     }
 
-    /* 🛠️ यहाँ नया कोड सेट करा है: ग्लोबल क्लिपबोर्ड इंटरसेप्ट गियर (बिना बॉक्स क्लिक सीधे पेस्ट इंजन) */
+    /* 🛠️ विंडो विजिबिलिटी और पेज शो ट्रिगर (बुलेटप्रूफ रिफोकस गियर) */
     function applyBulletproofRefocusEngine() {
         document.addEventListener('click', function(e) {
             if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'SELECT' && e.target.tagName !== 'BUTTON') {
@@ -646,20 +658,17 @@
         window.addEventListener('focus', function() { refocusLastElement(); });
         window.addEventListener('pageshow', function() { refocusLastElement(); });
 
-        /* 🔥 महा-इंजन लोड करा: जब यूजर बाहर से आकर सीधे टैब पर Ctrl+V दबाएगा */
+        /* 🔥 महा-इंजन: जब यूजर बाहर से आकर सीधे टैब पर Ctrl+V दबाएगा */
         document.addEventListener('paste', function(e) {
             if (lastActiveFocusedInputId) {
                 const targetEl = document.getElementById(lastActiveFocusedInputId);
                 if (targetEl) {
-                    // १. अगर डिब्बे पर पहले से कर्सर एक्टिव नहीं है, तो उसे जबरन फोकस दें
                     if (document.activeElement !== targetEl) {
                         targetEl.focus();
                     }
                     
-                    // २. ब्राउज़र के इनपुट डिले को मैनेज करने के लिए 10ms का गैप देकर वैल्यू क्लीन सेट करें
                     setTimeout(() => {
                         let text = targetEl.value;
-                        // अगर एक्सेल की वजह से टेक्स्ट दो बार चिपक गया हो, तो आधा साफ़ करें
                         if (text.length > 0 && text.length % 2 === 0 && text.substring(0, text.length/2) === text.substring(text.length/2)) {
                             targetEl.value = text.substring(0, text.length/2);
                         }
