@@ -522,4 +522,192 @@
         if(d.gridItems && d.gridItems.length > 0) {
             let firstCode = d.gridItems[0].modelCode;
             let itemMatches = flatPOList.filter(x => x.code === firstCode && x.hasPO === "YES" && x.poType === "PURCHASE");
-            if(itemMatches.length
+            if(itemMatches.length > 0) { matches = itemMatches; }
+        }
+
+        updatePODropdownOptions(matches, d.poNo);
+        document.getElementById('poNo').value = d.poNo;
+
+        document.getElementById('billNo').value = d.billNo;
+        document.getElementById('billDate').value = d.billDate; 
+        document.getElementById('gateInDate').value = d.gateInDate; 
+        document.getElementById('gateInNo').value = d.gateInNo;
+
+        tempGridItems = d.gridItems ? [...d.gridItems] : [{ modelCode: d.modelCode, modelName: d.modelName, qty: d.qty, receiveQty: d.receiveQty }];
+        renderTempGrid();
+
+        document.getElementById('btnSubmitForm').innerText = "Update Entire Material Inward Bill";
+        document.getElementById('btnCancelEdit').style.display = "inline-block";
+        document.getElementById('stockForm').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    /* 📑 एडिट विज़ार्ड को रद्द कर फ़ॉर्म को दोबारा डिफ़ॉल्ट री-सेट करने का लॉजिक */
+    function cancelEditMode() {
+        document.getElementById('editRowIndex').value = "-1"; 
+        document.getElementById('editFirebaseKey').value = ""; 
+        document.getElementById('stockForm').reset(); 
+        document.getElementById('poNo').innerHTML = '<option value="">-- TYPE COMPANY OR CODE FIRST --</option>';
+        tempGridItems = []; 
+        renderTempGrid();
+        document.getElementById('btnSubmitForm').innerText = "Final Save Inward Voucher"; 
+        document.getElementById('btnCancelEdit').style.display = "none";
+        applyLiveDateRestrictions();
+        lastActiveFocusedInputId = "companyName";
+    }
+
+    /* 📑 सुरक्षा पासवर्ड (7004) लॉक्ड डिलीट... */
+    function deleteFreshRow(idx) {
+        const passwordInput = prompt("🔑 Security Check:\nEnter Secret Password to Delete this Cloud Record:");
+        if (passwordInput === null) return; 
+
+        if (passwordInput === "7004") {
+            const fbKey = stockData[idx].fbKey;
+            database.ref('freshStockVouchers/' + fbKey).remove().then(() => {
+                alert("🗑️ Success: Cloud Record completely wiped out.");
+                cancelEditMode(); 
+            });
+        } else {
+            alert("❌ Access Denied: Incorrect Password! Record is safe.");
+        }
+    }
+
+    /* 📑 1/4 A4 पर्ची प्रिंटिंग थर्मल रेंडरिंग... */
+    function triggerGateInReceipt(i) {
+        const shell = document.getElementById('printSection');
+        let itemsList = i.gridItems || [{ modelCode: i.modelCode, modelName: i.modelName, qty: i.qty, receiveQty: i.receiveQty }];
+        let rowsHtml = "";
+        itemsList.forEach(item => {
+            rowsHtml += `<tr>
+                <td style="border:1px solid #000; padding:3px;">${item.modelCode}</td>
+                <td style="border:1px solid #000; padding:3px;">${item.modelName}</td>
+                <td style="border:1px solid #000; padding:3px; text-align:center; font-weight:bold;">${item.qty}</td>
+                <td style="border:1px solid #000; padding:3px; text-align:center; font-weight:bold;">${item.receiveQty}</td>
+            </tr>`;
+        });
+
+        shell.innerHTML = `
+            <div style="border:1px solid #000; padding:6px; height:100%; box-sizing:border-box; display:flex; flex-direction:column; justify-content:space-between;">
+                <div style="text-align:center; font-weight:bold; font-size:12px; border-bottom:1px solid #000; padding-bottom:2px; text-transform:uppercase;">GVM RAIL PVT LTD - MATERIAL INWARD</div>
+                
+                <table style="width:100%; font-size:11px; margin-top:2px; line-height:1.2;">
+                    <tr>
+                        <td><b>Gate In Date:</b> ${i.gateInDate}</td>
+                        <td><b>Gate In No:</b> ${i.gateInNo}</td>
+                    </tr>
+                    <tr>
+                        <td><b>Bill No:</b> ${i.billNo}</td>
+                        <td><b>Company Name:</b> ${i.companyName}</td>
+                    </tr>
+                    <tr>
+                        <td colspan="2"><b>PO No:</b> ${i.poNo || 'N/A'} | <b>Bill Date:</b> ${i.billDate}</td>
+                    </tr>
+                </table>
+
+                <table style="width:100%; border-collapse:collapse; margin-top:4px; font-size:10px;">
+                    <thead>
+                        <tr style="background:#eee;">
+                            <th style="border:1px solid #000; padding:3px; text-align:left;">Model Code</th>
+                            <th style="border:1px solid #000; padding:3px; text-align:left;">Description</th>
+                            <th style="border:1px solid #000; padding:3px;">Bill Qty</th>
+                            <th style="border:1px solid #000; padding:3px;">Receive Qty</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rowsHtml}</tbody>
+                </table>
+                <div style="text-align:right; font-weight:bold; font-size:9px; margin-top:2px;">Authorized Store Signature</div>
+            </div>`;
+        window.print();
+    }
+
+    /* 📑 तारीखों पर प्रतिबंध लगाने और डिफ़ॉल्ट कैलेंडर सेट करने का इंजन */
+    function applyLiveDateRestrictions() {
+        const todayStr = new Date().toISOString().split('T')[0];
+        document.getElementById('billDate').setAttribute('max', todayStr); document.getElementById('gateInDate').setAttribute('max', todayStr);
+        document.getElementById('billDate').value = todayStr; document.getElementById('gateInDate').value = todayStr;
+        document.getElementById('freshFromDate').value = todayStr; document.getElementById('freshToDate').value = todayStr;
+    }
+    
+    /* 📑 कतार-बाय-कतार स्प्लिट (Clean Column) एक्सेल एक्सपोर्ट इंजन */
+    function exportFreshToExcel() {
+        let csv = "Company,Bill No,PO No,Bill Date,Gate-In Date,Gate-In No,Model Code,Model Name,Bill Qty,Receive Qty\n";
+        stockData.forEach(i => {
+            let itemsList = i.gridItems || [{ modelCode: i.modelCode, modelName: i.modelName, qty: i.qty, receiveQty: i.receiveQty }];
+            itemsList.forEach(item => {
+                csv += `"${i.companyName}","${i.billNo}","${i.poNo}","${i.billDate}","${i.gateInDate}","${i.gateInNo}","${item.modelCode}","${item.modelName}","${item.qty}","${item.receiveQty}"\n`;
+            });
+        });
+        let blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
+        let link = document.createElement("a");
+        link.href = URL.createObjectURL(blob); link.setAttribute("download", "Fresh_Inward_Ledger_Clean.csv");
+        document.body.appendChild(link); link.click(); document.body.removeChild(link);
+    }
+
+    /* 🛠️ पूरे फॉर्म के इनपुट बॉक्स पर कर्सर मेमोरी ट्रैकिंग इंजन सेट किया है */
+    function trackInputFocusMemory() {
+        document.querySelectorAll('form input, form select').forEach(field => {
+            field.addEventListener('focus', function() {
+                if (this.id) { lastActiveFocusedInputId = this.id; }
+            });
+            field.addEventListener('mousedown', function() {
+                if (this.id) { lastActiveFocusedInputId = this.id; }
+            });
+        });
+    }
+
+    /* 🛠️ विंडो विजिबिलिटी और पेज शो ट्रिगर (बुलेटप्रूफ रिफोकस गियर) */
+    function applyBulletproofRefocusEngine() {
+        document.addEventListener('click', function(e) {
+            if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'SELECT' && e.target.tagName !== 'BUTTON') {
+                refocusLastElement();
+            }
+        });
+
+        document.addEventListener('visibilitychange', function() {
+            if (document.visibilityState === 'visible') { refocusLastElement(); }
+        });
+
+        window.addEventListener('focus', function() { refocusLastElement(); });
+        window.addEventListener('pageshow', function() { refocusLastElement(); });
+
+        /* 🔥 महा-इंजन: जब यूजर बाहर से आकर सीधे टैब पर Ctrl+V दबाएगा */
+        document.addEventListener('paste', function(e) {
+            if (lastActiveFocusedInputId) {
+                const targetEl = document.getElementById(lastActiveFocusedInputId);
+                if (targetEl) {
+                    if (document.activeElement !== targetEl) {
+                        targetEl.focus();
+                    }
+                    
+                    setTimeout(() => {
+                        let text = targetEl.value;
+                        if (text.length > 0 && text.length % 2 === 0 && text.substring(0, text.length/2) === text.substring(text.length/2)) {
+                            targetEl.value = text.substring(0, text.length/2);
+                        }
+                    }, 10);
+                }
+            }
+        });
+    }
+
+    function refocusLastElement() {
+        if (lastActiveFocusedInputId) {
+            const targetEl = document.getElementById(lastActiveFocusedInputId);
+            if (targetEl && document.activeElement !== targetEl) {
+                setTimeout(() => { 
+                    targetEl.focus(); 
+                    if (targetEl.tagName === 'INPUT' && (targetEl.type === 'text' || targetEl.type === 'number')) {
+                        const val = targetEl.value;
+                        targetEl.value = '';
+                        targetEl.value = val;
+                    }
+                }, 30);
+            }
+        }
+    }
+
+    applyLiveDateRestrictions();
+    trackInputFocusMemory();
+    applyBulletproofRefocusEngine();
+</script>
+</body>
+</html>
