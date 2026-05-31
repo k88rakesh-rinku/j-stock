@@ -32,6 +32,11 @@
         /* 🟢 PURCHASE और SALE टाइप के सुंदर कलर बैज */
         .badge-type-pur { background-color: #16a34a; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; }
         .badge-type-sal { background-color: #b45309; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+
+        /* 🔍 सर्च और लिमिट बॉक्स की स्टाइलिंग */
+        .catalog-filter-panel { display: flex; justify-content: space-between; align-items: center; background: #f1f5f9; padding: 10px 15px; border-radius: 6px; border: 1px solid #cbd5e1; margin-bottom: 15px; flex-wrap: wrap; gap: 10px; }
+        .search-box-catalog { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; width: 320px; text-transform: uppercase; }
+        .limit-select-catalog { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; cursor: pointer; background: #fff; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -109,7 +114,24 @@
     </form>
 
     <div class="table-responsive" style="margin-top: 30px;">
-        <h3 style="color:#1e3a8a; margin-bottom: 10px;">📋 Generated Codes & PO Master Catalog List</h3>
+        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 10px;">
+            <h3 style="color:#1e3a8a; margin: 0;">📋 Generated Codes & PO Master Catalog List</h3>
+        </div>
+        
+        <!-- 🔍 यहाँ नया सर्च और लिमिट वाला फ़िल्टर लगा दिया गया है -->
+        <div class="catalog-filter-panel">
+            <input type="text" id="catalogSearchBox" class="search-box-catalog" placeholder="🔍 Search Company, Code, Name or PO..." oninput="renderCatalogTable()">
+            <div>
+                <label style="font-weight: bold; font-size: 13px; color: #475569; margin-right: 5px;">Show Records:</label>
+                <select id="catalogLimitSelect" class="limit-select-catalog" onchange="renderCatalogTable()">
+                    <option value="5">5 Rows</option>
+                    <option value="10">10 Rows</option>
+                    <option value="15">15 Rows</option>
+                    <option value="ALL">Show All</option>
+                </select>
+            </div>
+        </div>
+
         <table class="history-table">
             <thead style="background-color: #1e3a8a; color: white;">
                 <tr>
@@ -238,7 +260,6 @@
         };
 
         if(fbKey === "") {
-            // 🛡️ डुप्लीकेट सुरक्षा चक्र: अब सिस्टम सिर्फ कंपनी और कोड नहीं, बल्कि उस कोड के साथ PO संख्या भी मैच करेगा
             let isDuplicate = flatCatalogList.some(x => x.company === comp && x.code === code && x.poNumber === pNum);
             if(isDuplicate && poStatus === "YES") { 
                 alert(`🚨 ERROR: This Item Code [ ${code} ] is already registered under this company with PO No. [ ${pNum} ]!`); 
@@ -256,7 +277,7 @@
         }
     });
 
-    /* 📑 मास्टर कैटलॉग सूची को रीयल-टाइम रेंडर करने की तकनीक */
+    /* 🛠️ मास्टर कैटलॉग सूची को यूनिवर्सल सर्च और लिमिट (5/10/ALL) के साथ रेंडर करने का नया इंजन */
     function renderCatalogTable() {
         const tbody = document.getElementById('catalogTableBody');
         tbody.innerHTML = '';
@@ -265,8 +286,34 @@
             return;
         }
         
-        let sortedList = [...flatCatalogList].reverse();
-        
+        // 1. सर्च बॉक्स और लिमिट बॉक्स की वैल्यू लें
+        const searchStr = document.getElementById('catalogSearchBox').value.trim().toUpperCase();
+        const limitVal = document.getElementById('catalogLimitSelect').value;
+
+        // 2. यूनिवर्सल फ़िल्टर: कंपनी, कोड, नाम या पीओ नंबर किसी से भी सर्च करें
+        let filteredList = flatCatalogList.filter(item => {
+            const matchComp = item.company ? item.company.toUpperCase().includes(searchStr) : false;
+            const matchCode = item.code ? item.code.toUpperCase().includes(searchStr) : false;
+            const matchName = item.name ? item.name.toUpperCase().includes(searchStr) : false;
+            const matchPoNo = item.poNumber ? item.poNumber.toUpperCase().includes(searchStr) : false;
+            
+            return matchComp || matchCode || matchName || matchPoNo;
+        });
+
+        // 3. नए रिकॉर्ड ऊपर दिखाने के लिए लिस्ट को उल्टा करें
+        let sortedList = [...filteredList].reverse();
+
+        // 4. लिस्ट को लिमिट (5, 10, ALL) के हिसाब से काटें
+        if (limitVal !== "ALL") {
+            sortedList = sortedList.slice(0, parseInt(limitVal));
+        }
+
+        if (sortedList.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:15px; color:#dc2626; font-weight:bold;">No matching search records found!</td></tr>`;
+            return;
+        }
+
+        // 5. टेबल में डेटा भरें (origIdx का लॉजिक एडिट/डिलीट को बचा कर रखेगा)
         sortedList.forEach((item) => {
             let origIdx = flatCatalogList.findIndex(x => x.fbKey === item.fbKey);
             let poBadge = item.hasPO === "YES" ? `<span class="badge-po-yes">YES</span>` : `<span class="badge-po-no">NO</span>`;
@@ -288,7 +335,7 @@
                 <td><b>${displayPoNo}</b></td>
                 <td><b>${displayPoQty}</b></td>
                 <td>
-                    <button type="button" class="btn-edit-action" onclick="editCatalogItem(${origIdx})">Edit Configuration</button>
+                    <button type="button" class="btn-edit-action" onclick="editCatalogItem(${origIdx})">Edit</button>
                     <button type="button" class="btn-delete-action" onclick="deleteCatalogItem('${item.fbKey}', '${item.code}')">Delete</button>
                 </td>
             </tr>`;
