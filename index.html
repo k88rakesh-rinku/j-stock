@@ -118,7 +118,7 @@
             <div class="form-group">
                 <label>PO Number (Select Order) <span>*</span></label>
                 <select id="poNo" class="po-dropdown-select" required>
-                    <option value="">-- AUTO SELECT PO --</option>
+                    <option value="">-- TYPE COMPANY OR CODE FIRST --</option>
                 </select>
             </div>
 
@@ -224,6 +224,7 @@
     let masterCatalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
     let flatPOList = []; 
     let tempGridItems = [];
+    let lastActiveFocusedInputId = null; /* 📑 एक्सेल कॉपी पेस्ट के समय कर्सर मेमोरी ट्रैक करने का वेरिएबल */
 
     /* 📑 फायरबेस 'systemMasterCatalogFlat' फ़ोल्डर से लाइव PO डेटाबेस रीयल-टाइम सिंक */
     database.ref('systemMasterCatalogFlat').on('value', (snapshot) => {
@@ -259,7 +260,6 @@
             return;
         }
 
-        // 🛠️ यूनिक पीओ नंबर्स फ़िल्टर करना ताकि मल्टीपल होने पर डुप्लीकेट न दिखें भाई
         let uniquePOs = [...new Set(filteredPOs.map(x => x.poNumber.trim().toUpperCase()))];
         
         uniquePOs.forEach(po => {
@@ -267,7 +267,7 @@
         });
     }
 
-    /* 🛠️ यहाँ नया कोड सेट करा है: कंपनी नाम से जुड़े सारे एक्टिव PURCHASE PO ड्रॉपडाउन में लोड करने का इंजन */
+    /* 📑 कंपनी नाम से जुड़े सारे एक्टिव PURCHASE PO ड्रॉपडाउन में लोड करने का इंजन */
     function fetchPurchasePOOptions() {
         const compName = document.getElementById('companyName').value.trim().toUpperCase();
         if(!compName) { 
@@ -279,7 +279,7 @@
         updatePODropdownOptions(matches);
     }
 
-    /* 🛠️ यहाँ नया कोड सेट करा है: मॉडल कोड टाइप करते ही उसके सारे एक्टिव PURCHASE PO फ़िल्टर होकर ड्रॉपडाउन में आएंगे */
+    /* 📑 मॉडल कोड टाइप करते ही उसके सारे एक्टिव PURCHASE PO फ़िल्टर होकर ड्रॉपडाउन में आएंगे */
     function autoFillGridItemName(input) {
         let code = input.value.trim().toUpperCase(); 
         let foundName = ""; let foundCompany = "";
@@ -318,6 +318,9 @@
         document.getElementById('gridModelName').value = '';
         document.getElementById('gridBillQty').value = '';
         document.getElementById('gridRecQty').value = '';
+        
+        /* 🛠️ रो ऐड होते ही कर्सर वापस पहले वाले कोड डिब्बे पर अपने आप आ जाएगा */
+        document.getElementById('gridModelCode').focus();
     }
 
     /* 📑 ग्रिड कतार से अस्थाई रो डिलीट करने की तकनीक */
@@ -457,7 +460,7 @@
         });
     }
 
-    /* 📑 पुराने इनवार्ड वाउचर को वापस फॉर्म के अंदर एडिट मोड में लोड करने का इंजन */
+    /* 📑 पुराने इनवार्ड वाउचर को वापस फॉर्म के अंदर एडिट मोड में लोड करने का ढांचा */
     function editFreshRow(idx) {
         const d = stockData[idx]; 
         document.getElementById('editRowIndex').value = idx;
@@ -465,8 +468,18 @@
 
         document.getElementById('companyName').value = d.companyName; 
         
-        // एडिट मोड में पुराना सेलेक्टेड PO लोड करने का मैकेनिज्म
-        document.getElementById('poNo').innerHTML = `<option value="${d.poNo}">${d.poNo}</option>`;
+        /* 🛠️ यहाँ सुधारा गया है: एडिट मोड पर क्लिक करते ही कंपनी/कोड से जुड़े सारे पुराने और नए PO ऑप्शंस को लाइव लोड कर देगा */
+        let matches = flatPOList.filter(x => x.company === d.companyName.toUpperCase() && x.hasPO === "YES" && x.poType === "PURCHASE");
+        
+        if(d.gridItems && d.gridItems.length > 0) {
+            let firstCode = d.gridItems[0].modelCode;
+            let itemMatches = flatPOList.filter(x => x.code === firstCode && x.hasPO === "YES" && x.poType === "PURCHASE");
+            if(itemMatches.length > 0) { matches = itemMatches; }
+        }
+
+        updatePODropdownOptions(matches);
+        
+        /* जो पीओ पहले से सेव था, उसे लिस्ट में सेलेक्टेड रखेगा */
         document.getElementById('poNo').value = d.poNo;
 
         document.getElementById('billNo').value = d.billNo;
@@ -581,6 +594,23 @@
         link.href = URL.createObjectURL(blob); link.setAttribute("download", "Fresh_Inward_Ledger_Clean.csv");
         document.body.appendChild(link); link.click(); document.body.removeChild(link);
     }
+
+    /* 🛠️ यहाँ नया कोड सेट करा है: पूरे फॉर्म के इनपुट बॉक्स पर कर्सर मेमोरी ट्रैकिंग इंजन सेट किया है */
+    document.querySelectorAll('input').forEach(inputField => {
+        inputField.addEventListener('focus', function() {
+            lastActiveFocusedInputId = this.id;
+        });
+    });
+
+    /* 🛠️ यहाँ नया कोड सेट करा है: विंडो ऑटो-रिफोकस मैकेनिज्म (Excel से डाटा कॉपी करके टैब पर लौटते ही कर्सर खुद एक्टिवेट हो जाएगा) */
+    window.onfocus = function() {
+        if (lastActiveFocusedInputId) {
+            const elementToFocus = document.getElementById(lastActiveFocusedInputId);
+            if (elementToFocus) {
+                setTimeout(() => { elementToFocus.focus(); }, 50);
+            }
+        }
+    };
 
     applyLiveDateRestrictions();
 </script>
