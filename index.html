@@ -215,7 +215,7 @@
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
 
-    /* 📑 एक्टिव यूजर सत्र सुरक्षा ट्रैकिंग सुरक्षा चक्र */
+    /* 📑 एक्टिव USER सत्र सुरक्षा ट्रैकिंग सुरक्षा चक्र */
     const session = JSON.parse(localStorage.getItem('activeSession'));
     if(!session) { window.location.href = 'login.html'; }
     function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
@@ -292,7 +292,7 @@
         });
     }
 
-    /* 📑 कंपनी नाम से जुड़े सारे एक्टिव PURCHASE POं को लोड करने का इंजन */
+    /* 📑 कंपनी नाम से जुड़े सारे PURCHASE POं को लोड करने का इंजन */
     function fetchPurchasePOOptions() {
         const compName = document.getElementById('companyName').value.trim().toUpperCase();
         if(!compName) { 
@@ -359,7 +359,7 @@
         });
     }
 
-    /* 🛠️ यहाँ नया कोड सेट करा है: सेम बिल + सेम गेट आईडी + डिफरेंट मॉडल पर (Yes/No) कन्फर्मेशन और सेम मॉडल पर सख्त ब्लॉक गियर */
+    /* 📑 फॉर्म फाइनल सबमिशन इंजन (डबल-लेयर डुप्लीकेट रोकने के नियम के साथ) */
     document.getElementById('stockForm').addEventListener('submit', function(e) {
         e.preventDefault();
 
@@ -370,7 +370,6 @@
         const currentGateInNo = document.getElementById('gateInNo').value.trim().toUpperCase();
         const currentBillDate = document.getElementById('billDate').value;
 
-        // यदि ग्रिड खाली है तो डिब्बे की वैल्यू को टेम्पररी ऐरे में डालो
         if(tempGridItems.length === 0) {
             const code = document.getElementById('gridModelCode').value.trim().toUpperCase();
             const name = document.getElementById('gridModelName').value.trim();
@@ -383,25 +382,21 @@
         }
 
         if (idx === -1) {
-            // १. चेक करें कि क्या यह बिल नंबर और गेट-इन नंबर पहले से मौजूद है
             let matchingVouchers = stockData.filter(v => v.billNo === currentBillNo && v.gateInNo === currentGateInNo);
 
             if (matchingVouchers.length > 0) {
-                // २. चेक करें कि क्या इनमें से किसी वाउचर में वही सेम मॉडल कोड भी उपलब्ध है
                 let hasSameModel = matchingVouchers.some(v => {
                     let items = v.gridItems || [];
                     return items.some(item => tempGridItems.some(t => t.modelCode === item.modelCode.toUpperCase()));
                 });
 
                 if (hasSameModel) {
-                    // अगर बिल, गेट आईडी और मॉडल तीनों सेम हैं -> सख्त ब्लॉक!
                     alert(`🚨 ERROR: Duplicate Entry Blocked!\n\nThis Bill No. [ ${currentBillNo} ] with Gate-In No. [ ${currentGateInNo} ] already has this Model Code registered on Cloud!`);
                     return;
                 } else {
-                    // अगर बिल और गेट आईडी सेम हैं लेकिन मॉडल अलग है -> Yes/No चेतावनी!
                     let confirmSave = confirm(`⚠️ ALERT: Bill Found!\n\nThis Bill No. [ ${currentBillNo} ] & Gate-In No. [ ${currentGateInNo} ] is already entered in system with another item!\n\nDo you want to add this new model to this existing bill?`);
                     if (!confirmSave) {
-                        return; // यूजर ने No करा, एंट्री रोक दो भाई
+                        return; 
                     }
                 }
             }
@@ -473,11 +468,21 @@
         viewList.forEach((i) => {
             let origIdx = stockData.findIndex(x => x.fbKey === i.fbKey);
 
+            /* 🛡️ रेंडर सुरक्षा चक्र सुधारा गया: यहाँ ग्रिड के मल्टीपल आइटम्स को बिना क्रैश किए सेफली रीड करने का लॉजिक लगाया है भाई */
             let itemsHtml = "";
-            let itemsList = i.gridItems || [{ modelCode: i.modelCode, modelName: i.modelName, qty: i.qty, receiveQty: i.receiveQty }];
+            let itemsList = i.gridItems || [];
+            
+            // पुराना बैकअप सपोर्ट: अगर कोई पुराना सिंगल डेटा बिना ग्रिड ऐरे के सेव हो
+            if (itemsList.length === 0 && i.modelCode) {
+                itemsList.push({ modelCode: i.modelCode, modelName: i.modelName, qty: i.qty || i.receiveQty || 0 });
+            }
+
             itemsList.forEach(item => {
-                itemsHtml += `• <code>${item.modelCode}</code> - ${item.modelName} (<b>${item.qty} NOS</b>)<br>`;
-                if(parseInt(item.qty) < 5) document.getElementById('lowStockAlert').style.display = 'block';
+                let currentQty = parseInt(item.qty || item.receiveQty || 0);
+                itemsHtml += `• <code>${item.modelCode || i.modelCode}</code> - ${item.modelName || i.modelName} (<b>${currentQty} NOS</b>)<br>`;
+                
+                // लो स्टॉक वार्निंग लाइट गियर ट्रिगर
+                if(currentQty < 5) document.getElementById('lowStockAlert').style.display = 'block';
             });
 
             let adminBadgeHtml = "";
@@ -544,7 +549,7 @@
         lastActiveFocusedInputId = "companyName";
     }
 
-    /* 📑 सुरक्षा पासवर्ड (7004) लॉक्ड डिलीट... */
+    /* 📑 सुरक्षा पासवर्ड (7004) लॉक्ड डिलीट इंजन */
     function deleteFreshRow(idx) {
         const passwordInput = prompt("🔑 Security Check:\nEnter Secret Password to Delete this Cloud Record:");
         if (passwordInput === null) return; 
