@@ -118,7 +118,7 @@
             <div class="form-group">
                 <label>PO Number (Select Order) <span>*</span></label>
                 <select id="poNo" class="po-dropdown-select" required>
-                    <option value="">-- AUTO SELECT PO --</option>
+                    <option value="">-- TYPE COMPANY OR CODE FIRST --</option>
                 </select>
             </div>
 
@@ -202,7 +202,7 @@
 <div id="printSection"></div>
 
 <script>
-    /* 📑 लाइव क्लाउड फायरबेस क्रेडेंशियल कॉन्फ़िगरेशन सेटअप */
+    /* 📑 लाइव क्लाउड फायरबेस क्रेडेंशियल कॉन्फ़िगरेशन  */
     const firebaseConfig = {
         apiKey: "AIzaSyCAOXbPwuFR3wh1QSLBXWsodupKWoRYmqs",
         authDomain: "gvm-stock-control.firebaseapp.com",
@@ -215,7 +215,7 @@
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
 
-    /* 📑 एक्टिव यूजर सत्र सुरक्षा ट्रैकिंग सुरक्षा चक्र */
+    /* 📑 एक्टिव यूजर सुरक्षा ट्रैकिंग सुरक्षा चक्र */
     const session = JSON.parse(localStorage.getItem('activeSession'));
     if(!session) { window.location.href = 'login.html'; }
     function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
@@ -224,7 +224,7 @@
     let masterCatalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
     let flatPOList = []; 
     let tempGridItems = [];
-    let lastActiveFocusedInputId = "companyName"; /* 📑 डिफ़ॉल्ट रूप से कंपनी नेम बॉक्स सेट करा है */
+    let lastActiveFocusedInputId = "companyName";
 
     /* 📑 फायरबेस 'systemMasterCatalogFlat' फ़ोल्डर से लाइव PO डेटाबेस रीयल-टाइम सिंक */
     database.ref('systemMasterCatalogFlat').on('value', (snapshot) => {
@@ -250,17 +250,44 @@
         renderTable();
     });
 
-    /* 📑 यूनिक पीओ नंबर्स रेंडर करने और ड्रॉपडाउन को रिफ्रेश करने की तकनीक */
-    function updatePODropdownOptions(filteredPOs) {
+    /* 🛠️ यहाँ नया कोड सेट करा है: क्वांटिटी ख़त्म होने पर PO को हाइड (Hide) करने का लाइव कैलकुलेशन इंजन */
+    function updatePODropdownOptions(filteredPOs, currentEditingPONo = null) {
         const selectBox = document.getElementById('poNo');
         selectBox.innerHTML = '';
 
-        if(filteredPOs.length === 0) {
-            selectBox.innerHTML = '<option value="NO PO LINKED">NO PO LINKED</option>';
+        // कुल ऑर्डर क्वांटिटी में से पहले रिसीव हो चुके माल को घटाकर चेक करना
+        let validPOs = filteredPOs.filter(p => {
+            let poNum = p.poNumber.trim().toUpperCase();
+            let pCode = p.code.trim().toUpperCase();
+            let totalOrdered = parseInt(p.poTotalQty || 0);
+            
+            // अगर एडिट मोड खुला है, तो उस इनवॉइस के पुराने PO नंबर को हमेशा शो होने देना है
+            if(currentEditingPONo && poNum === currentEditingPONo.trim().toUpperCase()) {
+                return true;
+            }
+
+            let totalReceivedAlready = 0;
+            stockData.forEach(f => {
+                if (f.poNo && f.poNo.trim().toUpperCase() === poNum) {
+                    if (f.gridItems) {
+                        f.gridItems.forEach(gi => {
+                            if ((gi.modelCode || "").trim().toUpperCase() === pCode) {
+                                totalReceivedAlready += parseInt(gi.qty || gi.receiveQty || 0);
+                            }
+                        });
+                    }
+                }
+            });
+
+            return totalReceivedAlready < totalOrdered;
+        });
+
+        if(validPOs.length === 0) {
+            selectBox.innerHTML = '<option value="NO PO LINKED">NO PO LINKED / ALL QUANTITY EXECUTED</option>';
             return;
         }
 
-        let uniquePOs = [...new Set(filteredPOs.map(x => x.poNumber.trim().toUpperCase()))];
+        let uniquePOs = [...new Set(validPOs.map(x => x.poNumber.trim().toUpperCase()))];
         
         uniquePOs.forEach(po => {
             selectBox.innerHTML += `<option value="${po}">${po}</option>`;
@@ -279,7 +306,7 @@
         updatePODropdownOptions(matches);
     }
 
-    /* 📑 मॉडल कोड टाइप करते ही उसके सारे एक्टिव PURCHASE PO फ़िल्टर होकर ड्रॉपडाउन में आएंगे */
+    /* 📑 MODEL CODE डालते ही एक्टिव PURCHASE PO ढूंढने का लाइव इंजन */
     function autoFillGridItemName(input) {
         let code = input.value.trim().toUpperCase(); 
         let foundName = ""; let foundCompany = "";
@@ -461,7 +488,7 @@
         });
     }
 
-    /* 📑 पुराने इनवार्ड वाउचर को वापस फॉर्म के अंदर एडिट ... */
+    /* 📑 पुराने इनवार्ड वाउचर को वापस फॉर्म के अंदर एडिट मोड में लोड करने का ढांचा */
     function editFreshRow(idx) {
         const d = stockData[idx]; 
         document.getElementById('editRowIndex').value = idx;
@@ -469,6 +496,7 @@
 
         document.getElementById('companyName').value = d.companyName; 
         
+        /* 🛠️ यहाँ सुधारा गया है: एडिट मोड पर क्लिक करते ही सारे पुराने और नए PO ऑप्शंस को लाइव लोड कर देगा विदाउट लॉकिंग */
         let matches = flatPOList.filter(x => x.company === d.companyName.toUpperCase() && x.hasPO === "YES" && x.poType === "PURCHASE");
         
         if(d.gridItems && d.gridItems.length > 0) {
@@ -477,7 +505,7 @@
             if(itemMatches.length > 0) { matches = itemMatches; }
         }
 
-        updatePODropdownOptions(matches);
+        updatePODropdownOptions(matches, d.poNo);
         document.getElementById('poNo').value = d.poNo;
 
         document.getElementById('billNo').value = d.billNo;
@@ -507,7 +535,7 @@
         lastActiveFocusedInputId = "companyName";
     }
 
-    /* 📑 सुरक्षा पासवर्ड (7004) लॉक्ड डिलीट इंजन */
+    /* 📑 सुरक्षा पासवर्ड (7004) लॉक्ड डिलीट... */
     function deleteFreshRow(idx) {
         const passwordInput = prompt("🔑 Security Check:\nEnter Secret Password to Delete this Cloud Record:");
         if (passwordInput === null) return; 
@@ -594,7 +622,7 @@
         document.body.appendChild(link); link.click(); document.body.removeChild(link);
     }
 
-    /* 🛠️ यहाँ नया कोड सेट करा है: पूरे फॉर्म के इनपुट बॉक्स पर कर्सर मेमोरी ट्रैकिंग इंजन सेट किया है */
+    /* 🛠️ पूरे फॉर्म के इनपुट बॉक्स पर कर्सर मेमोरी ट्रैकिंग इंजन सेट किया है */
     function trackInputFocusMemory() {
         document.querySelectorAll('form input, form select').forEach(field => {
             field.addEventListener('focus', function() {
@@ -603,22 +631,18 @@
         });
     }
 
-    /* 🛠️ यहाँ नया कोड सेट करा है: विंडो विजिबिलिटी और पेज शो ट्रिगर (बुलेटप्रूफ रिफोकस गियर) */
+    /* 🛠️ विंडो विजिबिलिटी और पेज शो ट्रिगर (बुलेटप्रूफ रिफोकस गियर) */
     function applyBulletproofRefocusEngine() {
-        // १. जब यूजर एक्सेल से डाटा कॉपी करके इस विंडो पर कहीं भी क्लिक करे
         document.addEventListener('click', function(e) {
-            // अगर क्लिक किसी दूसरे इनपुट पर न हुआ हो, तभी पुराना रिफोकस करें
             if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'SELECT' && e.target.tagName !== 'BUTTON') {
                 refocusLastElement();
             }
         });
 
-        // २. जब यूजर टैब स्विच करके वापस लौटे
         document.addEventListener('visibilitychange', function() {
             if (document.visibilityState === 'visible') { refocusLastElement(); }
         });
 
-        // ३. विंडोज़ फोकस बैकअप ट्रिगर
         window.addEventListener('focus', function() { refocusLastElement(); });
         window.addEventListener('pageshow', function() { refocusLastElement(); });
     }
@@ -629,7 +653,6 @@
             if (targetEl && document.activeElement !== targetEl) {
                 setTimeout(() => { 
                     targetEl.focus(); 
-                    // अगर इनपुट बॉक्स है, तो कर्सर को टेक्स्ट के बिल्कुल अंत में ले जाएं
                     if (targetEl.tagName === 'INPUT' && (targetEl.type === 'text' || targetEl.type === 'number')) {
                         const val = targetEl.value;
                         targetEl.value = '';
