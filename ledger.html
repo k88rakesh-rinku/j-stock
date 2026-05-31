@@ -8,21 +8,11 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
     <style>
         .table-filter-panel { display: flex; justify-content: space-between; align-items: center; background: #f1f5f9; padding: 15px; border-radius: 6px; margin: 20px 0; gap: 10px; }
-        
-        /* बटनों को एक जैसा और छोटा करने का स्टाइल */
-        .erp-btn { padding: 6px 12px; border: 1px solid #ccc; background: #f8fafc; cursor: pointer; border-radius: 4px; font-size: 13px; font-weight: bold; min-width: 80px; }
-        .erp-btn:hover { background: #e2e8f0; }
-
+        .erp-btn { padding: 6px 12px; border: 1px solid #ccc; background: #f8fafc; cursor: pointer; border-radius: 4px; font-size: 13px; font-weight: bold; }
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); }
-        .modal-content { background: #fff; margin: 2% auto; padding: 20px; width: 85%; border-radius: 8px; max-height: 90vh; overflow-y: auto; }
-        
-        /* प्रिंट फिक्स: सिर्फ मोडल दिखेगा और डेटा नहीं कटेगा */
-        @media print {
-            body * { visibility: hidden; }
-            #historyModal, #historyModal * { visibility: visible; }
-            #historyModal { position: absolute; left: 0; top: 0; width: 100%; background: none; }
-            .action-btns { display: none !important; }
-        }
+        .modal-content { background: #fff; margin: 5% auto; padding: 20px; width: 90%; border-radius: 8px; max-height: 80vh; overflow-y: auto; }
+        .action-btns { display: flex; gap: 10px; margin-bottom: 15px; align-items: center; }
+        .sub-filter-box { padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 200px; }
     </style>
 </head>
 <body>
@@ -38,7 +28,7 @@
                 <option value="SALE">Sale</option>
             </select>
             <input type="text" id="poSearchBox" class="sub-filter-box" placeholder="Search PO/Company...">
-            <button class="btn-search-trigger" onclick="renderPOBalanceTable()">Search</button>
+            <button class="erp-btn" onclick="renderPOBalanceTable()">Search</button>
         </div>
     </div>
     
@@ -54,10 +44,10 @@
 
 <div id="historyModal" class="modal">
     <div class="modal-content">
-        <div class="action-btns" style="display: flex; gap: 10px; margin-bottom: 20px;">
+        <div class="action-btns">
             <h2 id="modalTitle" style="margin:0; flex-grow:1;">History Log</h2>
-            <button class="erp-btn" onclick="exportModalToExcel()">📥 Excel</button>
-            <button class="erp-btn" onclick="window.print()">🖨️ Print</button>
+            <button class="erp-btn" onclick="exportModalToExcel()">📥 Download Excel</button>
+            <input type="text" id="modalSearchBox" class="sub-filter-box" placeholder="🔍 Search Bill/Ref..." oninput="filterModalRows()">
             <button class="erp-btn" onclick="closeModal()">❌ Close</button>
         </div>
         <table class="history-table" style="width:100%;">
@@ -68,7 +58,6 @@
 </div>
 
 <script>
-    // ... (Firebase initialization same as before) ...
     const firebaseConfig = { apiKey: "AIzaSyCAOXbPwuFR3wh1QSLBXWsodupKWoRYmqs", databaseURL: "https://gvm-stock-control-default-rtdb.firebaseio.com", projectId: "gvm-stock-control" };
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
@@ -107,17 +96,34 @@
 
     function showHistory(code) {
         document.getElementById('historyModal').style.display = 'block';
-        document.getElementById('modalTitle').innerText = "History for: " + code;
+        document.getElementById('modalTitle').innerText = "History: " + code;
+        renderModalData(code);
+    }
+
+    function renderModalData(code, filter = "") {
         const body = document.getElementById('modalBody');
         body.innerHTML = '';
-        currentModalRows = [['Date', 'Type', 'Ref', 'Qty']];
+        currentModalRows = [];
+        
+        // डेटा इकट्ठा करें
+        freshData.forEach(f => { if(f.gridItems) f.gridItems.forEach(gi => { if(gi.modelCode.toUpperCase() === code.toUpperCase()) currentModalRows.push([f.gateInDate, "FRESH IN", f.billNo, gi.qty]); }); });
+        gateoutData.forEach(g => { if(g.gridItems) g.gridItems.forEach(gi => { if(gi.code && gi.code.toUpperCase() === code.toUpperCase()) currentModalRows.push([g.date, "DISPATCH", g.voucherNo, -gi.qty]); }); });
 
-        freshData.forEach(f => { if(f.gridItems) f.gridItems.forEach(gi => { if(gi.modelCode.toUpperCase() === code.toUpperCase()) { body.innerHTML += `<tr><td>${f.gateInDate}</td><td>FRESH IN</td><td>${f.billNo}</td><td>${gi.qty}</td></tr>`; currentModalRows.push([f.gateInDate, "FRESH IN", f.billNo, gi.qty]); }}); });
-        gateoutData.forEach(g => { if(g.gridItems) g.gridItems.forEach(gi => { if(gi.code && gi.code.toUpperCase() === code.toUpperCase()) { body.innerHTML += `<tr><td>${g.date}</td><td>DISPATCH</td><td>${g.voucherNo}</td><td>-${gi.qty}</td></tr>`; currentModalRows.push([g.date, "DISPATCH", g.voucherNo, -gi.qty]); }}); });
+        // फ़िल्टर और रेंडर
+        currentModalRows.filter(r => r.join(" ").toUpperCase().includes(filter.toUpperCase())).forEach(r => {
+            body.innerHTML += `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td></tr>`;
+        });
+    }
+
+    function filterModalRows() {
+        const query = document.getElementById('modalSearchBox').value;
+        const title = document.getElementById('modalTitle').innerText;
+        const code = title.replace("History: ", "");
+        renderModalData(code, query);
     }
 
     function exportModalToExcel() {
-        let csv = currentModalRows.map(r => r.join(",")).join("\n");
+        let csv = "Date,Type,Ref,Qty\n" + currentModalRows.map(r => r.join(",")).join("\n");
         let blob = new Blob(["\uFEFF"+csv], {type: "text/csv;charset=utf-8;"});
         let link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = "History.csv"; link.click();
     }
