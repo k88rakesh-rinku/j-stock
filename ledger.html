@@ -7,28 +7,55 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
     <style>
-        .table-filter-panel { display: flex; justify-content: space-between; align-items: center; background: #f1f5f9; padding: 15px; border-radius: 6px; margin: 20px 0; gap: 10px; }
+        /* 🛠️ बटनों को एक जैसा और छोटा करने का CSS */
         .erp-btn { padding: 6px 12px; border: 1px solid #ccc; background: #f8fafc; cursor: pointer; border-radius: 4px; font-size: 13px; font-weight: bold; }
+        .erp-btn:hover { background: #e2e8f0; }
+
+        .table-filter-panel { display: flex; justify-content: space-between; align-items: center; background: #f1f5f9; padding: 15px; border-radius: 6px; margin: 15px 0; gap: 10px; }
+        .btn-quick-view { background: #0284c7; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        
+        /* Modal Style */
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); }
-        .modal-content { background: #fff; margin: 5% auto; padding: 20px; width: 90%; border-radius: 8px; max-height: 80vh; overflow-y: auto; }
-        .action-btns { display: flex; gap: 10px; margin-bottom: 15px; align-items: center; }
-        .sub-filter-box { padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 200px; }
+        .modal-content { background: #fff; margin: 2% auto; padding: 20px; width: 85%; border-radius: 8px; max-height: 90vh; overflow-y: auto; }
+        
+        /* प्रिंट करते समय सिर्फ मोडल दिखेगा */
+        @media print {
+            body * { visibility: hidden; }
+            #historyModal, #historyModal * { visibility: visible; }
+            #historyModal { position: absolute; left: 0; top: 0; width: 100%; background: none; }
+            .action-btns { display: none !important; } /* प्रिंट में बटन नहीं आएंगे */
+        }
     </style>
 </head>
 <body>
 <div class="container">
     <div class="erp-header"><h1>📊 Master Ledger & History</h1><button class="logout-btn" onclick="logout()">Logout</button></div>
     
+    <div class="tabs-nav">
+        <a href="index.html" class="tab-link">📦 New Entry (Fresh)</a>
+        <a href="rework.html" class="tab-link">🛠️ Gate In (Rework)</a>
+        <a href="gateout.html" class="tab-link">🚪 Gate Out (Dispatch)</a>
+        <a href="debit.html" class="tab-link">🧾 Debit Note (Vendor)</a>
+        <a href="code.html" class="tab-link">🆕 Generate Code</a>
+        <a href="ledger.html" class="tab-link active-ledger" style="background-color: #1e3a8a; color: white;">📊 Master Ledger & History</a>
+        <a href="users.html" class="tab-link">👥 Manage Users</a>
+    </div>
+
+    <!-- 🛠️ लेजर क्लोज करके वापस मेन टैब पर जाने का स्पेशल बटन -->
+    <div style="margin-top: 15px;">
+        <button class="erp-btn" style="background-color: #dc2626; color: white; border: none; padding: 8px 16px; font-size: 14px;" onclick="window.location.href='index.html'">⬅️ Back to Main Menu (Close Ledger)</button>
+    </div>
+    
     <div class="table-filter-panel">
         <h3 style="margin:0;">📋 PO Matrix</h3>
         <div>
-            <select id="poTypeFilter" class="limit-dropdown-select">
+            <select id="poTypeFilter" class="limit-dropdown-select" onchange="renderPOBalanceTable()">
                 <option value="ALL">All Types</option>
                 <option value="PURCHASE">Purchase</option>
                 <option value="SALE">Sale</option>
             </select>
-            <input type="text" id="poSearchBox" class="sub-filter-box" placeholder="Search PO/Company...">
-            <button class="erp-btn" onclick="renderPOBalanceTable()">Search</button>
+            <input type="text" id="poSearchBox" class="sub-filter-box" placeholder="Search PO or Company..." onkeyup="if(event.key==='Enter') renderPOBalanceTable()">
+            <button class="btn-search-trigger" onclick="renderPOBalanceTable()">Search</button>
         </div>
     </div>
     
@@ -37,18 +64,22 @@
             <thead style="background-color: #1e3a8a; color: white;">
                 <tr><th>PO Number</th><th>Type</th><th>Code</th><th>Item</th><th>Ordered</th><th>Executed</th><th>Pending</th><th>Action</th></tr>
             </thead>
-            <tbody id="poLedgerBody"></tbody>
+            <tbody id="poLedgerBody">
+                <tr><td colspan="8" style="text-align:center; padding:15px;">Loading Cloud Data...</td></tr>
+            </tbody>
         </table>
     </div>
 </div>
 
 <div id="historyModal" class="modal">
     <div class="modal-content">
-        <div class="action-btns">
+        <div class="action-btns" style="display: flex; gap: 10px; margin-bottom: 20px; align-items: center;">
             <h2 id="modalTitle" style="margin:0; flex-grow:1;">History Log</h2>
-            <button class="erp-btn" onclick="exportModalToExcel()">📥 Download Excel</button>
-            <input type="text" id="modalSearchBox" class="sub-filter-box" placeholder="🔍 Search Bill/Ref..." oninput="filterModalRows()">
-            <button class="erp-btn" onclick="closeModal()">❌ Close</button>
+            <!-- सर्च बॉक्स भी डाल दिया है अगर हिस्ट्री बहुत बड़ी हो -->
+            <input type="text" id="modalSearchBox" placeholder="🔍 Search Date/Ref..." style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;" oninput="filterModalRows()">
+            <button class="erp-btn" onclick="exportModalToExcel()">📥 Excel</button>
+            <button class="erp-btn" onclick="window.print()">🖨️ Print</button>
+            <button class="erp-btn" style="background:#dc2626; color:white; border:none;" onclick="closeModal()">❌ Close</button>
         </div>
         <table class="history-table" style="width:100%;">
             <thead><tr><th>Date</th><th>Type</th><th>Ref</th><th>Qty</th></tr></thead>
@@ -62,7 +93,13 @@
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
 
-    let freshData = [], gateoutData = [], flatCatalogPOList = [], currentModalRows = [];
+    const session = JSON.parse(localStorage.getItem('activeSession'));
+    if(!session) { window.location.href = 'login.html'; }
+    function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
+
+    let freshData = [], gateoutData = [], flatCatalogPOList = [];
+    let currentModalRows = []; 
+    let allModalRowsBackup = []; // फ़िल्टरिंग के लिए बैकअप
 
     Promise.all([
         database.ref('freshStockVouchers').once('value'),
@@ -77,59 +114,75 @@
 
     function renderPOBalanceTable() {
         const poBody = document.getElementById('poLedgerBody');
-        const search = document.getElementById('poSearchBox').value.toUpperCase();
+        const search = document.getElementById('poSearchBox').value.trim().toUpperCase();
         const typeFilter = document.getElementById('poTypeFilter').value;
         poBody.innerHTML = '';
         
-        flatCatalogPOList.filter(x => x.hasPO === "YES").forEach(p => {
-            if((typeFilter === "ALL" || p.poType === typeFilter) && (p.poNumber.toUpperCase().includes(search) || p.company.toUpperCase().includes(search))) {
-                let executedQty = 0;
-                if (p.poType === "PURCHASE") {
-                    freshData.forEach(f => { if (f.poNo && f.poNo.toUpperCase() === p.poNumber.toUpperCase() && f.gridItems) f.gridItems.forEach(gi => { if(gi.modelCode.toUpperCase() === p.code.toUpperCase()) executedQty += parseInt(gi.qty || 0); }); });
-                } else {
-                    gateoutData.forEach(g => { if(g.gridItems) g.gridItems.forEach(gi => { if(gi.poNumber && gi.poNumber.toUpperCase() === p.poNumber.toUpperCase() && gi.code.toUpperCase() === p.code.toUpperCase()) executedQty += parseInt(gi.qty || 0); }); });
-                }
-                poBody.innerHTML += `<tr><td>${p.poNumber}</td><td>${p.poType}</td><td>${p.code}</td><td>${p.name}</td><td>${p.poTotalQty}</td><td>${executedQty}</td><td>${p.poTotalQty - executedQty}</td><td><button class="btn-quick-view" onclick="showHistory('${p.code}')">View</button></td></tr>`;
+        let foundPOs = flatCatalogPOList.filter(x => x.hasPO === "YES" && 
+            (typeFilter === "ALL" || x.poType === typeFilter) && 
+            (x.poNumber.toUpperCase().includes(search) || x.company.toUpperCase().includes(search) || x.code.toUpperCase().includes(search))
+        );
+
+        if(foundPOs.length === 0) {
+            poBody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:15px; color:red; font-weight:bold;">No Data Found!</td></tr>`;
+            return;
+        }
+
+        foundPOs.forEach(p => {
+            let executedQty = 0;
+            if (p.poType === "PURCHASE") {
+                freshData.forEach(f => { if (f.poNo && f.poNo.toUpperCase() === p.poNumber.toUpperCase() && f.gridItems) f.gridItems.forEach(gi => { if(gi.modelCode.toUpperCase() === p.code.toUpperCase()) executedQty += parseInt(gi.qty || 0); }); });
+            } else {
+                gateoutData.forEach(g => { if(g.gridItems) g.gridItems.forEach(gi => { if(gi.poNumber && gi.poNumber.toUpperCase() === p.poNumber.toUpperCase() && gi.code.toUpperCase() === p.code.toUpperCase()) executedQty += parseInt(gi.qty || 0); }); });
             }
+            poBody.innerHTML += `<tr><td>${p.poNumber}</td><td>${p.poType}</td><td>${p.code}</td><td>${p.name}</td><td>${p.poTotalQty}</td><td>${executedQty}</td><td>${p.poTotalQty - executedQty}</td><td><button class="btn-quick-view" onclick="showHistory('${p.code}')">View</button></td></tr>`;
         });
     }
 
     function showHistory(code) {
         document.getElementById('historyModal').style.display = 'block';
-        document.getElementById('modalTitle').innerText = "History: " + code;
-        renderModalData(code);
-    }
-
-    function renderModalData(code, filter = "") {
+        document.getElementById('modalTitle').innerText = "History for: " + code;
+        document.getElementById('modalSearchBox').value = ''; // सर्च रिसेट करें
         const body = document.getElementById('modalBody');
         body.innerHTML = '';
-        currentModalRows = [];
-        
-        // डेटा इकट्ठा करें
-        freshData.forEach(f => { if(f.gridItems) f.gridItems.forEach(gi => { if(gi.modelCode.toUpperCase() === code.toUpperCase()) currentModalRows.push([f.gateInDate, "FRESH IN", f.billNo, gi.qty]); }); });
-        gateoutData.forEach(g => { if(g.gridItems) g.gridItems.forEach(gi => { if(gi.code && gi.code.toUpperCase() === code.toUpperCase()) currentModalRows.push([g.date, "DISPATCH", g.voucherNo, -gi.qty]); }); });
+        currentModalRows = [['Date', 'Type', 'Ref', 'Qty']];
+        allModalRowsBackup = [];
 
-        // फ़िल्टर और रेंडर
-        currentModalRows.filter(r => r.join(" ").toUpperCase().includes(filter.toUpperCase())).forEach(r => {
-            body.innerHTML += `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td></tr>`;
-        });
+        freshData.forEach(f => { if(f.gridItems) f.gridItems.forEach(gi => { if(gi.modelCode.toUpperCase() === code.toUpperCase()) { 
+            body.innerHTML += `<tr><td>${f.gateInDate}</td><td>FRESH IN</td><td>${f.billNo}</td><td>${gi.qty}</td></tr>`; 
+            currentModalRows.push([f.gateInDate, "FRESH IN", f.billNo, gi.qty]); 
+            allModalRowsBackup.push([f.gateInDate, "FRESH IN", f.billNo, gi.qty]); 
+        }}); });
+        
+        gateoutData.forEach(g => { if(g.gridItems) g.gridItems.forEach(gi => { if(gi.code && gi.code.toUpperCase() === code.toUpperCase()) { 
+            body.innerHTML += `<tr><td>${g.date}</td><td>DISPATCH</td><td>${g.voucherNo}</td><td>-${gi.qty}</td></tr>`; 
+            currentModalRows.push([g.date, "DISPATCH", g.voucherNo, -gi.qty]); 
+            allModalRowsBackup.push([g.date, "DISPATCH", g.voucherNo, -gi.qty]); 
+        }}); });
     }
 
     function filterModalRows() {
-        const query = document.getElementById('modalSearchBox').value;
-        const title = document.getElementById('modalTitle').innerText;
-        const code = title.replace("History: ", "");
-        renderModalData(code, query);
+        const query = document.getElementById('modalSearchBox').value.trim().toUpperCase();
+        const body = document.getElementById('modalBody');
+        body.innerHTML = '';
+        currentModalRows = [['Date', 'Type', 'Ref', 'Qty']];
+
+        allModalRowsBackup.forEach(r => {
+            if(r.join(" ").toUpperCase().includes(query)) {
+                body.innerHTML += `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td></tr>`;
+                currentModalRows.push(r);
+            }
+        });
     }
 
     function exportModalToExcel() {
-        let csv = "Date,Type,Ref,Qty\n" + currentModalRows.map(r => r.join(",")).join("\n");
+        if(currentModalRows.length <= 1) { alert("No data to export!"); return; }
+        let csv = currentModalRows.map(r => r.join(",")).join("\n");
         let blob = new Blob(["\uFEFF"+csv], {type: "text/csv;charset=utf-8;"});
-        let link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = "History.csv"; link.click();
+        let link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = "History_Log.csv"; link.click();
     }
 
     function closeModal() { document.getElementById('historyModal').style.display = 'none'; }
-    function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
 </script>
 </body>
 </html>
