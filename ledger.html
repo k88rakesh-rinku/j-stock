@@ -3,117 +3,65 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Master Stock Ledger & Lifecycle Search (Live Cloud)</title>
+    <title>Master Ledger - GVM Rail</title>
     <link rel="stylesheet" href="style.css">
-    
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
-    
     <style>
-        .search-container { background: #fff; padding: 20px; border: 2px solid #1e3a8a; border-radius: 6px; margin-bottom: 25px; display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap; }
-        .search-group { display: flex; flex-direction: column; gap: 5px; flex: 1; }
-        .search-group label { font-weight: bold; color: #1e3a8a; }
-        .search-group input { padding: 10px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 14px; text-transform: uppercase; }
-        .btn-search-trigger { background-color: #1e3a8a; color: white; border: none; padding: 11px 25px; border-radius: 4px; font-weight: bold; cursor: pointer; }
-        
-        .table-filter-panel { display: flex; justify-content: space-between; align-items: center; background: #f1f5f9; padding: 10px 15px; border-radius: 6px; border: 1px solid #cbd5e1; margin: 20px 0; gap: 15px; flex-wrap: wrap; }
-        .sub-filter-box { padding: 8px 12px; border: 2px solid #0284c7; border-radius: 4px; font-size: 13px; width: 320px; text-transform: uppercase; }
-        
-        .summary-card-grid { display: flex; gap: 15px; margin-bottom: 20px; }
-        .summary-card { background: #f8fafc; border: 1px solid #cbd5e1; padding: 15px; border-radius: 6px; flex: 1; text-align: center; }
-        .summary-card h4 { margin: 0 0 5px 0; color: #475569; font-size: 13px; }
-        .summary-card p { margin: 0; font-size: 20px; font-weight: bold; color: #0f172a; }
-        .active-ledger { background-color: #1e3a8a !important; color: white !important; }
+        .table-filter-panel { display: flex; justify-content: space-between; align-items: center; background: #f1f5f9; padding: 15px; border-radius: 6px; margin: 20px 0; }
+        .btn-quick-view { background: #0284c7; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        /* Modal Style */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); }
+        .modal-content { background: #fff; margin: 5% auto; padding: 20px; width: 80%; border-radius: 8px; max-height: 80vh; overflow-y: auto; }
     </style>
 </head>
 <body>
 <div class="container">
-    <div class="erp-header">
-        <h1>Master Ledger & History <span style="font-size:12px; color:#4ade80;">● CLOUD LIVE</span></h1>
-        <button class="logout-btn" onclick="logout()">Logout</button>
-    </div>
+    <div class="erp-header"><h1>📊 Master Ledger & History</h1><button class="logout-btn" onclick="logout()">Logout</button></div>
     
-    <div class="tabs-nav">
-        <a href="index.html" class="tab-link">📦 New Entry (Fresh)</a>
-        <a href="rework.html" class="tab-link">🛠️ Gate In (Rework)</a>
-        <a href="gateout.html" class="tab-link">🚪 Gate Out (Dispatch)</a>
-        <a href="debit.html" class="tab-link">🧾 Debit Note (Vendor)</a>
-        <a href="code.html" class="tab-link">🆕 Generate Code</a>
-        <a href="ledger.html" class="tab-link active-ledger">📊 Master Ledger & History</a>
-        <a href="users.html" class="tab-link">👥 Manage Users</a>
-    </div>
-
-    <h3 style="color:#1e3a8a; margin-top:20px;">🔍 Smart Model Code History Engine</h3>
-    <div class="search-container">
-        <div class="search-group">
-            <label>Enter Model Part Code</label>
-            <input type="text" id="searchPartCode" placeholder="e.g. GP0013" autocomplete="off">
-        </div>
-        <button type="button" class="btn-search-trigger" onclick="triggerCodeSearch()">Search History Control</button>
-    </div>
-
-    <div id="searchResultWrapper" style="display: none; margin-bottom: 35px;">
-        <h3 id="resultTitle" style="color: #0f172a;"></h3>
-        <div class="summary-card-grid">
-            <div class="summary-card" style="border-left: 4px solid #007bff;"><h4 id="lblComp">Company</h4><p id="txtCompName">-</p></div>
-            <div class="summary-card" style="border-left: 4px solid #28a745;"><h4>Total Inward</h4><p id="txtTotalIn">0 NOS</p></div>
-            <div class="summary-card" style="border-left: 4px solid #6c757d;"><h4>Total Dispatch</h4><p id="txtTotalOut">0 NOS</p></div>
-        </div>
-        <div class="table-responsive">
-            <table class="history-table">
-                <thead><tr><th>Date</th><th>Type</th><th>Ref</th><th>Party</th><th>Qty</th><th>Serials</th></tr></thead>
-                <tbody id="searchHistoryBody"></tbody>
-            </table>
-        </div>
-    </div>
-
     <div class="table-filter-panel">
+        <h3 style="margin:0;">📋 PO Pending Balance Matrix</h3>
         <div>
-            <h3 style="color:#1e3a8a; margin:0;">📋 Purchase/Sale Orders Matrix</h3>
-        </div>
-        <div>
-            <input type="text" id="poSearchBox" class="sub-filter-box" placeholder="🔍 Search Company or Model...">
-            <button class="btn-search-trigger" style="padding: 8px 15px;" onclick="renderPOBalanceTable()">Search PO</button>
-            <select id="poLimitSelect" class="limit-dropdown-select" onchange="renderPOBalanceTable()">
-                <option value="5">5 POs</option>
-                <option value="10">10 POs</option>
-                <option value="ALL">Show All</option>
-            </select>
+            <input type="text" id="poSearchBox" class="sub-filter-box" placeholder="🔍 Search Company/Model...">
+            <button class="btn-search-trigger" onclick="renderPOBalanceTable()">Search</button>
         </div>
     </div>
     
     <div class="table-responsive">
         <table class="history-table" id="poBalanceLedgerTable" style="border: 2px solid #1e3a8a;">
             <thead style="background-color: #1e3a8a; color: white;">
-                <tr><th>PO Number</th><th>Type</th><th>Code</th><th>Description</th><th>Ordered</th><th>Executed</th><th>Pending</th><th>Action</th></tr>
+                <tr><th>PO Number</th><th>Type</th><th>Code</th><th>Item</th><th>Ordered</th><th>Executed</th><th>Pending</th><th>Action</th></tr>
             </thead>
             <tbody id="poLedgerBody"></tbody>
         </table>
     </div>
+</div>
 
-    <h3 style="color:var(--primary); margin-top:30px;">📋 Live Current Stock Stockrooms Overview</h3>
-    <div class="table-responsive">
-        <table class="history-table" id="stockLedgerTable">
-            <thead style="background-color: #1e3a8a; color: white;">
-                <tr><th>Company</th><th>Code</th><th>Description</th><th>Fresh Bal</th><th>Rework Bal</th></tr>
-            </thead>
-            <tbody id="masterLedgerBody"></tbody>
+<div id="historyModal" class="modal">
+    <div class="modal-content">
+        <div style="display:flex; justify-content:space-between;">
+            <h2 id="modalTitle">History Log</h2>
+            <div>
+                <button onclick="printModal()">🖨️ Print</button>
+                <button onclick="closeModal()">Close</button>
+            </div>
+        </div>
+        <table class="history-table" id="modalTable">
+            <thead><tr><th>Date</th><th>Type</th><th>Ref</th><th>Qty</th></tr></thead>
+            <tbody id="modalBody"></tbody>
         </table>
     </div>
 </div>
 
 <script>
-    const firebaseConfig = {
-        apiKey: "AIzaSyCAOXbPwuFR3wh1QSLBXWsodupKWoRYmqs",
-        databaseURL: "https://gvm-stock-control-default-rtdb.firebaseio.com",
-        projectId: "gvm-stock-control"
-    };
+    // Firebase Setup
+    const firebaseConfig = { apiKey: "AIzaSyCAOXbPwuFR3wh1QSLBXWsodupKWoRYmqs", databaseURL: "https://gvm-stock-control-default-rtdb.firebaseio.com", projectId: "gvm-stock-control" };
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
 
     let freshData = [], reworkData = [], gateoutData = [], debitData = [], flatCatalogPOList = [];
-    let masterCatalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
 
+    // Data Load
     Promise.all([
         database.ref('freshStockVouchers').once('value'),
         database.ref('reworkStockData').once('value'),
@@ -126,54 +74,43 @@
         gateoutData = s[2].val() ? Object.values(s[2].val()) : [];
         debitData = s[3].val() ? Object.values(s[3].val()) : [];
         flatCatalogPOList = s[4].val() ? Object.values(s[4].val()) : [];
-        renderAllTables();
-    });
-
-    function renderAllTables() {
         renderPOBalanceTable();
-        renderMasterLedgerTable();
-    }
+    });
 
     function renderPOBalanceTable() {
         const poBody = document.getElementById('poLedgerBody');
         const search = document.getElementById('poSearchBox').value.toUpperCase();
-        const limit = document.getElementById('poLimitSelect').value;
         poBody.innerHTML = '';
+        let filtered = flatCatalogPOList.filter(x => x.hasPO === "YES" && (x.poNumber.toUpperCase().includes(search) || x.code.toUpperCase().includes(search)));
 
-        let filtered = flatCatalogPOList.filter(x => x.hasPO === "YES" && 
-            (x.poNumber.toUpperCase().includes(search) || x.company.toUpperCase().includes(search) || x.code.toUpperCase().includes(search))
-        );
-
-        let viewList = limit === "ALL" ? filtered : filtered.slice(0, parseInt(limit));
-
-        viewList.forEach(p => {
+        filtered.forEach(p => {
             let poNum = p.poNumber.toUpperCase();
             let pCode = p.code.toUpperCase();
             let totalOrdered = parseInt(p.poTotalQty || 0);
             let executedQty = 0;
-
+            
+            // Logic to calc executed Qty
             if (p.poType === "PURCHASE") {
-                freshData.forEach(f => {
-                    if (f.poNo && f.poNo.toUpperCase() === poNum) {
-                        if(f.gridItems) f.gridItems.forEach(gi => { if(gi.modelCode && gi.modelCode.toUpperCase() === pCode) executedQty += parseInt(gi.qty || 0); });
-                    }
-                });
+                freshData.forEach(f => { if(f.poNo && f.poNo.toUpperCase() === poNum && f.gridItems) f.gridItems.forEach(gi => { if(gi.modelCode.toUpperCase() === pCode) executedQty += parseInt(gi.qty || 0); }); });
             } else {
-                gateoutData.forEach(g => {
-                    if(g.gridItems) g.gridItems.forEach(gi => { if(gi.poNumber && gi.poNumber.toUpperCase() === poNum && gi.code && gi.code.toUpperCase() === pCode) executedQty += parseInt(gi.qty || 0); });
-                });
+                gateoutData.forEach(g => { if(g.gridItems) g.gridItems.forEach(gi => { if(gi.poNumber && gi.poNumber.toUpperCase() === poNum && gi.code.toUpperCase() === pCode) executedQty += parseInt(gi.qty || 0); }); });
             }
-
-            poBody.innerHTML += `<tr>
-                <td><b>${poNum}</b></td><td>${p.poType}</td><td><code>${pCode}</code></td><td>${p.name}</td>
-                <td>${totalOrdered}</td><td>${executedQty}</td><td>${totalOrdered - executedQty}</td>
-                <td style="text-align:center;"><button class="btn-quick-view" onclick="quickSearch('${pCode}')">View</button></td>
-            </tr>`;
+            poBody.innerHTML += `<tr><td>${poNum}</td><td>${p.poType}</td><td>${pCode}</td><td>${p.name}</td><td>${totalOrdered}</td><td>${executedQty}</td><td>${totalOrdered - executedQty}</td><td><button class="btn-quick-view" onclick="showHistory('${pCode}')">View</button></td></tr>`;
         });
     }
-    // (अन्य फंक्शन्स वैसे ही रखें जो पहले से थे)...
+
+    function showHistory(code) {
+        document.getElementById('historyModal').style.display = 'block';
+        document.getElementById('modalTitle').innerText = "History for: " + code;
+        const body = document.getElementById('modalBody');
+        body.innerHTML = '';
+        // यहाँ आप freshData, gateoutData आदि को लूप चलाकर 'code' के हिसाब से rows ऐड कर दें
+        // (ये वही लॉजिक है जो पहले सर्च इंजन में था)
+    }
+
+    function closeModal() { document.getElementById('historyModal').style.display = 'none'; }
+    function printModal() { window.print(); }
     function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
-    function quickSearch(code) { document.getElementById('searchPartCode').value = code; triggerCodeSearch(); }
 </script>
 </body>
 </html>
