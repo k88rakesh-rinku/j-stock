@@ -50,6 +50,20 @@
             font-weight: bold;
         }
 
+        /* 🛠️ यहाँ नया कोड सेट करा है: नए ड्रॉपडाउन सेलेक्ट बॉक्स की सुंदर स्टाइलिंग */
+        .po-dropdown-select {
+            padding: 10px;
+            border: 1px solid #0284c7;
+            border-radius: 4px;
+            font-size: 14px;
+            background: #f0f9ff;
+            font-weight: bold;
+            color: #1e3a8a;
+            cursor: pointer;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
         @media print {
             body * { visibility: hidden; }
             #printSection, #printSection * { visibility: visible; }
@@ -98,9 +112,18 @@
         <div class="form-grid" style="margin-bottom: 15px;">
             <div class="form-group">
                 <label>Company Name <span>*</span></label>
-                <input type="text" id="companyName" placeholder="e.g. SIEMENS, VINYAS, OWN" required autocomplete="off" style="text-transform:uppercase;" oninput="fetchPurchasePOByCompany()">
+                <!-- 🛠️ कंपनी नाम डालते ही उससे जुड़े सारे PURCHASE PO ढूंढने का ट्रिगर लगाया है -->
+                <input type="text" id="companyName" placeholder="e.g. SIEMENS, VINYAS, OWN" required autocomplete="off" style="text-transform:uppercase;" oninput="fetchPurchasePOOptions()">
             </div>
-            <div class="form-group"><label>PO No. (Auto-Fetched)</label><input type="text" id="poNo" readonly autocomplete="off" style="text-transform:uppercase; background:#f1f5f9; font-weight:bold; color:#1e3a8a;"></div>
+
+            <!-- 🛠️ यहाँ नया कोड सेट करा है: PO No. को टेक्स्ट बॉक्स से बदलकर डायनामिक सेलेक्ट बॉक्स (Dropdown) बना दिया है भाई -->
+            <div class="form-group">
+                <label>PO Number (Select Order) <span>*</span></label>
+                <select id="poNo" class="po-dropdown-select" required>
+                    <option value="">-- TYPE COMPANY OR CODE FIRST --</option>
+                </select>
+            </div>
+
             <div class="form-group"><label>Bill / Invoice No.</label><input type="text" id="billNo" required autocomplete="off" style="text-transform:uppercase;"></div>
             <div class="form-grid-inner" style="display: contents;">
                 <div class="form-group"><label>Bill Date</label><input type="date" id="billDate" required></div>
@@ -222,22 +245,38 @@
                 stockData.push({ fbKey: key, ...data[key] });
             }
         }
-        // 🔥 न्यू बिल को हमेशा टॉप (Top) पर रखने के लिए ऐरे को उल्टा कर दिया है
         stockData.reverse();
         renderTable();
     });
 
-    // 🛠️ यहाँ नया कोड सेट करा है: कंपनी नाम से ४ अक्षरों का शुद्ध PURCHASE PO ऑटो-फ़ेच करने का इंजन
-    function fetchPurchasePOByCompany() {
-        const compName = document.getElementById('companyName').value.trim().toUpperCase();
-        if(!compName) { document.getElementById('poNo').value = ''; return; }
-        
-        let match = flatPOList.find(x => x.company === compName && x.hasPO === "YES" && x.poType === "PURCHASE");
-        if(match && match.poNumber) {
-            document.getElementById('poNo').value = match.poNumber;
-        } else {
-            document.getElementById('poNo').value = 'NO PO LINKED';
+    // 🛠️ यहाँ नया कोड सेट करा है: कंपनी नाम या मॉडल कोड के आधार पर ड्रॉपडाउन में सारे PURCHASE PO लोड करने का डायनामिक इंजन
+    function updatePODropdownOptions(filteredPOs) {
+        const selectBox = document.getElementById('poNo');
+        selectBox.innerHTML = '';
+
+        if(filteredPOs.length === 0) {
+            selectBox.innerHTML = '<option value="NO PO LINKED">NO PO LINKED</option>';
+            return;
         }
+
+        // यूनिक पीओ नंबर्स निकालने के लिए ताकि डुप्लीकेट न दिखें भाई
+        let uniquePOs = [...new Set(filteredPOs.map(x => x.poNumber.trim().toUpperCase()))];
+        
+        uniquePOs.forEach(po => {
+            selectBox.innerHTML += `<option value="${po}">${po}</option>`;
+        });
+    }
+
+    // 🛠️ यहाँ नया कोड सेट करा है: कंपनी नाम टाइप करते ही ड्रॉपडाउन में सारे PURCHASE PO लोड होंगे
+    function fetchPurchasePOOptions() {
+        const compName = document.getElementById('companyName').value.trim().toUpperCase();
+        if(!compName) { 
+            document.getElementById('poNo').innerHTML = '<option value="">-- TYPE COMPANY OR CODE FIRST --</option>'; 
+            return; 
+        }
+        
+        let matches = flatPOList.filter(x => x.company === compName && x.hasPO === "YES" && x.poType === "PURCHASE");
+        updatePODropdownOptions(matches);
     }
 
     function autoFillGridItemName(input) {
@@ -251,15 +290,14 @@
             document.getElementById('gridModelName').value = foundName;
             if(!document.getElementById('companyName').value) { 
                 document.getElementById('companyName').value = foundCompany.toUpperCase(); 
-                fetchPurchasePOByCompany(); // कंपनी ऑटो-फ़िल होने पर भी PO ट्रिगर करेगा
             }
         }
         
-        // 🛠️ यहाँ नया कोड सेट करा है: अगर कंपनी नाम से PO लोड नहीं हुआ तो आइटम कोड के आधार पर विशिष्ट PURCHASE PO चेक करेगा
-        if(code && (document.getElementById('poNo').value === '' || document.getElementById('poNo').value === 'NO PO LINKED')) {
-            let match = flatPOList.find(x => x.code === code && x.hasPO === "YES" && x.poType === "PURCHASE");
-            if(match && match.poNumber) {
-                document.getElementById('poNo').value = match.poNumber;
+        // 🛠️ यहाँ नया कोड सेट करा है: मॉडल कोड के आधार पर उस कोड से जुड़े सारे एक्टिव PURCHASE PO ड्रॉपडाउन में आ जाएंगे!
+        if(code) {
+            let matches = flatPOList.filter(x => x.code === code && x.hasPO === "YES" && x.poType === "PURCHASE");
+            if(matches.length > 0) {
+                updatePODropdownOptions(matches);
             }
         }
     }
@@ -420,7 +458,11 @@
         document.getElementById('editFirebaseKey').value = d.fbKey;
 
         document.getElementById('companyName').value = d.companyName; 
-        document.getElementById('poNo').value = d.poNo; 
+        
+        // एडिट मोड में पुराना सेलेक्टेड PO लोड करना
+        document.getElementById('poNo').innerHTML = `<option value="${d.poNo}">${d.poNo}</option>`;
+        document.getElementById('poNo').value = d.poNo;
+
         document.getElementById('billNo').value = d.billNo;
         document.getElementById('billDate').value = d.billDate; 
         document.getElementById('gateInDate').value = d.gateInDate; 
@@ -438,6 +480,7 @@
         document.getElementById('editRowIndex').value = "-1"; 
         document.getElementById('editFirebaseKey').value = ""; 
         document.getElementById('stockForm').reset(); 
+        document.getElementById('poNo').innerHTML = '<option value="">-- TYPE COMPANY OR CODE FIRST --</option>';
         tempGridItems = []; 
         renderTempGrid();
         document.getElementById('btnSubmitForm').innerText = "Final Save Inward Voucher"; 
@@ -514,7 +557,6 @@
         document.getElementById('freshFromDate').value = todayStr; document.getElementById('freshToDate').value = todayStr;
     }
     
-    // 🛠️ यहाँ नया कोड सेट करा है: Row-by-Row split एक्सेल एक्सपोर्ट इंजन (कोड और क्वांटिटी अलग खानों में)
     function exportFreshToExcel() {
         let csv = "Company,Bill No,PO No,Bill Date,Gate-In Date,Gate-In No,Model Code,Model Name,Bill Qty,Receive Qty\n";
         stockData.forEach(i => {
@@ -523,7 +565,7 @@
                 csv += `"${i.companyName}","${i.billNo}","${i.poNo}","${i.billDate}","${i.gateInDate}","${i.gateInNo}","${item.modelCode}","${item.modelName}","${item.qty}","${item.receiveQty}"\n`;
             });
         });
-        let blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        let blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
         let link = document.createElement("a");
         link.href = URL.createObjectURL(blob); link.setAttribute("download", "Fresh_Inward_Ledger_Clean.csv");
         document.body.appendChild(link); link.click(); document.body.removeChild(link);
