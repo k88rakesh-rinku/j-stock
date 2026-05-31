@@ -8,6 +8,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
     <style>
+        /* 📑 एक्शन कंट्रोल बटन्स (Edit & Delete) की सीएसएस स्टाइलिंग */
         .btn-edit-action { background-color: #0284c7; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
         .btn-edit-action:hover { background-color: #0369a1; }
         .btn-delete-action { background-color: #dc2626; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; }
@@ -130,6 +131,7 @@
 </div>
 
 <script>
+    /* 📑 लाइव क्लाउड फायरबेस क्रेडेंशियल ऑथेंटिकेशन सेटअप */
     const firebaseConfig = {
         apiKey: "AIzaSyCAOXbPwuFR3wh1QSLBXWsodupKWoRYmqs",
         authDomain: "gvm-stock-control.firebaseapp.com",
@@ -142,6 +144,7 @@
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
 
+    /* 📑 एक्टिव यूजर सेशन ट्रैकिंग और सुरक्षा कवच लॉजिक */
     const session = JSON.parse(localStorage.getItem('activeSession'));
     if(!session) { window.location.href = 'login.html'; }
     function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
@@ -149,6 +152,7 @@
     let flatCatalogList = [];
     const defaultCatalog = { "VINYAS": [{ code: "ACV 002", name: "SIEMENS" }], "HEX MOTO": [{ code: "T18 545", name: "INVERTER" }] };
 
+    /* 📑 फायरबेस रीयल-टाइम डेटाबेस सिंक और मास्टर कैटलॉग लोडर */
     database.ref('systemMasterCatalogFlat').on('value', (snapshot) => {
         flatCatalogList = [];
         const data = snapshot.val();
@@ -174,6 +178,7 @@
         renderCatalogTable();
     });
 
+    /* 📑 कंपनी नाम प्रेडिक्शन ऑटो-सजेशन लिस्टिंग लोडर्स */
     function renderDatalist() {
         const list = document.getElementById('existingCompaniesList'); 
         list.innerHTML = '';
@@ -181,7 +186,7 @@
         uniqueCompanies.forEach(comp => { list.innerHTML += `<option value="${comp}">`; });
     }
 
-    // 🔄 PO बॉक्स दिखाने या छिपाने का लॉजिक
+    /* 📑 पीओ बॉक्स विजार्ड शो/हाइड टॉगल कंडीशन इंजन */
     function togglePOFields() {
         const hasPO = document.getElementById('hasPO').value;
         const box = document.getElementById('poFormBox');
@@ -201,6 +206,7 @@
         }
     }
 
+    /* 📑 फॉर्म सबमिशन सेव इंजन (मल्टीपल पीओ लिंकेज लॉजिक के साथ अपडेटेड) */
     document.getElementById('codeGeneratorForm').addEventListener('submit', function(e) {
         e.preventDefault();
         const fbKey = document.getElementById('editFirebaseKey').value;
@@ -225,15 +231,19 @@
             code: code, 
             name: name,
             hasPO: poStatus,
-            poType: pType, // PURCHASE या SALE सेव होगा
+            poType: pType, 
             poNumber: pNum,
             poTotalQty: pQty,
             lastUpdatedBy: session.userId
         };
 
         if(fbKey === "") {
-            let isDuplicate = flatCatalogList.some(x => x.company === comp && x.code === code);
-            if(isDuplicate) { alert("This item code already exists under this company register!"); return; }
+            // 🛡️ डुप्लीकेट सुरक्षा चक्र: अब सिस्टम सिर्फ कंपनी और कोड नहीं, बल्कि उस कोड के साथ PO संख्या भी मैच करेगा
+            let isDuplicate = flatCatalogList.some(x => x.company === comp && x.code === code && x.poNumber === pNum);
+            if(isDuplicate && poStatus === "YES") { 
+                alert(`🚨 ERROR: This Item Code [ ${code} ] is already registered under this company with PO No. [ ${pNum} ]!`); 
+                return; 
+            }
             database.ref('systemMasterCatalogFlat').push(modelData).then(() => {
                 alert("🎉 Success! Code generated & Routed PO Saved.");
                 resetCatalogForm();
@@ -246,6 +256,7 @@
         }
     });
 
+    /* 📑 मास्टर कैटलॉग सूची को रीयल-टाइम रेंडर करने की तकनीक */
     function renderCatalogTable() {
         const tbody = document.getElementById('catalogTableBody');
         tbody.innerHTML = '';
@@ -284,6 +295,7 @@
         });
     }
 
+    /* 📑 मास्टर सूची में से पुराने कैटलॉग रिकॉर्ड को एडिट मोड में लोड करने का ढांचा */
     function editCatalogItem(idx) {
         const item = flatCatalogList[idx];
         document.getElementById('editFirebaseKey').value = item.fbKey;
@@ -313,6 +325,7 @@
         document.getElementById('codeGeneratorForm').scrollIntoView({ behavior: 'smooth' });
     }
 
+    /* 📑 मास्टर कैटलॉग से पुराना रिकॉर्ड हमेशा के लिए साफ (Delete) करने का इंजन */
     function deleteCatalogItem(fbKey, code) {
         const passwordInput = prompt(`🔑 Security Check:\nEnter Secret Password to Delete Code/PO Master "${code}":`);
         if (passwordInput === "7004") {
@@ -325,6 +338,7 @@
         }
     }
 
+    /* 📑 पूरे फॉर्म को रिफ्रेश कर सामान्य स्थिति में वापस लाने का मैकेनिज्म */
     function resetCatalogForm() {
         document.getElementById('editFirebaseKey').value = "";
         document.getElementById('codeGeneratorForm').reset();
