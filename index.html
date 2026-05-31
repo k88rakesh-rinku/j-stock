@@ -64,7 +64,7 @@
             box-sizing: border-box;
         }
 
-        /* 🔒 पासवर्ड स्टार लुक के लिए सीक्रेट पॉपअप बॉक्स डिज़ाइन */
+        /* 🔒 पासवर्ड स्टार लुक के लिए सीक्रेट पॉपअप बॉक्स डिज़ाइन */
         .secret-modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 9999; }
         .secret-modal-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); text-align: center; width: 320px; }
         .secret-modal-card h4 { margin: 0 0 12px 0; color: #dc2626; }
@@ -142,6 +142,7 @@
         </div>
 
         <div class="grid-input-card">
+            <!-- 🛠️ एकदम साफ और प्रीमियम प्रोफेशनल हेडिंग -->
             <h4 style="margin: 0 0 12px 0; color: #1e3a8a; border-bottom: 1px solid #cbd5e1; padding-bottom: 5px;">📋 Material Inward Row Grid Section:</h4>
             <div style="display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap;">
                 <div style="flex: 1; min-width: 150px;">
@@ -154,6 +155,7 @@
                 </div>
                 <div style="flex: 1; min-width: 100px;">
                     <label style="font-size:12px; font-weight:bold;">Bill Qty</label>
+                    <!-- 🛠️ placeholder से e.g. 4000 हटाकर एकदम क्लीन किया भाई -->
                     <input type="text" id="gridBillQty" placeholder="Enter Qty" style="padding:8px; width:100%; box-sizing:border-box;">
                 </div>
                 <div style="flex: 1; min-width: 100px;">
@@ -238,7 +240,7 @@
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
 
-    /* 📑 एक्टिव USER सत्र सुरक्षा ट्रैकिंग सुरक्षा चक्र */
+    /* 📑 एक्टिव यूजर सत्र सुरक्षा ट्रैकिंग सुरक्षा चक्र */
     const session = JSON.parse(localStorage.getItem('activeSession'));
     if(!session) { window.location.href = 'login.html'; }
     function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
@@ -274,7 +276,7 @@
         renderTable();
     });
 
-    /* 📑 क्वांटिटी ख़त्म होने पर PO को充 हाइड करने का इंजन */
+    /* 📑 क्वांटिटी ख़त्म होने पर PO को हाइड करने का लाइव कैलकुलेशन इंजन */
     function updatePODropdownOptions(filteredPOs, currentEditingPONo = null) {
         const selectBox = document.getElementById('poNo');
         selectBox.innerHTML = '';
@@ -350,16 +352,20 @@
         }
     }
 
-    /* 🛠️ मटेरियल आइटम रो ग्रिड सेव इंजन (बुलेटप्रूफ स्ट्रिंग क्लीनर के साथ) */
+    /* 🛠️ मटेरियल आइटम रो ग्रिड सेव इंजन (एडिट मोड में भी 3रो या ज़्यादा आइटम जोड़ने का फ़िक्स गियर) */
     function addItemToGridList() {
         const code = document.getElementById('gridModelCode').value.trim().toUpperCase();
         const name = document.getElementById('gridModelName').value.trim();
         
-        let valBill = document.getElementById('gridBillQty').value || "";
-        let valRec = document.getElementById('gridRecQty').value || "";
+        let valBill = document.getElementById('gridBillQty').value;
+        let valRec = document.getElementById('gridRecQty').value;
         
-        let bQty = parseInt(valBill.toString().replace(/[^0-9]/g, ''));
-        let rQty = parseInt(valRec.toString().replace(/[^0-9]/g, ''));
+        // 🧠 बुलेटप्रूफ कनवर्टर: चाहे ऑब्जेक्ट हो या स्ट्रिंग, पूरी तरह शुद्ध संख्या खींचेगा
+        let strBill = valBill ? valBill.toString().replace(/[^0-9]/g, '') : "";
+        let strRec = valRec ? valRec.toString().replace(/[^0-9]/g, '') : "";
+        
+        let bQty = parseInt(strBill);
+        let rQty = parseInt(strRec);
 
         if(!code || !name || isNaN(bQty) || isNaN(rQty)) { alert("Please enter valid Model Details and Quantities!"); return; }
         if(bQty !== rQty) { alert("Error: Bill Qty and Receive Qty must match!"); return; }
@@ -386,7 +392,7 @@
         });
     }
 
-    /* 🛠️ यहाँ सुधारा गया है: फ्रेश सबमिशन और एडिट मोड सबमिशन का 100% लाइव अपडेट फ़िक्स इंजन */
+    /* 📑 फॉर्म FINAL सबमिशन इंजन (डबल-लेयर डुप्लीकेट रोकने के नियम और एडिट लाइव अपडेट फिक्स के साथ) */
     document.getElementById('stockForm').addEventListener('submit', function(e) {
         e.preventDefault();
 
@@ -456,7 +462,6 @@
             database.ref('freshStockVouchers').push(masterVoucher);
             alert("🎉 Material Inward Entry Saved to Cloud!");
         } else {
-            /* 🔥 फ़िक्स गियर: एडिट मोड में पुराने वाउचर की मुख्य चाबी (Firebase Key) पर पूरा डेटा परफेक्ट ओवरराइट करना */
             database.ref('freshStockVouchers/' + fbKey).set(masterVoucher);
             alert("🎯 Entry Voucher Updated on Cloud!");
         }
@@ -596,7 +601,7 @@
         activeDeleteRowIdx = null;
     }
 
-    /* 🛠️ सीक्रेट पासवर्ड (7004) का स्टार लॉक्ड वेरिफिकेशन इंजन */
+    /* 🛠️ सीक्रेट पासवर्ड (7004) का स्टार लॉक्ड वेरिफिकेशन... */
     function submitSecretDeletePassword() {
         const pass = document.getElementById('secretModalPasswordField').value;
         if (pass === "7004") {
@@ -660,7 +665,7 @@
         window.print();
     }
 
-    /* 📑 तारीखों पर प्रतिबंध लगाने और डिफ़ॉल्ट कैलेंडर सेट करने का इंजन */
+    /* 📑 तारीखों पर प्रतिबंध लगाने और डिफ़ॉल्ट कैलेंडर... */
     function applyLiveDateRestrictions() {
         const todayStr = new Date().toISOString().split('T')[0];
         document.getElementById('billDate').setAttribute('max', todayStr); document.getElementById('gateInDate').setAttribute('max', todayStr);
