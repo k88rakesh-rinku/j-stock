@@ -215,7 +215,7 @@
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
 
-    /* 📑 एक्टिव USER सत्र सुरक्षा ट्रैकिंग सुरक्षा चक्र */
+    /* 📑 एक्टिव यूजर सत्र सुरक्षा ट्रैकिंग सुरक्षा चक्र */
     const session = JSON.parse(localStorage.getItem('activeSession'));
     if(!session) { window.location.href = 'login.html'; }
     function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
@@ -292,7 +292,7 @@
         });
     }
 
-    /* 📑 कंपनी नाम से जुड़े सारे PURCHASE POं को लोड करने का... */
+    /* 📑 कंपनी नाम से जुड़े सारे PURCHASE POं को लोड करने का इंजन */
     function fetchPurchasePOOptions() {
         const compName = document.getElementById('companyName').value.trim().toUpperCase();
         if(!compName) { 
@@ -327,12 +327,12 @@
         }
     }
 
-    /* 🛠️ मटेरियल आइटम रो ग्रिड सेव इंजन (क्वान्टिटी फ़िल्टर के साथ पूरी तरह अपग्रेड किया गया है भाई) */
+    /* 🛠️ मटेरियल आइटम रो ग्रिड सेव इंजन (बुलेटप्रूफ स्ट्रिंग क्लीनर के साथ) */
     function addItemToGridList() {
         const code = document.getElementById('gridModelCode').value.trim().toUpperCase();
         const name = document.getElementById('gridModelName').value.trim();
         
-        // 🧠 यहाँ सुधारा गया है: इनपुट स्ट्रिंग में से सिर्फ शुद्ध नंबर बाहर निकालने का सुरक्षा गियर
+        // 🧠 यहाँ सुधारा गया है: इनपुट स्ट्रिंग को पूरी तरह से टेक्स्ट मुक्त करके केवल शुद्ध संख्या निकालने का सुरक्षा वाल्व भाई
         let valBill = document.getElementById('gridBillQty').value || "";
         let valRec = document.getElementById('gridRecQty').value || "";
         
@@ -477,7 +477,7 @@
         viewList.forEach((i) => {
             let origIdx = stockData.findIndex(x => x.fbKey === i.fbKey);
 
-            /* 🛡️ रेंडर सुरक्षा चक्र: यहाँ ग्रिड के मल्टीपल आइटम्स को बिना क्रैश किए सेफली रीड करने का लॉजिक लगाया है भाई */
+            /* 🛡️ रेंडर सुरक्षा चक्र सुधारा गया है ताकि ग्रिड के सारे आइटम्स बिना क्रैश किए सेफली रीड हों भाई */
             let itemsHtml = "";
             let itemsList = i.gridItems || [];
             
@@ -571,7 +571,7 @@
         }
     }
 
-    /* 📑 1/4 A4 पर्ची प्रिंटिंग थर्मल रेंडरिंग... */
+    /* 📑 1/4 A4 पर्ची प्रिंटिंग थर्मल रेंडरिंग इंजन */
     function triggerGateInReceipt(i) {
         const shell = document.getElementById('printSection');
         let itemsList = i.gridItems || [{ modelCode: i.modelCode, modelName: i.modelName, qty: i.qty, receiveQty: i.receiveQty }];
@@ -619,7 +619,7 @@
         window.print();
     }
 
-    /* 📑 तारीखों पर प्रतिबंध लगाने और डिफ़ॉल्ट कैलेंडर सेट करने का इंजन */
+    /* 📑 तारीखों पर प्रतिबंध लगाने और डिफ़ॉल्ट कैलेंडर सेट करने का... */
     function applyLiveDateRestrictions() {
         const todayStr = new Date().toISOString().split('T')[0];
         document.getElementById('billDate').setAttribute('max', todayStr); document.getElementById('gateInDate').setAttribute('max', todayStr);
