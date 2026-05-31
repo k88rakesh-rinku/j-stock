@@ -2,17 +2,16 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Master Ledger - GVM Rail</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
     <style>
-        .table-filter-panel { display: flex; justify-content: space-between; align-items: center; background: #f1f5f9; padding: 15px; border-radius: 6px; margin: 20px 0; }
-        .btn-quick-view { background: #0284c7; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; }
-        /* Modal Style */
+        .table-filter-panel { display: flex; justify-content: space-between; align-items: center; background: #f1f5f9; padding: 15px; border-radius: 6px; margin: 20px 0; gap: 10px; }
+        .btn-quick-view { background: #0284c7; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; }
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); }
-        .modal-content { background: #fff; margin: 5% auto; padding: 20px; width: 80%; border-radius: 8px; max-height: 80vh; overflow-y: auto; }
+        .modal-content { background: #fff; margin: 5% auto; padding: 20px; width: 90%; border-radius: 8px; max-height: 80vh; overflow-y: auto; }
+        .action-btns { margin-bottom: 10px; }
     </style>
 </head>
 <body>
@@ -20,15 +19,20 @@
     <div class="erp-header"><h1>📊 Master Ledger & History</h1><button class="logout-btn" onclick="logout()">Logout</button></div>
     
     <div class="table-filter-panel">
-        <h3 style="margin:0;">📋 PO Pending Balance Matrix</h3>
+        <h3 style="margin:0;">📋 PO Matrix</h3>
         <div>
-            <input type="text" id="poSearchBox" class="sub-filter-box" placeholder="🔍 Search Company/Model...">
+            <select id="poTypeFilter" class="limit-dropdown-select">
+                <option value="ALL">All Types</option>
+                <option value="PURCHASE">Purchase</option>
+                <option value="SALE">Sale</option>
+            </select>
+            <input type="text" id="poSearchBox" class="sub-filter-box" placeholder="Search...">
             <button class="btn-search-trigger" onclick="renderPOBalanceTable()">Search</button>
         </div>
     </div>
     
     <div class="table-responsive">
-        <table class="history-table" id="poBalanceLedgerTable" style="border: 2px solid #1e3a8a;">
+        <table class="history-table" style="border: 2px solid #1e3a8a;">
             <thead style="background-color: #1e3a8a; color: white;">
                 <tr><th>PO Number</th><th>Type</th><th>Code</th><th>Item</th><th>Ordered</th><th>Executed</th><th>Pending</th><th>Action</th></tr>
             </thead>
@@ -39,12 +43,11 @@
 
 <div id="historyModal" class="modal">
     <div class="modal-content">
-        <div style="display:flex; justify-content:space-between;">
+        <div class="action-btns">
             <h2 id="modalTitle">History Log</h2>
-            <div>
-                <button onclick="printModal()">🖨️ Print</button>
-                <button onclick="closeModal()">Close</button>
-            </div>
+            <button onclick="exportModalToExcel()">📥 Download Excel</button>
+            <button onclick="printModal()">🖨️ Print</button>
+            <button onclick="closeModal()">Close</button>
         </div>
         <table class="history-table" id="modalTable">
             <thead><tr><th>Date</th><th>Type</th><th>Ref</th><th>Qty</th></tr></thead>
@@ -54,62 +57,54 @@
 </div>
 
 <script>
-    // Firebase Setup
     const firebaseConfig = { apiKey: "AIzaSyCAOXbPwuFR3wh1QSLBXWsodupKWoRYmqs", databaseURL: "https://gvm-stock-control-default-rtdb.firebaseio.com", projectId: "gvm-stock-control" };
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
 
-    let freshData = [], reworkData = [], gateoutData = [], debitData = [], flatCatalogPOList = [];
+    let freshData = [], gateoutData = [], flatCatalogPOList = [];
 
-    // Data Load
     Promise.all([
         database.ref('freshStockVouchers').once('value'),
-        database.ref('reworkStockData').once('value'),
         database.ref('gateoutStockData').once('value'),
-        database.ref('debitNotes').once('value'),
         database.ref('systemMasterCatalogFlat').once('value')
     ]).then(s => {
         freshData = s[0].val() ? Object.values(s[0].val()) : [];
-        reworkData = s[1].val() ? Object.values(s[1].val()) : [];
-        gateoutData = s[2].val() ? Object.values(s[2].val()) : [];
-        debitData = s[3].val() ? Object.values(s[3].val()) : [];
-        flatCatalogPOList = s[4].val() ? Object.values(s[4].val()) : [];
+        gateoutData = s[1].val() ? Object.values(s[1].val()) : [];
+        flatCatalogPOList = s[2].val() ? Object.values(s[2].val()) : [];
         renderPOBalanceTable();
     });
 
     function renderPOBalanceTable() {
         const poBody = document.getElementById('poLedgerBody');
         const search = document.getElementById('poSearchBox').value.toUpperCase();
+        const typeFilter = document.getElementById('poTypeFilter').value;
         poBody.innerHTML = '';
-        let filtered = flatCatalogPOList.filter(x => x.hasPO === "YES" && (x.poNumber.toUpperCase().includes(search) || x.code.toUpperCase().includes(search)));
-
-        filtered.forEach(p => {
-            let poNum = p.poNumber.toUpperCase();
-            let pCode = p.code.toUpperCase();
-            let totalOrdered = parseInt(p.poTotalQty || 0);
-            let executedQty = 0;
-            
-            // Logic to calc executed Qty
-            if (p.poType === "PURCHASE") {
-                freshData.forEach(f => { if(f.poNo && f.poNo.toUpperCase() === poNum && f.gridItems) f.gridItems.forEach(gi => { if(gi.modelCode.toUpperCase() === pCode) executedQty += parseInt(gi.qty || 0); }); });
-            } else {
-                gateoutData.forEach(g => { if(g.gridItems) g.gridItems.forEach(gi => { if(gi.poNumber && gi.poNumber.toUpperCase() === poNum && gi.code.toUpperCase() === pCode) executedQty += parseInt(gi.qty || 0); }); });
+        
+        flatCatalogPOList.filter(x => x.hasPO === "YES").forEach(p => {
+            if((typeFilter === "ALL" || p.poType === typeFilter) && (p.poNumber.toUpperCase().includes(search) || p.company.toUpperCase().includes(search))) {
+                let executedQty = 0;
+                if (p.poType === "PURCHASE") {
+                    freshData.forEach(f => { if (f.poNo && f.poNo.toUpperCase() === p.poNumber.toUpperCase() && f.gridItems) f.gridItems.forEach(gi => { if(gi.modelCode.toUpperCase() === p.code.toUpperCase()) executedQty += parseInt(gi.qty || 0); }); });
+                } else {
+                    gateoutData.forEach(g => { if(g.gridItems) g.gridItems.forEach(gi => { if(gi.poNumber && gi.poNumber.toUpperCase() === p.poNumber.toUpperCase() && gi.code.toUpperCase() === p.code.toUpperCase()) executedQty += parseInt(gi.qty || 0); }); });
+                }
+                poBody.innerHTML += `<tr><td>${p.poNumber}</td><td>${p.poType}</td><td>${p.code}</td><td>${p.name}</td><td>${p.poTotalQty}</td><td>${executedQty}</td><td>${p.poTotalQty - executedQty}</td><td><button class="btn-quick-view" onclick="showHistory('${p.code}')">View</button></td></tr>`;
             }
-            poBody.innerHTML += `<tr><td>${poNum}</td><td>${p.poType}</td><td>${pCode}</td><td>${p.name}</td><td>${totalOrdered}</td><td>${executedQty}</td><td>${totalOrdered - executedQty}</td><td><button class="btn-quick-view" onclick="showHistory('${pCode}')">View</button></td></tr>`;
         });
     }
 
     function showHistory(code) {
         document.getElementById('historyModal').style.display = 'block';
-        document.getElementById('modalTitle').innerText = "History for: " + code;
         const body = document.getElementById('modalBody');
         body.innerHTML = '';
-        // यहाँ आप freshData, gateoutData आदि को लूप चलाकर 'code' के हिसाब से rows ऐड कर दें
-        // (ये वही लॉजिक है जो पहले सर्च इंजन में था)
+        // यहाँ से डेटा कलेक्ट करें
+        freshData.forEach(f => { if(f.gridItems) f.gridItems.forEach(gi => { if(gi.modelCode.toUpperCase() === code.toUpperCase()) body.innerHTML += `<tr><td>${f.gateInDate}</td><td>Fresh In</td><td>${f.billNo}</td><td>${gi.qty}</td></tr>`; }); });
+        gateoutData.forEach(g => { if(g.gridItems) g.gridItems.forEach(gi => { if(gi.code && gi.code.toUpperCase() === code.toUpperCase()) body.innerHTML += `<tr><td>${g.date}</td><td>Dispatch</td><td>${g.voucherNo}</td><td>-${gi.qty}</td></tr>`; }); });
     }
 
     function closeModal() { document.getElementById('historyModal').style.display = 'none'; }
     function printModal() { window.print(); }
+    function exportModalToExcel() { alert("Excel downloading..."); } // यहाँ आप एक्सेल एक्सपोर्ट का कोड डाल सकते हैं
     function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
 </script>
 </body>
