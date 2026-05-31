@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BOM Master - GVM Rail</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+    <style>
+        .grid-input-card { background: #f8fafc; border: 2px dashed #0284c7; padding: 15px; border-radius: 6px; margin-bottom: 20px; }
+        .inner-table { width: 100%; border-collapse: collapse; margin-top: 10px; background: #fff; }
+        .inner-table th { background: #1e3a8a; color: white; padding: 6px; font-size: 12px; }
+        .inner-table td { padding: 6px; border: 1px solid #e2e8f0; font-size: 12px; }
+        .btn-remove-row { background: #dc2626; color:white; border:none; padding: 4px 8px; border-radius:3px; cursor:pointer; font-weight:bold; }
+        .btn-delete-action { background-color: #dc2626; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; }
+        .badge-acc { background: #16a34a; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; }
+        
+        .main-item-box { background: #e0f2fe; padding: 15px; border-radius: 6px; border: 1px solid #bae6fd; margin-bottom: 15px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="erp-header">
+        <h1>BOM (Bill of Materials) Master Setup <span style="font-size:12px; color:#4ade80;">● CLOUD LIVE</span></h1>
+        <button class="logout-btn" onclick="logout()">Logout</button>
+    </div>
+    
+    <div class="tabs-nav">
+        <a href="index.html" class="tab-link">📦 New Entry</a>
+        <a href="gateout.html" class="tab-link">🚪 Gate Out</a>
+        <a href="code.html" class="tab-link">🆕 Generate Code</a>
+        <a href="bom.html" class="tab-link" style="background-color: #1e3a8a; color: white; font-weight: bold;">🔗 BOM Master</a>
+        <a href="ledger.html" class="tab-link">📊 Master Ledger</a>
+    </div>
+
+    <h3 style="color:#1e3a8a; margin-top:0;">🔗 Create New BOM (Accessory Linking)</h3>
+    
+    <form id="bomForm">
+        <div class="main-item-box">
+            <h4 style="margin: 0 0 10px 0; color:#0369a1;">1️⃣ Select Main Model (e.g., ACV 002)</h4>
+            <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                <div class="form-group" style="flex: 1;">
+                    <label>Main Model Code <span>*</span></label>
+                    <input type="text" id="mainCode" placeholder="Enter Main Code" required style="text-transform:uppercase;" oninput="autoFillName('mainCode', 'mainName')">
+                </div>
+                <div class="form-group" style="flex: 2;">
+                    <label>Main Model Name</label>
+                    <input type="text" id="mainName" placeholder="Auto-fill Name" readonly style="background:#f1f5f9;">
+                </div>
+            </div>
+        </div>
+
+        <div class="grid-input-card">
+            <h4 style="margin: 0 0 10px 0; color:#1e3a8a;">2️⃣ Add Hardware / Accessories (Per 1 Unit of Main Model)</h4>
+            <div style="display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap;">
+                <div style="flex: 1; min-width: 150px;">
+                    <label style="font-size:12px; font-weight:bold;">Accessory Code</label>
+                    <input type="text" id="accCode" placeholder="e.g. HW001" style="padding:8px; width:100%; box-sizing:border-box; text-transform:uppercase;" oninput="autoFillName('accCode', 'accName')">
+                </div>
+                <div style="flex: 2; min-width: 200px;">
+                    <label style="font-size:12px; font-weight:bold;">Accessory Name</label>
+                    <input type="text" id="accName" placeholder="Auto-fill Item Name" readonly style="padding:8px; width:100%; box-sizing:border-box; background:#f1f5f9;">
+                </div>
+                <div style="flex: 1; min-width: 100px;">
+                    <label style="font-size:12px; font-weight:bold;">Qty Per Main Item</label>
+                    <input type="number" id="accQty" placeholder="e.g. 4" min="1" style="padding:8px; width:100%; box-sizing:border-box;">
+                </div>
+                <button type="button" onclick="addAccToGrid()" style="background:#0284c7; color:white; border:none; padding:9px 15px; font-weight:bold; border-radius:4px; cursor:pointer;">+ Add Accessory</button>
+            </div>
+
+            <table class="inner-table">
+                <thead><tr><th>Accessory Code</th><th>Description</th><th>Qty Per Main Unit</th><th>Action</th></tr></thead>
+                <tbody id="accGridBody"></tbody>
+            </table>
+        </div>
+
+        <button type="submit" class="btn-submit" style="width: 100%; background-color:#16a34a;">Save BOM Formula</button>
+    </form>
+
+    <div class="table-responsive" style="margin-top: 30px;">
+        <h3 style="color:#1e3a8a; margin-bottom: 10px;">📋 Saved BOM (Kitting) Configurations</h3>
+        <table class="history-table">
+            <thead style="background-color: #1e3a8a; color: white;">
+                <tr>
+                    <th>Main Model Code</th>
+                    <th>Main Model Name</th>
+                    <th>Linked Accessories & Hardware (Qty per Unit)</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="bomTableBody">
+                <tr><td colspan="4" style="text-align:center; padding:15px; color:#64748b;">Loading BOM Data...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    const firebaseConfig = { apiKey: "AIzaSyCAOXbPwuFR3wh1QSLBXWsodupKWoRYmqs", databaseURL: "https://gvm-stock-control-default-rtdb.firebaseio.com", projectId: "gvm-stock-control" };
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+
+    const session = JSON.parse(localStorage.getItem('activeSession'));
+    if(!session) { window.location.href = 'login.html'; }
+    function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
+
+    let flatCatalogList = [];
+    let tempAccItems = [];
+    let savedBOMs = [];
+
+    // Load Master Catalog (For Autofill)
+    database.ref('systemMasterCatalogFlat').on('value', (snapshot) => {
+        flatCatalogList = [];
+        const data = snapshot.val();
+        if(data) { for(let key in data) { flatCatalogList.push(data[key]); } }
+    });
+
+    // Load Saved BOMs
+    database.ref('bomMasterData').on('value', (snapshot) => {
+        savedBOMs = [];
+        const data = snapshot.val();
+        if(data) { for(let key in data) { savedBOMs.push({ fbKey: key, ...data[key] }); } }
+        renderBOMTable();
+    });
+
+    // Auto-fill Item Name Engine
+    function autoFillName(codeId, nameId) {
+        let code = document.getElementById(codeId).value.trim().toUpperCase();
+        let match = flatCatalogList.find(x => x.code.trim().toUpperCase() === code);
+        document.getElementById(nameId).value = match ? match.name : "";
+    }
+
+    // Add Accessory to Temporary Grid
+    function addAccToGrid() {
+        const aCode = document.getElementById('accCode').value.trim().toUpperCase();
+        const aName = document.getElementById('accName').value.trim();
+        const aQty = parseInt(document.getElementById('accQty').value);
+
+        if(!aCode || !aName || isNaN(aQty) || aQty <= 0) { alert("Please enter valid Accessory details!"); return; }
+        
+        // Check if accessory already added in temp grid
+        if(tempAccItems.some(x => x.code === aCode)) { alert("This accessory is already added below!"); return; }
+
+        tempAccItems.push({ code: aCode, name: aName, qty: aQty });
+        renderTempGrid();
+        document.getElementById('accCode').value = ''; document.getElementById('accName').value = ''; document.getElementById('accQty').value = '';
+        document.getElementById('accCode').focus();
+    }
+
+    function removeTempRow(index) { tempAccItems.splice(index, 1); renderTempGrid(); }
+
+    function renderTempGrid() {
+        const tbody = document.getElementById('accGridBody'); tbody.innerHTML = '';
+        tempAccItems.forEach((item, index) => {
+            tbody.innerHTML += `<tr><td><code>${item.code}</code></td><td>${item.name}</td><td><b>${item.qty}</b></td><td><button type="button" class="btn-remove-row" onclick="removeTempRow(${index})">X</button></td></tr>`;
+        });
+    }
+
+    // Save BOM Formula to Cloud
+    document.getElementById('bomForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const mCode = document.getElementById('mainCode').value.trim().toUpperCase();
+        const mName = document.getElementById('mainName').value.trim();
+
+        if(!mCode || !mName) { alert("Main Model Code is invalid!"); return; }
+        if(tempAccItems.length === 0) { alert("Please add at least 1 Accessory/Hardware!"); return; }
+
+        // Check if BOM already exists for this Main Code
+        let existingBOM = savedBOMs.find(b => b.mainCode === mCode);
+        if(existingBOM) {
+            let conf = confirm(`⚠️ BOM for [ ${mCode} ] already exists! Do you want to overwrite it?`);
+            if(!conf) return;
+            database.ref('bomMasterData/' + existingBOM.fbKey).set({ mainCode: mCode, mainName: mName, accessories: tempAccItems });
+        } else {
+            database.ref('bomMasterData').push({ mainCode: mCode, mainName: mName, accessories: tempAccItems });
+        }
+
+        alert("🎉 BOM Formula Saved Successfully!");
+        document.getElementById('bomForm').reset();
+        tempAccItems = []; renderTempGrid();
+    });
+
+    // Render Saved BOM Table
+    function renderBOMTable() {
+        const tbody = document.getElementById('bomTableBody'); tbody.innerHTML = '';
+        if(savedBOMs.length === 0) { tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:15px; color:#64748b;">No BOM Configurations Found.</td></tr>`; return; }
+
+        savedBOMs.forEach((bom) => {
+            let accHtml = "";
+            if(bom.accessories) {
+                bom.accessories.forEach(a => { accHtml += `<span class="badge-acc">${a.code} (x${a.qty})</span> `; });
+            }
+            tbody.innerHTML += `<tr>
+                <td><b style="color:#0284c7;">${bom.mainCode}</b></td>
+                <td>${bom.mainName}</td>
+                <td>${accHtml}</td>
+                <td><button type="button" class="btn-delete-action" onclick="deleteBOM('${bom.fbKey}', '${bom.mainCode}')">Delete BOM</button></td>
+            </tr>`;
+        });
+    }
+
+    function deleteBOM(fbKey, code) {
+        let conf = confirm(`Are you sure you want to delete BOM formula for [ ${code} ]?`);
+        if(conf) database.ref('bomMasterData/' + fbKey).remove();
+    }
+</script>
+</body>
+</html>
