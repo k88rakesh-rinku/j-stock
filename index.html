@@ -142,7 +142,7 @@
         </div>
 
         <div class="grid-input-card">
-            <h4 style="margin: 0 0 12px 0; color: #1e3a8a; border-b: 1px solid #cbd5e1; padding-bottom: 5px;">📋 Material Inward Row Grid Section:</h4>
+            <h4 style="margin: 0 0 12px 0; color: #1e3a8a; border-bottom: 1px solid #cbd5e1; padding-bottom: 5px;">📋 Material Inward Row Grid Section:</h4>
             <div style="display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap;">
                 <div style="flex: 1; min-width: 150px;">
                     <label style="font-size:12px; font-weight:bold;">Model Code</label>
@@ -274,7 +274,7 @@
         renderTable();
     });
 
-    /* 📑 क्वांटिटी ख़त्म होने पर PO को हाइड (Hide) करने का लाइव कैलकुलेशन इंजन */
+    /* 📑 क्वांटिटी ख़त्म होने पर PO को充 हाइड करने का इंजन */
     function updatePODropdownOptions(filteredPOs, currentEditingPONo = null) {
         const selectBox = document.getElementById('poNo');
         selectBox.innerHTML = '';
@@ -350,7 +350,7 @@
         }
     }
 
-    /* 📑 मटेरियल आइटम रो ग्रिड सेव इंजन (बुलेटप्रूफ स्ट्रिंग क्लीनर के साथ) */
+    /* 🛠️ मटेरियल आइटम रो ग्रिड सेव इंजन (बुलेटप्रूफ स्ट्रिंग क्लीनर के साथ) */
     function addItemToGridList() {
         const code = document.getElementById('gridModelCode').value.trim().toUpperCase();
         const name = document.getElementById('gridModelName').value.trim();
@@ -386,7 +386,7 @@
         });
     }
 
-    /* 📑 फॉर्म FINAL सबमिशन इंजन (डबल-लेयर डुप्लीकेट रोकने के नियम और एडिट लाइव अपडेट फिक्स के साथ) */
+    /* 🛠️ यहाँ सुधारा गया है: फ्रेश सबमिशन और एडिट मोड सबमिशन का 100% लाइव अपडेट फ़िक्स इंजन */
     document.getElementById('stockForm').addEventListener('submit', function(e) {
         e.preventDefault();
 
@@ -397,10 +397,10 @@
         const currentGateInNo = document.getElementById('gateInNo').value.trim().toUpperCase();
         const currentBillDate = document.getElementById('billDate').value;
 
-        if(tempGridItems.length === 0) {
-            const code = document.getElementById('gridModelCode').value.trim().toUpperCase();
+        // १. अगर ग्रिड खाली है और इनपुट डिब्बों में नया माल लिखा हुआ है तो उसे साफ करके ग्रिड लिस्ट में पुश करो
+        const code = document.getElementById('gridModelCode').value.trim().toUpperCase();
+        if (code) {
             const name = document.getElementById('gridModelName').value.trim();
-            
             let valBill = document.getElementById('gridBillQty').value || "";
             let valRec = document.getElementById('gridRecQty').value || "";
             let bQty = parseInt(valBill.toString().replace(/[^0-9]/g, ''));
@@ -409,12 +409,16 @@
             if(code && name && !isNaN(bQty) && !isNaN(rQty)) {
                 if(bQty !== rQty) { alert("Error: Bill Qty and Receive Qty must match!"); return; }
                 tempGridItems.push({ modelCode: code, modelName: name, qty: bQty, receiveQty: rQty });
-            } else if (idx === -1) { 
-                alert("Please enter at least one item with valid quantities!"); 
-                return; 
             }
         }
 
+        // २. सुरक्षा चक्र जांच
+        if(tempGridItems.length === 0) {
+            alert("Please enter at least one item with valid quantities!");
+            return;
+        }
+
+        // ३. केवल नए एंट्री मोड में ही डुप्लीकेट वाउचर का सुरक्षा चक्र चलेगा, एडिट मोड में बाईपास होगा
         if (idx === -1) {
             let matchingVouchers = stockData.filter(v => v.billNo === currentBillNo && v.gateInNo === currentGateInNo);
 
@@ -436,6 +440,7 @@
 
         let originalCreator = (idx !== -1 && stockData[idx]) ? (stockData[idx].createdBy || "k88rakesh") : session.userId;
 
+        // मास्टर डेटा वाउचर पैकेट
         const masterVoucher = {
             companyName: document.getElementById('companyName').value.trim().toUpperCase(), 
             poNo: document.getElementById('poNo').value.trim().toUpperCase(),
@@ -451,6 +456,7 @@
             database.ref('freshStockVouchers').push(masterVoucher);
             alert("🎉 Material Inward Entry Saved to Cloud!");
         } else {
+            /* 🔥 फ़िक्स गियर: एडिट मोड में पुराने वाउचर की मुख्य चाबी (Firebase Key) पर पूरा डेटा परफेक्ट ओवरराइट करना */
             database.ref('freshStockVouchers/' + fbKey).set(masterVoucher);
             alert("🎯 Entry Voucher Updated on Cloud!");
         }
@@ -500,7 +506,6 @@
         viewList.forEach((i) => {
             let origIdx = stockData.findIndex(x => x.fbKey === i.fbKey);
 
-            /* 🛡️ रेंडर सुरक्षा चक्र सुधारा गया है ताकि ग्रिड के सारे आइटम्स बिना क्रैश किए सेफली रीड हों भाई */
             let itemsHtml = "";
             let itemsList = i.gridItems || [];
             
@@ -655,7 +660,7 @@
         window.print();
     }
 
-    /* 📑 तारीखों पर प्रतिबंध लगाने और डिफ़ॉल्ट कैलेंडर सेट करने का... */
+    /* 📑 तारीखों पर प्रतिबंध लगाने और डिफ़ॉल्ट कैलेंडर सेट करने का इंजन */
     function applyLiveDateRestrictions() {
         const todayStr = new Date().toISOString().split('T')[0];
         document.getElementById('billDate').setAttribute('max', todayStr); document.getElementById('gateInDate').setAttribute('max', todayStr);
