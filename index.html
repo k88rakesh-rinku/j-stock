@@ -50,7 +50,7 @@
             font-weight: bold;
         }
 
-        /* 🛠️ यहाँ नया कोड सेट करा है: नए ड्रॉपडाउन सेलेक्ट बॉक्स की सुंदर स्टाइलिंग */
+        /* 🛠️ नए ड्रॉपडाउन सेलेक्ट बॉक्स की सुंदर स्टाइलिंग */
         .po-dropdown-select {
             padding: 10px;
             border: 1px solid #0284c7;
@@ -112,11 +112,9 @@
         <div class="form-grid" style="margin-bottom: 15px;">
             <div class="form-group">
                 <label>Company Name <span>*</span></label>
-                <!-- 🛠️ कंपनी नाम डालते ही उससे जुड़े सारे PURCHASE PO ढूंढने का ट्रिगर लगाया है -->
                 <input type="text" id="companyName" placeholder="e.g. SIEMENS, VINYAS, OWN" required autocomplete="off" style="text-transform:uppercase;" oninput="fetchPurchasePOOptions()">
             </div>
 
-            <!-- 🛠️ यहाँ नया कोड सेट करा है: PO No. को टेक्स्ट बॉक्स से बदलकर डायनामिक सेलेक्ट बॉक्स (Dropdown) बना दिया है भाई -->
             <div class="form-group">
                 <label>PO Number (Select Order) <span>*</span></label>
                 <select id="poNo" class="po-dropdown-select" required>
@@ -204,6 +202,7 @@
 <div id="printSection"></div>
 
 <script>
+    /* 📑 लाइव क्लाउड फायरबेस क्रेडेंशियल कॉन्फ़िगरेशन सेटअप */
     const firebaseConfig = {
         apiKey: "AIzaSyCAOXbPwuFR3wh1QSLBXWsodupKWoRYmqs",
         authDomain: "gvm-stock-control.firebaseapp.com",
@@ -216,16 +215,17 @@
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
 
+    /* 📑 एक्टिव यूजर सत्र सुरक्षा ट्रैकिंग सुरक्षा चक्र */
     const session = JSON.parse(localStorage.getItem('activeSession'));
     if(!session) { window.location.href = 'login.html'; }
     function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
 
     let stockData = [];
     let masterCatalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
-    let flatPOList = []; // 🛠️ यहाँ नया कोड सेट करा है: बैकग्राउंड लाइव PO कैटलॉग सिंक ऐरे
+    let flatPOList = []; 
     let tempGridItems = [];
 
-    // 🛠️ यहाँ नया कोड सेट करा है: फ़ायरबेस के 'systemMasterCatalogFlat' फ़ोल्डर से लाइव PO डेटाबेस सिंक करना
+    /* 📑 फायरबेस 'systemMasterCatalogFlat' फ़ोल्डर से लाइव PO डेटाबेस रीयल-टाइम सिंक */
     database.ref('systemMasterCatalogFlat').on('value', (snapshot) => {
         flatPOList = [];
         const data = snapshot.val();
@@ -236,7 +236,7 @@
         }
     });
 
-    // 🔄 फायरबेस से रीयल-टाइम डेटा लोड और सिंक करना
+    /* 📑 फायरबेस इनवर्ड वाउचर रीयल-टाइम डेटा लोड और सिंक करना */
     database.ref('freshStockVouchers').on('value', (snapshot) => {
         stockData = [];
         const data = snapshot.val();
@@ -249,7 +249,7 @@
         renderTable();
     });
 
-    // 🛠️ यहाँ नया कोड सेट करा है: कंपनी नाम या मॉडल कोड के आधार पर ड्रॉपडाउन में सारे PURCHASE PO लोड करने का डायनामिक इंजन
+    /* 📑 यूनिक पीओ नंबर्स रेंडर करने और ड्रॉपडाउन को रिफ्रेश करने की तकनीक */
     function updatePODropdownOptions(filteredPOs) {
         const selectBox = document.getElementById('poNo');
         selectBox.innerHTML = '';
@@ -259,7 +259,7 @@
             return;
         }
 
-        // यूनिक पीओ नंबर्स निकालने के लिए ताकि डुप्लीकेट न दिखें भाई
+        // 🛠️ यूनिक पीओ नंबर्स फ़िल्टर करना ताकि मल्टीपल होने पर डुप्लीकेट न दिखें भाई
         let uniquePOs = [...new Set(filteredPOs.map(x => x.poNumber.trim().toUpperCase()))];
         
         uniquePOs.forEach(po => {
@@ -267,7 +267,7 @@
         });
     }
 
-    // 🛠️ यहाँ नया कोड सेट करा है: कंपनी नाम टाइप करते ही ड्रॉपडाउन में सारे PURCHASE PO लोड होंगे
+    /* 🛠️ यहाँ नया कोड सेट करा है: कंपनी नाम से जुड़े सारे एक्टिव PURCHASE PO ड्रॉपडाउन में लोड करने का इंजन */
     function fetchPurchasePOOptions() {
         const compName = document.getElementById('companyName').value.trim().toUpperCase();
         if(!compName) { 
@@ -279,6 +279,7 @@
         updatePODropdownOptions(matches);
     }
 
+    /* 🛠️ यहाँ नया कोड सेट करा है: मॉडल कोड टाइप करते ही उसके सारे एक्टिव PURCHASE PO फ़िल्टर होकर ड्रॉपडाउन में आएंगे */
     function autoFillGridItemName(input) {
         let code = input.value.trim().toUpperCase(); 
         let foundName = ""; let foundCompany = "";
@@ -293,7 +294,6 @@
             }
         }
         
-        // 🛠️ यहाँ नया कोड सेट करा है: मॉडल कोड के आधार पर उस कोड से जुड़े सारे एक्टिव PURCHASE PO ड्रॉपडाउन में आ जाएंगे!
         if(code) {
             let matches = flatPOList.filter(x => x.code === code && x.hasPO === "YES" && x.poType === "PURCHASE");
             if(matches.length > 0) {
@@ -302,6 +302,7 @@
         }
     }
 
+    /* 📑 मटेरियल आइटम रो ग्रिड में नया आइटम कतार जोड़ने का इंजन */
     function addItemToGridList() {
         const code = document.getElementById('gridModelCode').value.trim().toUpperCase();
         const name = document.getElementById('gridModelName').value.trim();
@@ -319,8 +320,10 @@
         document.getElementById('gridRecQty').value = '';
     }
 
+    /* 📑 ग्रिड कतार से अस्थाई रो डिलीट करने की तकनीक */
     function removeTempRow(index) { tempGridItems.splice(index, 1); renderTempGrid(); }
 
+    /* 📑 अस्थाई ग्रिड लिस्ट को एचटीएमएल टेबल में लाइव रेंडर करने का ढांचा */
     function renderTempGrid() {
         const tbody = document.getElementById('gridItemsBody'); tbody.innerHTML = '';
         tempGridItems.forEach((item, index) => {
@@ -328,6 +331,7 @@
         });
     }
 
+    /* 📑 फॉर्म फाइनल सबमिशन इंजन (डुप्लीकेट वाउचर चेकिंग इंजन के साथ) */
     document.getElementById('stockForm').addEventListener('submit', function(e) {
         e.preventDefault();
 
@@ -390,6 +394,7 @@
         renderTable();
     }
 
+    /* 📑 सेव्ड क्लाउड रिकॉर्ड्स को मुख्य इतिहास ग्रिड में लाइव रेंडर करने का सिस्टम */
     function renderTable() {
         const body = document.getElementById('tableBody'); body.innerHTML = '';
         document.getElementById('lowStockAlert').style.display = 'none';
@@ -452,6 +457,7 @@
         });
     }
 
+    /* 📑 पुराने इनवार्ड वाउचर को वापस फॉर्म के अंदर एडिट मोड में लोड करने का इंजन */
     function editFreshRow(idx) {
         const d = stockData[idx]; 
         document.getElementById('editRowIndex').value = idx;
@@ -459,7 +465,7 @@
 
         document.getElementById('companyName').value = d.companyName; 
         
-        // एडिट मोड में पुराना सेलेक्टेड PO लोड करना
+        // एडिट मोड में पुराना सेलेक्टेड PO लोड करने का मैकेनिज्म
         document.getElementById('poNo').innerHTML = `<option value="${d.poNo}">${d.poNo}</option>`;
         document.getElementById('poNo').value = d.poNo;
 
@@ -476,6 +482,7 @@
         document.getElementById('stockForm').scrollIntoView({ behavior: 'smooth' });
     }
 
+    /* 📑 एडिट विज़ार्ड को रद्द कर फ़ॉर्म को दोबारा डिफ़ॉल्ट री-सेट करने का लॉजिक */
     function cancelEditMode() {
         document.getElementById('editRowIndex').value = "-1"; 
         document.getElementById('editFirebaseKey').value = ""; 
@@ -488,6 +495,7 @@
         applyLiveDateRestrictions();
     }
 
+    /* 📑 सुरक्षा पासवर्ड (7004) लॉक्ड डिलीट इंजन */
     function deleteFreshRow(idx) {
         const passwordInput = prompt("🔑 Security Check:\nEnter Secret Password to Delete this Cloud Record:");
         if (passwordInput === null) return; 
@@ -503,6 +511,7 @@
         }
     }
 
+    /* 📑 1/4 A4 पर्ची प्रिंटिंग थर्मल रेंडरिंग इंजन */
     function triggerGateInReceipt(i) {
         const shell = document.getElementById('printSection');
         let itemsList = i.gridItems || [{ modelCode: i.modelCode, modelName: i.modelName, qty: i.qty, receiveQty: i.receiveQty }];
@@ -550,6 +559,7 @@
         window.print();
     }
 
+    /* 📑 तारीखों पर प्रतिबंध लगाने और डिफ़ॉल्ट कैलेंडर सेट करने का इंजन */
     function applyLiveDateRestrictions() {
         const todayStr = new Date().toISOString().split('T')[0];
         document.getElementById('billDate').setAttribute('max', todayStr); document.getElementById('gateInDate').setAttribute('max', todayStr);
@@ -557,6 +567,7 @@
         document.getElementById('freshFromDate').value = todayStr; document.getElementById('freshToDate').value = todayStr;
     }
     
+    /* 📑 कतार-बाय-कतार स्प्लिट (Clean Column) एक्सेल एक्सपोर्ट इंजन */
     function exportFreshToExcel() {
         let csv = "Company,Bill No,PO No,Bill Date,Gate-In Date,Gate-In No,Model Code,Model Name,Bill Qty,Receive Qty\n";
         stockData.forEach(i => {
