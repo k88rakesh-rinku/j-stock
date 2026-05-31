@@ -7,23 +7,21 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
     <style>
-        /* 🛠️ बटनों को एक जैसा और छोटा करने का CSS */
-        .erp-btn { padding: 6px 12px; border: 1px solid #ccc; background: #f8fafc; cursor: pointer; border-radius: 4px; font-size: 13px; font-weight: bold; }
+        .table-filter-panel { display: flex; justify-content: space-between; align-items: center; background: #f1f5f9; padding: 15px; border-radius: 6px; margin: 20px 0; gap: 10px; }
+        
+        /* बटनों को एक जैसा और छोटा करने का स्टाइल */
+        .erp-btn { padding: 6px 12px; border: 1px solid #ccc; background: #f8fafc; cursor: pointer; border-radius: 4px; font-size: 13px; font-weight: bold; min-width: 80px; }
         .erp-btn:hover { background: #e2e8f0; }
 
-        .table-filter-panel { display: flex; justify-content: space-between; align-items: center; background: #f1f5f9; padding: 15px; border-radius: 6px; margin: 20px 0; gap: 10px; }
-        .btn-quick-view { background: #0284c7; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; }
-        
-        /* Modal Style */
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); }
-        .modal-content { background: #fff; margin: 5% auto; padding: 20px; width: 85%; border-radius: 8px; max-height: 80vh; overflow-y: auto; }
+        .modal-content { background: #fff; margin: 2% auto; padding: 20px; width: 85%; border-radius: 8px; max-height: 90vh; overflow-y: auto; }
         
-        /* प्रिंट करते समय सिर्फ मोडल दिखेगा */
+        /* प्रिंट फिक्स: सिर्फ मोडल दिखेगा और डेटा नहीं कटेगा */
         @media print {
             body * { visibility: hidden; }
             #historyModal, #historyModal * { visibility: visible; }
-            #historyModal { position: absolute; left: 0; top: 0; width: 100%; }
-            .action-btns { display: none; } /* प्रिंट में बटन नहीं आएंगे */
+            #historyModal { position: absolute; left: 0; top: 0; width: 100%; background: none; }
+            .action-btns { display: none !important; }
         }
     </style>
 </head>
@@ -56,7 +54,7 @@
 
 <div id="historyModal" class="modal">
     <div class="modal-content">
-        <div class="action-btns" style="display: flex; gap: 10px;">
+        <div class="action-btns" style="display: flex; gap: 10px; margin-bottom: 20px;">
             <h2 id="modalTitle" style="margin:0; flex-grow:1;">History Log</h2>
             <button class="erp-btn" onclick="exportModalToExcel()">📥 Excel</button>
             <button class="erp-btn" onclick="window.print()">🖨️ Print</button>
@@ -70,12 +68,12 @@
 </div>
 
 <script>
+    // ... (Firebase initialization same as before) ...
     const firebaseConfig = { apiKey: "AIzaSyCAOXbPwuFR3wh1QSLBXWsodupKWoRYmqs", databaseURL: "https://gvm-stock-control-default-rtdb.firebaseio.com", projectId: "gvm-stock-control" };
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
 
-    let freshData = [], gateoutData = [], flatCatalogPOList = [];
-    let currentModalRows = [];
+    let freshData = [], gateoutData = [], flatCatalogPOList = [], currentModalRows = [];
 
     Promise.all([
         database.ref('freshStockVouchers').once('value'),
