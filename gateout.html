@@ -75,7 +75,7 @@
         <div style="overflow-x:auto; margin-top: 15px;">
             <table class="grid-table">
                 <thead style="background-color: var(--secondary); color: white;">
-                    <tr><th>Stock Pool Type</th><th>Model Part Code 🔍</th><th>Item Name</th><th>Qty</th><th>Serial No. (Range / Text)</th><th>Action</th></tr>
+                    <tr><th>Stock Pool Type</th><th>Model Part Code 🔍</th><th>Item Name</th><th>Qty</th><th>S/N Track & Range Text</th><th>Action</th></tr>
                 </thead>
                 <tbody id="gateoutItemsBody"></tbody>
             </table>
@@ -162,7 +162,6 @@
 
     const cleanStr = (str) => String(str || "").trim().toUpperCase().replace(/\s+/g, '');
 
-    // बैकवर्ड कम्पैटिबिलिटी के लिए हेल्पर फ़ंक्शन (अगर पुराना डेटा Array है तो String बना देगा)
     const getSerialsString = (serialsField) => {
         if (!serialsField) return "";
         if (Array.isArray(serialsField)) return serialsField.join(', ');
@@ -186,21 +185,42 @@
         renderTable();
     });
 
+    // 🛠️ अपग्रेड किया हुआ रो-बिल्डर इंजन (Dropdown + Live Input Box)
     function addGoRow(preExistingSerials = "") {
         const body = document.getElementById('gateoutItemsBody');
         const tr = document.createElement('tr');
         
         let serialText = getSerialsString(preExistingSerials);
+        let hasSn = serialText !== "" && serialText !== "-";
+
+        let selectHtml = `<select class="go-sn-required" onchange="toggleSnField(this)" style="padding:6px; border-radius:4px;"><option value="NO" ${!hasSn?'selected':''}>NO</option><option value="YES" ${hasSn?'selected':''}>YES</option></select>`;
+        let inputStyle = hasSn ? "display: inline-block; width: 180px;" : "display: none; width: 180px;";
 
         tr.innerHTML = `<td><select class="go-pool-type"><option value="FRESH">FRESH</option><option value="REWORK">REWORK</option></select></td>
             <td><input type="text" required class="go-code" oninput="autofillGo(this)" style="text-transform:uppercase;"></td>
             <td><input type="text" required class="go-name"></td>
             <td><input type="number" min="1" required class="go-qty"></td>
             <td>
-                <input type="text" class="go-serials" value="${serialText}" placeholder="e.g. 2601001 TO 100" style="text-transform:uppercase; padding:6px; border:1px solid #cbd5e1; border-radius:4px; width:100%; box-sizing:border-box;">
+                <div style="display:flex; gap:8px; align-items:center; justify-content:center;">
+                    ${selectHtml}
+                    <input type="text" class="go-serials" value="${hasSn ? serialText : ''}" placeholder="e.g. 2601001 TO 100" style="${inputStyle} text-transform:uppercase; padding:6px; border:1px solid #cbd5e1; border-radius:4px; box-sizing:border-box;">
+                </div>
             </td>
             <td><button type="button" class="btn-row-remove" onclick="this.closest('tr').remove()">×</button></td>`;
         body.appendChild(tr);
+    }
+
+    // YES करने पर बॉक्स दिखेगा, NO करने पर छिप जाएगा
+    window.toggleSnField = function(select) {
+        let tr = select.closest('tr');
+        let input = tr.querySelector('.go-serials');
+        if(select.value === 'YES') {
+            input.style.display = 'inline-block';
+            input.focus();
+        } else {
+            input.style.display = 'none';
+            input.value = '';
+        }
     }
 
     function autofillGo(input) {
@@ -249,7 +269,16 @@
             const pool = row.querySelector('.go-pool-type').value;
             const rawCode = row.querySelector('.go-code').value.trim().toUpperCase();
             const qty = parseInt(row.querySelector('.go-qty').value) || 0;
-            const serialsVal = row.querySelector('.go-serials').value.trim().toUpperCase() || "-";
+            const snRequired = row.querySelector('.go-sn-required').value;
+            
+            let serialsVal = "-";
+            if(snRequired === 'YES') {
+                serialsVal = row.querySelector('.go-serials').value.trim().toUpperCase();
+                if(!serialsVal || serialsVal === "-") {
+                    alert(`⚠️ Range Text Missing!\n\nYou selected YES for S/N Track on item [${rawCode}], but left the Serial box empty.\nPlease fill the range text (e.g. 2601001 TO 100).`);
+                    deficit = true; break;
+                }
+            }
 
             if(pool === 'FRESH') {
                 let availableStock = calculateLiveFreshStock(rawCode, fbKey);
@@ -375,14 +404,21 @@
         const body = document.getElementById('gateoutItemsBody'); body.innerHTML = '';
         (d.gridItems || []).forEach(item => {
             let sTxt = getSerialsString(item.serials);
+            let hasSn = sTxt !== "" && sTxt !== "-";
             const tr = document.createElement('tr');
+
+            let selectHtml = `<select class="go-sn-required" onchange="toggleSnField(this)" style="padding:6px; border-radius:4px;"><option value="NO" ${!hasSn?'selected':''}>NO</option><option value="YES" ${hasSn?'selected':''}>YES</option></select>`;
+            let inputStyle = hasSn ? "display: inline-block; width: 180px;" : "display: none; width: 180px;";
 
             tr.innerHTML = `<td><select class="go-pool-type"><option value="FRESH" ${item.pool==='FRESH'?'selected':''}>FRESH</option><option value="REWORK" ${item.pool==='REWORK'?'selected':''}>REWORK</option></select></td>
                 <td><input type="text" required class="go-code" value="${item.code}" oninput="autofillGo(this)" style="text-transform:uppercase;"></td>
                 <td><input type="text" required class="go-name" value="${item.name}"></td>
                 <td><input type="number" min="1" required class="go-qty" value="${item.qty}"></td>
                 <td>
-                    <input type="text" class="go-serials" value="${sTxt}" placeholder="e.g. 2601001 TO 100" style="text-transform:uppercase; padding:6px; border:1px solid #cbd5e1; border-radius:4px; width:100%; box-sizing:border-box;">
+                    <div style="display:flex; gap:8px; align-items:center; justify-content:center;">
+                        ${selectHtml}
+                        <input type="text" class="go-serials" value="${hasSn ? sTxt : ''}" placeholder="e.g. 2601001 TO 100" style="${inputStyle} text-transform:uppercase; padding:6px; border:1px solid #cbd5e1; border-radius:4px; box-sizing:border-box;">
+                    </div>
                 </td>
                 <td><button type="button" class="btn-row-remove" onclick="this.closest('tr').remove()">×</button></td>`;
             body.appendChild(tr);
