@@ -13,11 +13,17 @@
         .btn-quick-view { background: #0284c7; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; }
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); }
         .modal-content { background: #fff; margin: 2% auto; padding: 20px; width: 85%; border-radius: 8px; max-height: 90vh; overflow-y: auto; }
+        
+        /* 📈 पॉपअप समरी ग्रिड डिज़ाइन */
+        .modal-summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 20px; text-align: left; }
+        .summary-card-box { padding: 10px; border-radius: 4px; font-size: 12px; line-height: 1.4; box-sizing: border-box; }
+
         @media print {
             body * { visibility: hidden; }
             #historyModal, #historyModal * { visibility: visible; }
             #historyModal { position: absolute; left: 0; top: 0; width: 100%; background: none; }
             .action-btns { display: none !important; }
+            .modal-summary-grid { display: grid !important; grid-template-columns: repeat(4, 1fr) !important; gap: 10px !important; margin-bottom: 20px !important; }
         }
     </style>
 </head>
@@ -68,17 +74,22 @@
     </div>
 </div>
 
+<!-- 🔍 विस्तृत पॉपअप मोड्यूल खिड़की -->
 <div id="historyModal" class="modal">
     <div class="modal-content">
-        <div class="action-btns" style="display: flex; gap: 10px; margin-bottom: 20px; align-items: center;">
-            <h2 id="modalTitle" style="margin:0; flex-grow:1;">History Log</h2>
+        <div class="action-btns" style="display: flex; gap: 10px; margin-bottom: 15px; align-items: center;">
+            <h2 id="modalTitle" style="margin:0; flex-grow:1; color:#1e3a8a;">History Log</h2>
             <input type="text" id="modalSearchBox" placeholder="🔍 Search Date/Ref..." style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;" oninput="filterModalRows()">
             <button class="erp-btn" onclick="exportModalToExcel()">📥 Excel</button>
-            <button class="erp-btn" onclick="window.print()">🖨️ Print</button>
+            <button class="erp-btn" onclick="window.print()">🖨️ Print Master Log</button>
             <button class="erp-btn" style="background:#dc2626; color:white;" onclick="closeModal()">❌ Close</button>
         </div>
-        <table class="history-table" style="width:100%;">
-            <thead><tr><th>Date</th><th>Type</th><th>Ref</th><th>Qty</th></tr></thead>
+
+        <!-- 📊 नया लाइव समरी ग्रिड कार्ड जो पॉपअप के अंदर लोड होगा -->
+        <div id="modalSummaryBox" class="modal-summary-grid"></div>
+
+        <table class="history-table" style="width:100%; border: 1px solid #cbd5e1;">
+            <thead style="background:#475569; color:white;"><tr><th>Transaction Date</th><th>Stock Pool Link</th><th>Voucher Reference No</th><th>Transaction Qty</th></tr></thead>
             <tbody id="modalBody"></tbody>
         </table>
     </div>
@@ -99,7 +110,6 @@
     let currentModalRows = []; 
     let allModalRowsBackup = [];
 
-    // 🔗 रीयलटाइम सिंक में BOM का डेटाबेस भी लोड किया ताकि पुर्जों की लाइव खपत निकाली जा सके
     Promise.all([
         database.ref('freshStockVouchers').once('value'),
         database.ref('gateoutStockData').once('value'),
@@ -132,14 +142,12 @@
         foundPOs.forEach(p => {
             let poExecutedQty = 0;
             
-            // 1. विशिष्ट PO के निष्पादन (Execution) की गणना करें
             if (p.poType === "PURCHASE") {
                 freshData.forEach(f => { if (f.gridItems) f.gridItems.forEach(gi => { if(normalize(gi.modelCode) === normalize(p.code) && normalize(f.poNo) === normalize(p.poNumber)) poExecutedQty += parseInt(gi.qty || 0); }); });
             } else {
                 gateoutData.forEach(g => { if(g.gridItems) g.gridItems.forEach(gi => { if(normalize(gi.code) === normalize(p.code) && normalize(g.poNo || gi.poNumber) === normalize(p.poNumber)) poExecutedQty += parseInt(gi.qty || 0); }); });
             }
 
-            // 2. पूरे सिस्टम में इस कोड का कुल 'INWARD' (Total Received) निकालें
             let totalIn = 0;
             freshData.forEach(v => {
                 let items = v.gridItems || [];
@@ -147,7 +155,6 @@
                 items.forEach(item => { if(normalize(item.modelCode) === normalize(p.code)) { totalIn += parseInt(item.qty || item.receiveQty || 0); } });
             });
 
-            // 3. पूरे सिस्टम में इस कोड का कुल 'DISPATCH/BOM CONSUMPTION' (Total Out) निकालें
             let totalOut = 0;
             gateoutData.forEach(g => {
                 let items = g.gridItems || [];
@@ -161,8 +168,9 @@
                 });
             });
 
-            // 4. शुद्ध भौतिक इन्वेंट्री बैलेंस (Closing Balance) की गणना करें
             let currentStockBalance = totalIn - totalOut;
+            let poPendingQty = p.poTotalQty - poExecutedQty;
+            let safeItemName = p.name ? p.name.replace(/'/g, "\\'") : "";
 
             poBody.innerHTML += `<tr>
                 <td>${p.poNumber}</td>
@@ -173,28 +181,42 @@
                 <td>${poExecutedQty}</td>
                 <td style="color:#dc2626; font-weight:bold;">${totalOut}</td>
                 <td style="color:#16a34a; font-weight:bold;">${currentStockBalance} NOS</td>
-                <td>${p.poTotalQty - poExecutedQty}</td>
-                <td><button class="btn-quick-view" onclick="showHistory('${p.code}')">View</button></td>
+                <td>${poPendingQty}</td>
+                <td><button class="btn-quick-view" onclick="showHistory('${p.code}', '${p.poNumber}', '${safeItemName}', ${p.poTotalQty}, ${poExecutedQty}, ${totalOut}, ${currentStockBalance}, ${poPendingQty})">View</button></td>
             </tr>`;
         });
     }
 
-    function showHistory(code) {
+    // 📊 अपग्रेड किया गया व्यू इंजन: अब बाहर का सारा डेटा समरी कार्ड बनकर पॉपअप में खुलेगा
+    function showHistory(code, poNumber, itemName, poQty, executed, dispatched, balance, pending) {
         document.getElementById('historyModal').style.display = 'block';
-        document.getElementById('modalTitle').innerText = "History for: " + code;
+        document.getElementById('modalTitle').innerText = "Inventory Log Profile: " + code;
+        
+        // पॉपअप के अंदर रंगीन समरी कार्ड्स रेंडर करना
+        const summaryBox = document.getElementById('modalSummaryBox');
+        summaryBox.innerHTML = `
+            <div class="summary-card-box" style="background:#e0f2fe; border:1px solid #bae6fd; grid-column: span 2;"><b>Item Specs:</b><br>${itemName}</div>
+            <div class="summary-card-box" style="background:#f1f5f9; border:1px solid #cbd5e1;"><b>PO Number:</b><br><code>${poNumber}</code></div>
+            <div class="summary-card-box" style="background:#f1f5f9; border:1px solid #cbd5e1;"><b>Ordered Qty:</b><br><b>${poQty} NOS</b></div>
+            <div class="summary-card-box" style="background:#f1f5f9; border:1px solid #cbd5e1;"><b>PO Executed:</b><br>${executed} NOS</div>
+            <div class="summary-card-box" style="background:#fee2e2; border:1px solid #fca5a5; color:#b91c1c;"><b>Total Dispatched:</b><br><b>${dispatched} NOS</b></div>
+            <div class="summary-card-box" style="background:#dcfce7; border:1px solid #86efac; color:#16a34a;"><b>Stock Balance:</b><br><b>${balance} NOS</b></div>
+            <div class="summary-card-box" style="background:#fef9c3; border:1px solid #fef08a;"><b>PO Pending:</b><br><b>${pending} NOS</b></div>
+        `;
+
         const body = document.getElementById('modalBody');
         body.innerHTML = '';
         currentModalRows = [['Date', 'Type', 'Ref', 'Qty']];
         allModalRowsBackup = [];
 
         freshData.forEach(f => { if(f.gridItems) f.gridItems.forEach(gi => { if(normalize(gi.modelCode) === normalize(code)) { 
-            body.innerHTML += `<tr><td>${f.gateInDate}</td><td>FRESH IN</td><td>${f.billNo}</td><td>${gi.qty}</td></tr>`; 
-            allModalRowsBackup.push([f.gateInDate, "FRESH IN", f.billNo, gi.qty]); 
+            body.innerHTML += `<tr><td>${f.gateInDate}</td><td>FRESH INWARD</td><td>${f.billNo}</td><td>${gi.qty} NOS</td></tr>`; 
+            allModalRowsBackup.push([f.gateInDate, "FRESH INWARD", f.billNo, gi.qty]); 
         }}); });
         
         gateoutData.forEach(g => { if(g.gridItems) g.gridItems.forEach(gi => { if(normalize(gi.code) === normalize(code)) { 
-            body.innerHTML += `<tr><td>${g.date}</td><td>DISPATCH</td><td>${g.voucherNo}</td><td>-${gi.qty}</td></tr>`; 
-            allModalRowsBackup.push([g.date, "DISPATCH", g.voucherNo, -gi.qty]); 
+            body.innerHTML += `<tr><td>${g.date}</td><td>DISPATCH OUT</td><td>GVM-GO-${g.voucherNo}</td><td>-${gi.qty} NOS</td></tr>`; 
+            allModalRowsBackup.push([g.date, "DISPATCH OUT", `GVM-GO-${g.voucherNo}`, -gi.qty]); 
         }}); });
         
         filterModalRows();
@@ -209,9 +231,9 @@
 
     function exportModalToExcel() {
         if(allModalRowsBackup.length <= 0) { alert("No data to export!"); return; }
-        let csv = currentModalRows.map(r => r.join(",")).join("\n");
+        let csv = [["Date", "Type", "Reference", "Qty"]].concat(allModalRowsBackup).map(r => r.join(",")).join("\n");
         let blob = new Blob(["\uFEFF"+csv], {type: "text/csv;charset=utf-8;"});
-        let link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = "History_Log.csv"; link.click();
+        let link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = "History_Transaction_Log.csv"; link.click();
     }
     
     function closeModal() { document.getElementById('historyModal').style.display = 'none'; }
