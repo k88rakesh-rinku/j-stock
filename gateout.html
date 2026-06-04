@@ -8,10 +8,19 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
     <style>
-        .btn-edit-action { background-color: #0284c7; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
-        .btn-delete-action { background-color: #dc2626; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; }
-        .btn-print-receipt { background-color: #007bff; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
+        /* 🛠️ बटनों और एक्शन कंट्रोल्स की प्रीमियम प्रोफेशनल स्टाइलिंग */
+        .btn-edit-action { background-color: #0284c7; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
+        .btn-edit-action:hover { background-color: #0369a1; }
+        .btn-delete-action { background-color: #dc2626; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; }
+        .btn-delete-action:hover { background-color: #b91c1c; }
+        .btn-print-receipt { background-color: #007bff; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
+        .btn-print-receipt:hover { background-color: #0056b3; }
         
+        /* 🎨 टैब नेविगेशन फ़िक्स: एक्टिव टैब वाइट नहीं होगा, रॉयल ब्लू चमकेगा */
+        .tabs-nav a { background-color: #e2e8f0; color: #334155; font-weight: 500; transition: all 0.3s; }
+        .tabs-nav a:hover { background-color: #cbd5e1; }
+        .tabs-nav a.active-gateout { background-color: #1e3a8a !important; color: white !important; font-weight: bold; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+
         @media print {
             body * { visibility: hidden; }
             #printSection, #printSection * { visibility: visible; }
@@ -30,28 +39,31 @@
     <div class="tabs-nav">
         <a href="index.html" class="tab-link">📦 New Entry (Fresh)</a>
         <a href="rework.html" class="tab-link">🛠️ Gate In (Rework)</a>
-        <a href="gateout.html" class="tab-link active-gateout" style="background-color: var(--secondary); color: white;">🚪 Gate Out (Dispatch)</a>
+        <a href="gateout.html" class="tab-link active-gateout">🚪 Gate Out (Dispatch)</a>
         <a href="debit.html" class="tab-link">🧾 Debit Note (Vendor)</a>
         <a href="code.html" class="tab-link">🆕 Generate Code</a>
         <a href="ledger.html" class="tab-link">📊 Master Ledger & History</a>
         <a href="users.html" class="tab-link">👥 Manage Users</a>
     </div>
 
-    <h3 id="formTitleGateout" style="color:var(--primary); margin: 0 0 10px 0;">🚪 Gate Out (Dispatch) Ledger</h3>
+    <h3 id="formTitleGateout" style="color:var(--primary); margin: 15px 0 10px 0;">🚪 Gate Out (Dispatch) Ledger</h3>
 
     <form id="gateoutForm">
+        <!-- एडिट मोड्स के लिए सीक्रेट आईडी होल्डर्स -->
         <input type="hidden" id="editRowIndex" value="-1">
+        <input type="hidden" id="editFirebaseKey" value="">
+
         <div class="form-grid">
             <div class="form-group"><label>Dispatch Trans Date <span>*</span></label><input type="date" id="goDate" required></div>
-            <div class="form-group"><label>Vehicle Transport No <span>*</span></label><input type="text" id="goVehicleNo" required autocomplete="off"></div>
-            <div class="form-group"><label>Target Party Account <span>*</span></label><input type="text" id="goPartyName" required autocomplete="off"></div>
-            <div class="form-group"><label>Delivery Shipping Location <span>*</span></label><input type="text" id="goDeliveryShipping" required autocomplete="off"></div>
-            <div class="form-group"><label>Send / Dispatched By</label><input type="text" id="goSendBy" autocomplete="off"></div>
+            <div class="form-group"><label>Vehicle Transport No <span>*</span></label><input type="text" id="goVehicleNo" required autocomplete="off" style="text-transform:uppercase;"></div>
+            <div class="form-group"><label>Target Party Account <span>*</span></label><input type="text" id="goPartyName" required autocomplete="off" style="text-transform:uppercase;"></div>
+            <div class="form-group"><label>Delivery Shipping Location <span>*</span></label><input type="text" id="goDeliveryShipping" required autocomplete="off" style="text-transform:uppercase;"></div>
+            <div class="form-group"><label>Send / Dispatched By</label><input type="text" id="goSendBy" autocomplete="off" style="text-transform:uppercase;"></div>
         </div>
 
-        <div style="overflow-x:auto;">
+        <div style="overflow-x:auto; margin-top: 15px;">
             <table class="grid-table">
-                <thead style="background-color: var(--secondary);">
+                <thead style="background-color: var(--secondary); color: white;">
                     <tr><th>Stock Pool Type</th><th>Model Part Code 🔍</th><th>Item Name</th><th>Qty</th><th>S/N Track</th><th>Action</th></tr>
                 </thead>
                 <tbody id="gateoutItemsBody"></tbody>
@@ -62,9 +74,9 @@
         <button type="button" id="btnCancelEdit" class="btn-submit" style="background-color:#64748b; display:none; margin-top:10px; width: 100%;" onclick="cancelEditMode()">Cancel Update</button>
     </form>
 
-    <div class="table-responsive">
+    <div class="table-responsive" style="margin-top: 25px;">
         <table class="history-table">
-            <thead style="background-color: var(--secondary);">
+            <thead style="background-color: #475569; color: white;">
                 <tr><th>Voucher No</th><th>Date</th><th>Vehicle No</th><th>Party Target</th><th>Items Dispatched</th><th>Action Controls</th></tr>
             </thead>
             <tbody id="goHistoryBody"></tbody>
@@ -74,7 +86,6 @@
 <div id="printSection"></div>
 
 <script>
-    // 📑 लाइव क्लाउड फायरबेस क्रेडेंशियल कॉन्फ़िगरेशन सेटअप (Index.html से सिंक किया हुआ)
     const firebaseConfig = {
         apiKey: "AIzaSyCAOXbPwuFR3wh1QSLBXWsodupKWoRYmqs",
         authDomain: "gvm-stock-control.firebaseapp.com",
@@ -91,27 +102,19 @@
     if(!session) { window.location.href = 'login.html'; }
     function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
 
-    let stockData = []; // freshStockVouchers का डेटा यहाँ आएगा
+    let stockData = []; 
     let reworkData = [];
     let gateoutData = [];
     let masterCatalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
 
-    // 🛠️ स्ट्रिंग को साफ करने का यूनिवर्सल फंक्शन (स्पेस और केस सेंसिटिविटी खत्म)
     const cleanStr = (str) => String(str || "").trim().toUpperCase().replace(/\s+/g, '');
 
-    // फायरबेस से लाइव फ्रेश स्टॉक वाउचर लोड करना
+    // क्लाउड लाइव रीयलटाइम डेटा फेच गियर्स
     database.ref('freshStockVouchers').on('value', (snapshot) => {
-        stockData = [];
-        const data = snapshot.val();
-        if(data) {
-            for(let key in data) {
-                stockData.push({ fbKey: key, ...data[key] });
-            }
-        }
+        stockData = snapshot.val() ? Object.values(snapshot.val()) : [];
         renderHistory();
     });
 
-    // फायरबेस से गेटआउट इतिहास लोड करना
     database.ref('gateoutStockData').on('value', (snapshot) => {
         gateoutData = [];
         const data = snapshot.val();
@@ -120,6 +123,7 @@
                 gateoutData.push({ fbKey: key, ...data[key] });
             }
         }
+        gateoutData.reverse(); // ताज़ा एंट्री सबसे ऊपर चमकेगी
         renderHistory();
     });
 
@@ -145,74 +149,60 @@
         input.closest('tr').querySelector('.go-name').value = foundName;
     }
 
-    // --- लाइव फ्रेश पूल स्टॉक कैलकुलेटर इंजन ---
-    function calculateLiveFreshStock(targetCode) {
+    // स्मार्ट लाइव स्टॉक बैलेंस कैलकुलेटर
+    function calculateLiveFreshStock(targetCode, skipFbKey = "") {
         let totalIn = 0;
         let totalOut = 0;
         let cleanedTarget = cleanStr(targetCode);
 
-        // 1. Fresh Inward (index.html का gridItems स्ट्रक्चर) से टोटल प्लस करें
         stockData.forEach(v => {
             let items = v.gridItems || [];
-            if(items.length === 0 && v.modelCode) { 
-                items.push({ modelCode: v.modelCode, qty: v.qty || v.receiveQty || 0 }); 
-            }
+            if(items.length === 0 && v.modelCode) { items.push({ modelCode: v.modelCode, qty: v.qty || v.receiveQty || 0 }); }
             items.forEach(item => {
-                if(cleanStr(item.modelCode) === cleanedTarget) {
-                    totalIn += parseInt(item.qty || item.receiveQty || 0);
-                }
+                if(cleanStr(item.modelCode) === cleanedTarget) { totalIn += parseInt(item.qty || item.receiveQty || 0); }
             });
         });
 
-        // 2. पुराने हो चुके Gate Out से टोटल माइनस करें
         gateoutData.forEach(g => {
+            if(skipFbKey && g.fbKey === skipFbKey) return; // एडिट मोड में खुद का वाउचर माइनस नहीं करेगा
             let items = g.gridItems || [];
             items.forEach(item => {
-                if(item.pool === 'FRESH' && cleanStr(item.code) === cleanedTarget) {
-                    totalOut += parseInt(item.qty || 0);
-                }
+                if(item.pool === 'FRESH' && cleanStr(item.code) === cleanedTarget) { totalOut += parseInt(item.qty || 0); }
             });
         });
 
         return (totalIn - totalOut);
     }
 
-    // --- फॉर्म सबमिट एंड स्टॉक डिडक्शन गियर ---
+    // --- फॉर्म सबमिट (सेव और अपडेट इंजन) ---
     document.getElementById('gateoutForm').addEventListener('submit', function(e) {
         e.preventDefault();
         let items = [];
         let rows = document.querySelectorAll('#gateoutItemsBody tr');
         let deficit = false;
 
+        const idx = parseInt(document.getElementById('editRowIndex').value);
+        const fbKey = document.getElementById('editFirebaseKey').value;
+
         for(let row of rows) {
             const pool = row.querySelector('.go-pool-type').value;
             const rawCode = row.querySelector('.go-code').value.trim();
-            const code = cleanStr(rawCode);
             const qty = parseInt(row.querySelector('.go-qty').value) || 0;
             
             if(pool === 'FRESH') {
-                // लाइव स्टॉक कैलकुलेट करें
-                let availableStock = calculateLiveFreshStock(rawCode);
-                
+                let availableStock = calculateLiveFreshStock(rawCode, fbKey);
                 if(availableStock < qty) { 
                     alert(`🚫 Deficit in Fresh Pool for Code: ${rawCode}\n\nSystem Live Stock: ${availableStock} NOS\nYour Request: ${qty} NOS\n\nStock out blocked!`); 
-                    deficit = true; 
-                    break; 
+                    deficit = true; break; 
                 }
-            } else {
-                // Rework Pool का डिफ़ॉल्ट चेक
-                let totalRework = 0;
-                if(totalRework < qty) { alert("🚨 Deficit in Rework Pool: " + rawCode); deficit = true; break; }
             }
-            
-            items.push({ pool, code: rawCode, name: row.querySelector('.go-name').value, qty, serials: [] });
+            items.push({ pool, code: rawCode.toUpperCase(), name: row.querySelector('.go-name').value, qty, serials: [] });
         }
 
         if(deficit) return;
 
-        // फायरबेस क्लाउड पर डेटा पुश करना
         const dispatchVoucher = {
-            voucherNo: gateoutData.length + 1,
+            voucherNo: idx === -1 ? (gateoutData.length + 1) : gateoutData.find(x => x.fbKey === fbKey).voucherNo,
             date: document.getElementById('goDate').value,
             vehicleNo: document.getElementById('goVehicleNo').value.trim().toUpperCase(),
             partyName: document.getElementById('goPartyName').value.trim().toUpperCase(),
@@ -221,21 +211,83 @@
             gridItems: items
         };
 
-        database.ref('gateoutStockData').push(dispatchVoucher).then(() => {
-            alert("🎉 Gate Out dispatch authorized successfully on Cloud!");
-            document.getElementById('gateoutForm').reset();
-            document.getElementById('gateoutItemsBody').innerHTML = '';
-            addGoRow();
-        });
+        if(idx === -1) {
+            // नई एंट्री सेव करें
+            database.ref('gateoutStockData').push(dispatchVoucher).then(() => {
+                alert("🎉 Gate Out dispatch authorized successfully!");
+                cancelEditMode();
+            });
+        } else {
+            // पुरानी एंट्री क्लाउड पर अपडेट करें
+            database.ref('gateoutStockData/' + fbKey).set(dispatchVoucher).then(() => {
+                alert("🎯 Dispatch entry modified successfully on Cloud!");
+                cancelEditMode();
+            });
+        }
     });
+
+    // --- लाइव एडिट मोड एक्टिवेटर गियर ---
+    window.editGateoutRow = function(origIdx) {
+        const d = gateoutData[origIdx];
+        document.getElementById('editRowIndex').value = origIdx;
+        document.getElementById('editFirebaseKey').value = d.fbKey;
+
+        document.getElementById('goDate').value = d.date;
+        document.getElementById('goVehicleNo').value = d.vehicleNo;
+        document.getElementById('goPartyName').value = d.partyName;
+        document.getElementById('goDeliveryShipping').value = d.deliveryShipping;
+        document.getElementById('goSendBy').value = d.goSendBy || '';
+
+        const body = document.getElementById('gateoutItemsBody');
+        body.innerHTML = '';
+
+        (d.gridItems || []).forEach(item => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td><select class="go-pool-type"><option value="FRESH" ${item.pool==='FRESH'?'selected':''}>FRESH</option><option value="REWORK" ${item.pool==='REWORK'?'selected':''}>REWORK</option></select></td>
+                <td><input type="text" required class="go-code" value="${item.code}" oninput="autofillGo(this)" style="text-transform:uppercase;"></td>
+                <td><input type="text" required class="go-name" value="${item.name}"></td>
+                <td><input type="number" min="1" required class="go-qty" value="${item.qty}"></td>
+                <td><button type="button" class="btn-sn-setup">S/N</button></td>
+                <td><button type="button" class="btn-row-remove" onclick="this.closest('tr').remove()">×</button></td>`;
+            body.appendChild(tr);
+        });
+
+        document.getElementById('formTitleGateout').innerText = "🛠️ Modify/Edit Gate Out Dispatch Entry";
+        document.getElementById('btnSubmitForm').innerText = "Update & Authorize Dispatch";
+        document.getElementById('btnCancelEdit').style.display = "inline-block";
+        document.getElementById('gateoutForm').scrollIntoView({ behavior: 'smooth' });
+    };
+
+    // --- लाइव क्लाउड डिलीट गियर ---
+    window.deleteGateoutRow = function(origIdx) {
+        if(confirm("🚨 WARNING: क्या आप इस रिकॉर्ड को डिलीट करना चाहते हैं? डिलीट करने पर कटा हुआ स्टॉक वापस इन्वेंटरी में जुड़ जाएगा।")) {
+            const fbKey = gateoutData[origIdx].fbKey;
+            database.ref('gateoutStockData/' + fbKey).remove().then(() => {
+                alert("🗑️ Success: Dispatch record wiped out and stock restored!");
+                cancelEditMode();
+            });
+        }
+    };
+
+    function cancelEditMode() {
+        document.getElementById('editRowIndex').value = "-1";
+        document.getElementById('editFirebaseKey').value = "";
+        document.getElementById('gateoutForm').reset();
+        document.getElementById('gateoutItemsBody').innerHTML = '';
+        document.getElementById('formTitleGateout').innerText = "🚪 Gate Out (Dispatch) Ledger";
+        document.getElementById('btnSubmitForm').innerText = "Authorize Gate Out (Deduct Stock)";
+        document.getElementById('btnCancelEdit').style.display = "none";
+        applyLiveDateRestrictions();
+        addGoRow();
+    }
 
     function renderHistory() {
         const b = document.getElementById('goHistoryBody'); b.innerHTML = '';
         if(gateoutData.length === 0) {
-            b.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:10px; color:#64748b;">No dispatch records found on Cloud.</td></tr>`;
+            b.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:15px; color:#64748b;">No dispatch records found on Cloud.</td></tr>`;
             return;
         }
-        gateoutData.forEach((g) => {
+        gateoutData.forEach((g, origIdx) => {
             let summary = (g.gridItems || []).map(i=>`${i.name} (<b>${i.qty}</b>)`).join(', ');
             b.innerHTML += `<tr>
                 <td>GVM-GO-${g.voucherNo}</td>
@@ -243,12 +295,23 @@
                 <td>${g.vehicleNo}</td>
                 <td><b>${g.partyName}</b></td>
                 <td style="text-align:left;">${summary}</td>
-                <td><button type="button" class="btn-print-receipt">🖨️ Print</button></td>
+                <td>
+                    <button type="button" class="btn-print-receipt">🖨️ Print</button>
+                    <button type="button" class="btn-edit-action" onclick="editGateoutRow(${origIdx})">Edit</button>
+                    <button type="button" class="btn-delete-action" onclick="deleteGateoutRow(${origIdx})">Delete</button>
+                </td>
             </tr>`;
         });
     }
 
-    document.getElementById('goDate').value = new Date().toISOString().split('T')[0];
+    // 🔒 फ्यूचर डेट लॉक इंजन + प्रेजेंट डेट लोडर
+    function applyLiveDateRestrictions() {
+        const todayStr = new Date().toISOString().split('T')[0];
+        document.getElementById('goDate').setAttribute('max', todayStr); // भविष्य की तारीखें लॉक
+        document.getElementById('goDate').value = todayStr; // आज की तारीख आटोमैटिक सेट
+    }
+
+    applyLiveDateRestrictions();
     addGoRow();
 </script>
 </body>
