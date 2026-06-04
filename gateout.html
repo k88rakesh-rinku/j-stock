@@ -80,6 +80,13 @@
             </table>
         </div>
         <button type="button" class="btn-row-add" onclick="addGoRow()">+</button>
+
+        <!-- 📝 Remarks Input Field -->
+        <div class="form-group" style="margin-top: 15px;">
+            <label style="font-weight: bold;">Remarks / Transaction Notes</label>
+            <input type="text" id="goRemarks" placeholder="Enter any specific remarks or notes here..." autocomplete="off" style="text-transform:uppercase; padding: 10px; width: 100%; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 4px;">
+        </div>
+
         <button type="submit" id="btnSubmitForm" class="btn-submit gateout-btn" style="margin-top:15px; width: 100%;">Authorize Gate Out (Deduct Stock)</button>
         <button type="button" id="btnCancelEdit" class="btn-submit" style="background-color:#64748b; display:none; margin-top:10px; width: 100%;" onclick="cancelEditMode()">Cancel Update</button>
     </form>
@@ -92,7 +99,7 @@
 
     <div class="table-filter-panel">
         <div>
-            <input type="text" id="liveTableSearchBox" class="search-input-box" placeholder="🔍 Search Vehicle, Code, Party or Name..." oninput="triggerTableRender()">
+            <input type="text" id="liveTableSearchBox" class="search-input-box" placeholder="🔍 Search Vehicle, Code, Party, Remarks..." oninput="triggerTableRender()">
         </div>
         <div>
             <label style="font-weight: bold; font-size: 13px; color:#475569;">Show Records:</label>
@@ -108,7 +115,7 @@
     <div class="table-responsive" style="margin-top: 0;">
         <table class="history-table" style="border-top: none;">
             <thead style="background-color: #475569; color: white;">
-                <tr><th>Voucher No</th><th>Date</th><th>Vehicle No</th><th>Party Target</th><th>Items Dispatched Details</th><th>Action Controls</th></tr>
+                <tr><th>Voucher No</th><th>Date</th><th>Vehicle No</th><th>Party Target</th><th>Items Dispatched Details</th><th>Remarks</th><th>Action Controls</th></tr>
             </thead>
             <tbody id="goHistoryBody"></tbody>
         </table>
@@ -149,13 +156,12 @@
     let stockData = []; 
     let reworkData = [];
     let gateoutData = [];
-    let bomFormulaList = []; // Live Cloud BOM Configurations
+    let bomFormulaList = []; 
     let masterCatalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
     let activeDeleteRowIdx = null; 
 
     const cleanStr = (str) => String(str || "").trim().toUpperCase().replace(/\s+/g, '');
 
-    // 🔗 Live Cloud Fetch Engines
     database.ref('bomMasterData').on('value', (snapshot) => {
         bomFormulaList = snapshot.val() ? Object.values(snapshot.val()) : [];
     });
@@ -195,7 +201,6 @@
         input.closest('tr').querySelector('.go-name').value = foundName;
     }
 
-    // 📊 स्मार्ट लाइव फ्रेश स्टॉक वैलिडेटर (BOM लिंक्ड कंपोनेंट्स का भी बैलेंस चेक करेगा)
     function calculateLiveFreshStock(targetCode, skipFbKey = "") {
         let totalIn = 0; let totalOut = 0; let cleanedTarget = cleanStr(targetCode);
         
@@ -209,10 +214,8 @@
             if(skipFbKey && g.fbKey === skipFbKey) return;
             let items = g.gridItems || [];
             items.forEach(item => { 
-                // १. डायरेक्ट कोड मैच आउट
                 if(item.pool === 'FRESH' && cleanStr(item.code) === cleanedTarget) { totalOut += parseInt(item.qty || 0); }
                 
-                // २. इनडायरेक्ट BOM मैच आउट (अगर कोई मेन आइटम बाहर गया हो, तो उसके पुर्जे का स्टॉक भी माइनस होना चाहिए)
                 let mainItemBOM = bomFormulaList.find(b => cleanStr(b.mainCode) === cleanStr(item.code));
                 if(mainItemBOM && mainItemBOM.accessories) {
                     mainItemBOM.accessories.forEach(acc => {
@@ -226,7 +229,6 @@
         return (totalIn - totalOut);
     }
 
-    // --- फॉर्म सबमिट गियर (BOM आधारित स्टॉक कटिंग आर्किटेक्चर) ---
     document.getElementById('gateoutForm').addEventListener('submit', function(e) {
         e.preventDefault();
         let items = []; let rows = document.querySelectorAll('#gateoutItemsBody tr'); let deficit = false;
@@ -239,21 +241,19 @@
             const qty = parseInt(row.querySelector('.go-qty').value) || 0;
             
             if(pool === 'FRESH') {
-                // १. मुख्य आइटम का खुद का स्टॉक चेक करें
                 let availableStock = calculateLiveFreshStock(rawCode, fbKey);
                 if(availableStock < qty) { 
                     alert(`🚫 Deficit in Fresh Pool for Main Item: ${rawCode}\n\nAvailable: ${availableStock} NOS\nRequested: ${qty} NOS`); 
                     deficit = true; break; 
                 }
 
-                // २. मुख्य आइटम के अंदर छुपे BOM एक्सेसरीज का लाइव स्टॉक चेक करें
                 let targetBOM = bomFormulaList.find(b => cleanStr(b.mainCode) === cleanStr(rawCode));
                 if(targetBOM && targetBOM.accessories) {
                     for(let acc of targetBOM.accessories) {
                         let requiredAccQty = parseInt(acc.qty) * qty;
                         let availableAccStock = calculateLiveFreshStock(acc.code, fbKey);
                         if(availableAccStock < requiredAccQty) {
-                            alert(`🚫 BOM Component Deficit!\n\nMain Model [${rawCode}] requires [${requiredAccQty} NOS] of Component [${acc.code}].\nAvailable Stock of Component: ${availableAccStock} NOS.\n\nTransaction Denied!`);
+                            alert(`🚫 BOM Component Deficit!\n\nMain Model [${rawCode}] requires [${requiredAccQty} NOS] of Component [${acc.code}].\nAvailable Component Stock: ${availableAccStock} NOS.`);
                             deficit = true; break;
                         }
                     }
@@ -271,13 +271,14 @@
             partyName: document.getElementById('goPartyName').value.trim().toUpperCase(),
             deliveryShipping: document.getElementById('goDeliveryShipping').value.trim().toUpperCase(),
             goSendBy: document.getElementById('goSendBy').value.trim().toUpperCase(),
+            remarks: document.getElementById('goRemarks').value.trim().toUpperCase(), // Remarks saved here
             gridItems: items
         };
 
         if(idx === -1) {
-            database.ref('gateoutStockData').push(dispatchVoucher).then(() => { alert("🎉 Gate Out dispatch & BOM items allocated successfully!"); cancelEditMode(); });
+            database.ref('gateoutStockData').push(dispatchVoucher).then(() => { alert("🎉 Gate Out dispatch authored successfully!"); cancelEditMode(); });
         } else {
-            database.ref('gateoutStockData/' + fbKey).set(dispatchVoucher).then(() => { alert("🎯 Dispatch entry and BOM formula updated successfully!"); cancelEditMode(); });
+            database.ref('gateoutStockData/' + fbKey).set(dispatchVoucher).then(() => { alert("🎯 Dispatch entry updated successfully!"); cancelEditMode(); });
         }
     });
 
@@ -286,7 +287,7 @@
     function renderTable() {
         const b = document.getElementById('goHistoryBody'); b.innerHTML = '';
         if(gateoutData.length === 0) {
-            b.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:15px; color:#64748b;">No dispatch records found on Cloud.</td></tr>`;
+            b.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:15px; color:#64748b;">No dispatch records found on Cloud.</td></tr>`;
             return;
         }
 
@@ -296,17 +297,18 @@
         let filteredList = gateoutData.filter(g => {
             const matchVehicle = g.vehicleNo ? g.vehicleNo.toUpperCase().includes(searchStr) : false;
             const matchParty = g.partyName ? g.partyName.toUpperCase().includes(searchStr) : false;
+            const matchRemarks = g.remarks ? g.remarks.toUpperCase().includes(searchStr) : false;
             let itemsList = g.gridItems || [];
             const matchItems = itemsList.some(item => {
                 const matchCode = item.code ? item.code.toUpperCase().includes(searchStr) : false;
                 const matchName = item.name ? item.name.toUpperCase().includes(searchStr) : false;
                 return matchCode || matchName;
             });
-            return matchVehicle || matchParty || matchItems;
+            return matchVehicle || matchParty || matchRemarks || matchItems;
         });
 
         if(filteredList.length === 0) {
-            b.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:15px; color:#64748b;">No matching search records found.</td></tr>`;
+            b.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:15px; color:#64748b;">No matching search records found.</td></tr>`;
             return;
         }
 
@@ -319,7 +321,6 @@
             (g.gridItems || []).forEach(item => {
                 summaryHtml += `• <code>${item.code}</code> - ${item.name} (<b>${item.qty} NOS</b>)<br>`;
                 
-                // प्रिंट/व्यू टेबल में BOM रिफ्लेक्शन दिखाने के लिए
                 let linkedBOM = bomFormulaList.find(b => cleanStr(b.mainCode) === cleanStr(item.code));
                 if(linkedBOM && linkedBOM.accessories) {
                     summaryHtml += `<span style="font-size:10px; color:#0284c7; padding-left:10px;">📦 BOM Parts Auto-Deducted:</span><br>`;
@@ -329,8 +330,10 @@
                 }
             });
 
+            let displayRemarks = g.remarks ? g.remarks : "-";
+
             b.innerHTML += `<tr>
-                <td>GVM-GO-${g.voucherNo}</td><td>${g.date}</td><td>${g.vehicleNo}</td><td><b>${g.partyName}</b></td><td style="text-align:left;">${summaryHtml}</td>
+                <td>GVM-GO-${g.voucherNo}</td><td>${g.date}</td><td>${g.vehicleNo}</td><td><b>${g.partyName}</b></td><td style="text-align:left;">${summaryHtml}</td><td>${displayRemarks}</td>
                 <td>
                     <button type="button" class="btn-print-receipt" onclick='triggerGateOutReceipt(${JSON.stringify(g)})'>🖨️ Print</button>
                     <button type="button" class="btn-edit-action" onclick="editGateoutRow(${origIdx})">Edit</button>
@@ -349,6 +352,7 @@
         document.getElementById('goPartyName').value = d.partyName;
         document.getElementById('goDeliveryShipping').value = d.deliveryShipping;
         document.getElementById('goSendBy').value = d.goSendBy || '';
+        document.getElementById('goRemarks').value = d.remarks || ''; // Load remarks in edit mode
 
         const body = document.getElementById('gateoutItemsBody'); body.innerHTML = '';
         (d.gridItems || []).forEach(item => {
@@ -382,7 +386,7 @@
         if (pass === "7004") {
             const fbKey = gateoutData[activeDeleteRowIdx].fbKey;
             database.ref('gateoutStockData/' + fbKey).remove().then(() => {
-                alert("🗑️ Success: Dispatch record wiped out and all BOM stock values restored!");
+                alert("🗑️ Success: Dispatch record wiped out and stock restored!");
                 closeSecretPasswordModal(); cancelEditMode();
             });
         } else {
@@ -425,6 +429,8 @@
             }
         });
 
+        let receiptRemarks = g.remarks ? g.remarks : "N/A";
+
         shell.innerHTML = `
             <div style="border:1px solid #000; padding:6px; height:100%; box-sizing:border-box; display:flex; flex-direction:column; justify-content:space-between;">
                 <div style="text-align:center; font-weight:bold; font-size:12px; border-bottom:1px solid #000; padding-bottom:2px; text-transform:uppercase;">GVM RAIL PVT LTD - DISPATCH OUTWARD REPORT</div>
@@ -432,6 +438,7 @@
                     <tr><td><b>Voucher No:</b> GVM-GO-${g.voucherNo}</td><td><b>Dispatch Date:</b> ${g.date}</td></tr>
                     <tr><td><b>Vehicle No:</b> ${g.vehicleNo}</td><td><b>Party Target:</b> ${g.partyName}</td></tr>
                     <tr><td colspan="2"><b>Location:</b> ${g.deliveryShipping || '-'} | <b>Dispatched By:</b> ${g.goSendBy || 'N/A'}</td></tr>
+                    <tr><td colspan="2"><b>Remarks:</b> ${receiptRemarks}</td></tr>
                 </table>
                 <table style="width:100%; border-collapse:collapse; margin-top:4px; font-size:10px;">
                     <thead>
@@ -453,7 +460,7 @@
         const fromDate = document.getElementById('goFromDate').value;
         const toDate = document.getElementById('goToDate').value;
         
-        let csv = "Voucher No,Date,Vehicle No,Party Target,Delivery Location,Dispatched By,Pool Type,Model Code,Model Name,Main Qty,BOM Component Code,BOM Component Qty\n";
+        let csv = "Voucher No,Date,Vehicle No,Party Target,Delivery Location,Dispatched By,Remarks,Pool Type,Model Code,Model Name,Main Qty,BOM Component Code,BOM Component Qty\n";
         
         let targetList = gateoutData;
         if(fromDate && toDate) {
@@ -461,14 +468,15 @@
         }
 
         targetList.forEach(g => {
+            let rems = g.remarks ? g.remarks : "";
             (g.gridItems || []).forEach(item => {
                 let excelBOM = bomFormulaList.find(b => cleanStr(b.mainCode) === cleanStr(item.code));
                 if(excelBOM && excelBOM.accessories) {
                     excelBOM.accessories.forEach(acc => {
-                        csv += `"GVM-GO-${g.voucherNo}","${g.date}","${g.vehicleNo}","${g.partyName}","${g.deliveryShipping || ''}","${g.goSendBy || ''}","${item.pool}","${item.code}","${item.name}","${item.qty}","${acc.code}","${parseInt(acc.qty)*parseInt(item.qty)}"\n`;
+                        csv += `"GVM-GO-${g.voucherNo}","${g.date}","${g.vehicleNo}","${g.partyName}","${g.deliveryShipping || ''}","${g.goSendBy || ''}","${rems}","${item.pool}","${item.code}","${item.name}","${item.qty}","${acc.code}","${parseInt(acc.qty)*parseInt(item.qty)}"\n`;
                     });
                 } else {
-                    csv += `"GVM-GO-${g.voucherNo}","${g.date}","${g.vehicleNo}","${g.partyName}","${g.deliveryShipping || ''}","${g.goSendBy || ''}","${item.pool}","${item.code}","${item.name}","${item.qty}","N/A","0"\n`;
+                    csv += `"GVM-GO-${g.voucherNo}","${g.date}","${g.vehicleNo}","${g.partyName}","${g.deliveryShipping || ''}","${g.goSendBy || ''}","${rems}","${item.pool}","${item.code}","${item.name}","${item.qty}","N/A","0"\n`;
                 }
             });
         });
