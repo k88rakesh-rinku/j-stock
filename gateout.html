@@ -5,10 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gate Out Dispatch - Control System</title>
     <link rel="stylesheet" href="style.css">
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
     <style>
         .btn-edit-action { background-color: #0284c7; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
         .btn-delete-action { background-color: #dc2626; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; }
         .btn-print-receipt { background-color: #007bff; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
+        
         @media print {
             body * { visibility: hidden; }
             #printSection, #printSection * { visibility: visible; }
@@ -71,14 +74,54 @@
 <div id="printSection"></div>
 
 <script>
+    // 📑 लाइव क्लाउड फायरबेस क्रेडेंशियल कॉन्फ़िगरेशन सेटअप (Index.html से सिंक किया हुआ)
+    const firebaseConfig = {
+        apiKey: "AIzaSyCAOXbPwuFR3wh1QSLBXWsodupKWoRYmqs",
+        authDomain: "gvm-stock-control.firebaseapp.com",
+        databaseURL: "https://gvm-stock-control-default-rtdb.firebaseio.com",
+        projectId: "gvm-stock-control",
+        storageBucket: "gvm-stock-control.firebasestorage.app",
+        messagingSenderId: "202991207119",
+        appId: "1:202991207119:web:2246ffb7b92f9eb0c4adba"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+
     const session = JSON.parse(localStorage.getItem('activeSession'));
     if(!session) { window.location.href = 'login.html'; }
     function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
 
-    let stockData = JSON.parse(localStorage.getItem('freshStockData')) || [];
-    let reworkData = JSON.parse(localStorage.getItem('reworkStockData')) || [];
-    let gateoutData = JSON.parse(localStorage.getItem('gateoutStockData')) || [];
+    let stockData = []; // freshStockVouchers का डेटा यहाँ आएगा
+    let reworkData = [];
+    let gateoutData = [];
     let masterCatalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
+
+    // 🛠️ स्ट्रिंग को साफ करने का यूनिवर्सल फंक्शन (स्पेस और केस सेंसिटिविटी खत्म)
+    const cleanStr = (str) => String(str || "").trim().toUpperCase().replace(/\s+/g, '');
+
+    // फायरबेस से लाइव फ्रेश स्टॉक वाउचर लोड करना
+    database.ref('freshStockVouchers').on('value', (snapshot) => {
+        stockData = [];
+        const data = snapshot.val();
+        if(data) {
+            for(let key in data) {
+                stockData.push({ fbKey: key, ...data[key] });
+            }
+        }
+        renderHistory();
+    });
+
+    // फायरबेस से गेटआउट इतिहास लोड करना
+    database.ref('gateoutStockData').on('value', (snapshot) => {
+        gateoutData = [];
+        const data = snapshot.val();
+        if(data) {
+            for(let key in data) {
+                gateoutData.push({ fbKey: key, ...data[key] });
+            }
+        }
+        renderHistory();
+    });
 
     function addGoRow() {
         const body = document.getElementById('gateoutItemsBody');
@@ -87,78 +130,124 @@
             <td><input type="text" required class="go-code" oninput="autofillGo(this)" style="text-transform:uppercase;"></td>
             <td><input type="text" required class="go-name"></td>
             <td><input type="number" min="1" required class="go-qty"></td>
-            <td><button type="button" class="btn-sn-setup" onclick="openSNModal(this)">S/N</button></td>
+            <td><button type="button" class="btn-sn-setup">S/N</button></td>
             <td><button type="button" class="btn-row-remove" onclick="this.closest('tr').remove()">×</button></td>`;
         body.appendChild(tr);
     }
 
     function autofillGo(input) {
-        let code = input.value.trim().toUpperCase();
+        let code = cleanStr(input.value);
+        let foundName = "";
         for(let key in masterCatalog) {
-            const m = masterCatalog[key].find(i=>i.code===code);
-            if(m) input.closest('tr').querySelector('.go-name').value = m.name;
+            const m = masterCatalog[key].find(i => cleanStr(i.code) === code);
+            if(m) foundName = m.name;
         }
+        input.closest('tr').querySelector('.go-name').value = foundName;
     }
 
+    // --- लाइव फ्रेश पूल स्टॉक कैलकुलेटर इंजन ---
+    function calculateLiveFreshStock(targetCode) {
+        let totalIn = 0;
+        let totalOut = 0;
+        let cleanedTarget = cleanStr(targetCode);
+
+        // 1. Fresh Inward (index.html का gridItems स्ट्रक्चर) से टोटल प्लस करें
+        stockData.forEach(v => {
+            let items = v.gridItems || [];
+            if(items.length === 0 && v.modelCode) { 
+                items.push({ modelCode: v.modelCode, qty: v.qty || v.receiveQty || 0 }); 
+            }
+            items.forEach(item => {
+                if(cleanStr(item.modelCode) === cleanedTarget) {
+                    totalIn += parseInt(item.qty || item.receiveQty || 0);
+                }
+            });
+        });
+
+        // 2. पुराने हो चुके Gate Out से टोटल माइनस करें
+        gateoutData.forEach(g => {
+            let items = g.gridItems || [];
+            items.forEach(item => {
+                if(item.pool === 'FRESH' && cleanStr(item.code) === cleanedTarget) {
+                    totalOut += parseInt(item.qty || 0);
+                }
+            });
+        });
+
+        return (totalIn - totalOut);
+    }
+
+    // --- फॉर्म सबमिट एंड स्टॉक डिडक्शन गियर ---
     document.getElementById('gateoutForm').addEventListener('submit', function(e) {
         e.preventDefault();
         let items = [];
         let rows = document.querySelectorAll('#gateoutItemsBody tr');
-        let tempStockData = JSON.parse(JSON.stringify(stockData));
-        let tempReworkData = JSON.parse(JSON.stringify(reworkData));
         let deficit = false;
 
         for(let row of rows) {
             const pool = row.querySelector('.go-pool-type').value;
-            const code = row.querySelector('.go-code').value.trim().toUpperCase();
+            const rawCode = row.querySelector('.go-code').value.trim();
+            const code = cleanStr(rawCode);
             const qty = parseInt(row.querySelector('.go-qty').value) || 0;
             
             if(pool === 'FRESH') {
-                // FIX: .includes() इस्तेमाल किया ताकि बड़े स्ट्रिंग के अंदर कोड मिल सके
-                let match = tempStockData.find(s => (s.modelCode || "").toUpperCase().includes(code));
-                let current = match ? parseInt(match.qty || match.inQty || 0) : 0;
+                // लाइव स्टॉक कैलकुलेट करें
+                let availableStock = calculateLiveFreshStock(rawCode);
                 
-                if(!match || current < qty) { 
-                    alert("🚨 Deficit or Code not found in Fresh Pool: " + code + "\nAvailable in system: " + current); 
-                    deficit = true; break; 
+                if(availableStock < qty) { 
+                    alert(`🚫 Deficit in Fresh Pool for Code: ${rawCode}\n\nSystem Live Stock: ${availableStock} NOS\nYour Request: ${qty} NOS\n\nStock out blocked!`); 
+                    deficit = true; 
+                    break; 
                 }
-                if(match.qty !== undefined) match.qty -= qty; else match.inQty -= qty;
             } else {
+                // Rework Pool का डिफ़ॉल्ट चेक
                 let totalRework = 0;
-                // FIX: .includes() का इस्तेमाल
-                tempReworkData.forEach(r => r.gridItems.forEach(gi => { if(gi.itemShort.toUpperCase().includes(code)) totalRework += parseInt(gi.qty); }));
-                
-                if(totalRework < qty) { 
-                    alert("🚨 Deficit in Rework Pool: " + code + "\nAvailable: " + totalRework); 
-                    deficit = true; break; 
-                }
-                let rem = qty;
-                for(let r of tempReworkData) {
-                    for(let gi of r.gridItems) {
-                        if(gi.itemShort.toUpperCase().includes(code) && gi.qty > 0) {
-                            let take = Math.min(gi.qty, rem);
-                            gi.qty -= take; rem -= take;
-                        }
-                    }
-                }
+                if(totalRework < qty) { alert("🚨 Deficit in Rework Pool: " + rawCode); deficit = true; break; }
             }
-            items.push({ pool, code, name: row.querySelector('.go-name').value, qty, serials: [] });
+            
+            items.push({ pool, code: rawCode, name: row.querySelector('.go-name').value, qty, serials: [] });
         }
 
         if(deficit) return;
 
-        stockData = tempStockData; reworkData = tempReworkData;
-        localStorage.setItem('freshStockData', JSON.stringify(stockData));
-        localStorage.setItem('reworkStockData', JSON.stringify(reworkData));
-        
-        gateoutData.push({ voucherNo: gateoutData.length + 1, date: document.getElementById('goDate').value, vehicleNo: document.getElementById('goVehicleNo').value, partyName: document.getElementById('goPartyName').value, gridItems: items });
-        localStorage.setItem('gateoutStockData', JSON.stringify(gateoutData));
-        
-        alert("🎉 Success!");
-        location.reload();
+        // फायरबेस क्लाउड पर डेटा पुश करना
+        const dispatchVoucher = {
+            voucherNo: gateoutData.length + 1,
+            date: document.getElementById('goDate').value,
+            vehicleNo: document.getElementById('goVehicleNo').value.trim().toUpperCase(),
+            partyName: document.getElementById('goPartyName').value.trim().toUpperCase(),
+            deliveryShipping: document.getElementById('goDeliveryShipping').value.trim().toUpperCase(),
+            goSendBy: document.getElementById('goSendBy').value.trim().toUpperCase(),
+            gridItems: items
+        };
+
+        database.ref('gateoutStockData').push(dispatchVoucher).then(() => {
+            alert("🎉 Gate Out dispatch authorized successfully on Cloud!");
+            document.getElementById('gateoutForm').reset();
+            document.getElementById('gateoutItemsBody').innerHTML = '';
+            addGoRow();
+        });
     });
 
-    // Helper: Initial Date
+    function renderHistory() {
+        const b = document.getElementById('goHistoryBody'); b.innerHTML = '';
+        if(gateoutData.length === 0) {
+            b.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:10px; color:#64748b;">No dispatch records found on Cloud.</td></tr>`;
+            return;
+        }
+        gateoutData.forEach((g) => {
+            let summary = (g.gridItems || []).map(i=>`${i.name} (<b>${i.qty}</b>)`).join(', ');
+            b.innerHTML += `<tr>
+                <td>GVM-GO-${g.voucherNo}</td>
+                <td>${g.date}</td>
+                <td>${g.vehicleNo}</td>
+                <td><b>${g.partyName}</b></td>
+                <td style="text-align:left;">${summary}</td>
+                <td><button type="button" class="btn-print-receipt">🖨️ Print</button></td>
+            </tr>`;
+        });
+    }
+
     document.getElementById('goDate').value = new Date().toISOString().split('T')[0];
     addGoRow();
 </script>
