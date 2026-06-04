@@ -75,7 +75,7 @@
         <div style="overflow-x:auto; margin-top: 15px;">
             <table class="grid-table">
                 <thead style="background-color: var(--secondary); color: white;">
-                    <tr><th>Stock Pool Type</th><th>Model Part Code 🔍</th><th>Item Name</th><th>Qty</th><th>S/N Track</th><th>Action</th></tr>
+                    <tr><th>Stock Pool Type</th><th>Model Part Code 🔍</th><th>Item Name</th><th>Qty</th><th>Serial No. (Range / Text)</th><th>Action</th></tr>
                 </thead>
                 <tbody id="gateoutItemsBody"></tbody>
             </table>
@@ -122,25 +122,6 @@
     </div>
 </div>
 
-<!-- ⚙️ पेस्ट बॉक्स वाला सीरियल नंबर कॉन्फिग पॉपअप -->
-<div id="snConfigModal" class="secret-modal-overlay">
-    <div class="secret-modal-card" style="width: 420px;">
-        <h4 id="snModalHeaderTitle">🔢 Paste Serial Numbers</h4>
-        <p id="snModalSubtext" style="font-size: 11px; color:#64748b; margin-bottom:12px;"></p>
-        
-        <div style="text-align:left; margin-bottom:15px;">
-            <textarea id="snBulkTextArea" placeholder="EXCEL से कॉपी करके यहाँ सीधे पेस्ट करें...&#10;या एक लाइन में एक सीरियल नंबर डालें।" 
-                      style="width:100%; height:180px; box-sizing:border-box; text-transform:uppercase; font-family:monospace; padding:10px; border: 1px solid #cbd5e1; border-radius: 4px; resize: none;"></textarea>
-            <span style="font-size: 10px; color:#64748b; display:block; margin-top:4px;">* नोट: हर सीरियल नंबर अलग लाइन या कोमा (,) से अलग होना चाहिए।</span>
-        </div>
-
-        <div class="secret-modal-btn-group">
-            <button type="button" class="secret-modal-btn-confirm" onclick="saveDynamicRowSerials()">Apply & Validate</button>
-            <button type="button" class="secret-modal-btn-cancel" onclick="closeSnConfigModal()">Close</button>
-        </div>
-    </div>
-</div>
-
 <!-- 🔑 सीक्रेट पासवर्ड डिलीट पॉपअप -->
 <div id="secretPasswordModal" class="secret-modal-overlay">
     <div class="secret-modal-card">
@@ -178,9 +159,15 @@
     let bomFormulaList = []; 
     let masterCatalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
     let activeDeleteRowIdx = null; 
-    let activeSnTargetRow = null; 
 
     const cleanStr = (str) => String(str || "").trim().toUpperCase().replace(/\s+/g, '');
+
+    // बैकवर्ड कम्पैटिबिलिटी के लिए हेल्पर फ़ंक्शन (अगर पुराना डेटा Array है तो String बना देगा)
+    const getSerialsString = (serialsField) => {
+        if (!serialsField) return "";
+        if (Array.isArray(serialsField)) return serialsField.join(', ');
+        return String(serialsField);
+    };
 
     database.ref('bomMasterData').on('value', (snapshot) => {
         bomFormulaList = snapshot.val() ? Object.values(snapshot.val()) : [];
@@ -199,54 +186,21 @@
         renderTable();
     });
 
-    function addGoRow(preExistingSerials = []) {
+    function addGoRow(preExistingSerials = "") {
         const body = document.getElementById('gateoutItemsBody');
         const tr = document.createElement('tr');
-        tr.dataset.serials = JSON.stringify(preExistingSerials);
         
-        let hasSn = preExistingSerials.length > 0;
-        let selectHtml = `<select class="go-sn-required" onchange="toggleSnField(this)" style="padding:6px; border-radius:4px;"><option value="NO" ${!hasSn?'selected':''}>NO</option><option value="YES" ${hasSn?'selected':''}>YES</option></select>`;
-        let btnStyle = hasSn ? "background-color: #16a34a; color: white; display: inline-block;" : "display: none;";
-        let btnText = hasSn ? `Config (${preExistingSerials.length})` : "Config";
+        let serialText = getSerialsString(preExistingSerials);
 
         tr.innerHTML = `<td><select class="go-pool-type"><option value="FRESH">FRESH</option><option value="REWORK">REWORK</option></select></td>
             <td><input type="text" required class="go-code" oninput="autofillGo(this)" style="text-transform:uppercase;"></td>
             <td><input type="text" required class="go-name"></td>
-            <td><input type="number" min="1" required class="go-qty" oninput="handleQtyChange(this)"></td>
+            <td><input type="number" min="1" required class="go-qty"></td>
             <td>
-                <div style="display:flex; gap:5px; align-items:center; justify-content:center;">
-                    ${selectHtml}
-                    <button type="button" class="btn-sn-setup" style="${btnStyle}" onclick="openSnConfigModal(this)">${btnText}</button>
-                </div>
+                <input type="text" class="go-serials" value="${serialText}" placeholder="e.g. 2601001 TO 100" style="text-transform:uppercase; padding:6px; border:1px solid #cbd5e1; border-radius:4px; width:100%; box-sizing:border-box;">
             </td>
             <td><button type="button" class="btn-row-remove" onclick="this.closest('tr').remove()">×</button></td>`;
         body.appendChild(tr);
-    }
-
-    window.toggleSnField = function(select) {
-        let tr = select.closest('tr');
-        let btn = tr.querySelector('.btn-sn-setup');
-        if(select.value === 'YES') {
-            btn.style.display = 'inline-block';
-        } else {
-            btn.style.display = 'none';
-            tr.dataset.serials = "[]";
-            btn.innerText = "Config";
-            btn.style.backgroundColor = "";
-            btn.style.color = "";
-        }
-    }
-
-    window.handleQtyChange = function(input) {
-        let tr = input.closest('tr');
-        let btn = tr.querySelector('.btn-sn-setup');
-        let select = tr.querySelector('.go-sn-required');
-        if(select.value === 'YES') {
-            tr.dataset.serials = "[]";
-            btn.innerText = "Config";
-            btn.style.backgroundColor = "";
-            btn.style.color = "";
-        }
     }
 
     function autofillGo(input) {
@@ -257,54 +211,6 @@
             if(m) foundName = m.name;
         }
         input.closest('tr').querySelector('.go-name').value = foundName;
-    }
-
-    function openSnConfigModal(btn) {
-        activeSnTargetRow = btn.closest('tr');
-        const qty = parseInt(activeSnTargetRow.querySelector('.go-qty').value) || 0;
-        const code = activeSnTargetRow.querySelector('.go-code').value.trim().toUpperCase();
-
-        if(!code || qty <= 0) {
-            alert("⚠️ Please enter Model Code and valid Qty first!");
-            activeSnTargetRow = null;
-            return;
-        }
-
-        document.getElementById('snModalSubtext').innerText = `Paste exactly ${qty} serial numbers for [${code}] below:`;
-        
-        let currentSavedSerials = [];
-        if(activeSnTargetRow.dataset.serials) {
-            currentSavedSerials = JSON.parse(activeSnTargetRow.dataset.serials);
-        }
-        
-        document.getElementById('snBulkTextArea').value = currentSavedSerials.join('\n');
-        document.getElementById('snConfigModal').style.display = "flex";
-        document.getElementById('snBulkTextArea').focus();
-    }
-
-    function closeSnConfigModal() {
-        document.getElementById('snConfigModal').style.display = "none";
-        activeSnTargetRow = null;
-    }
-
-    function saveDynamicRowSerials() {
-        const rawText = document.getElementById('snBulkTextArea').value;
-        const qty = parseInt(activeSnTargetRow.querySelector('.go-qty').value) || 0;
-        
-        let extractedSerials = rawText.split(/[\n,\s]+/).map(s => s.trim().toUpperCase()).filter(s => s.length > 0);
-
-        if(extractedSerials.length !== qty) {
-            alert(`❌ Mismatch Error!\n\nRequested Qty is ${qty} NOS, but you pasted ${extractedSerials.length} serial numbers.\nPlease check and correct the list.`);
-            return;
-        }
-
-        activeSnTargetRow.dataset.serials = JSON.stringify(extractedSerials);
-        const snBtn = activeSnTargetRow.querySelector('.btn-sn-setup');
-        snBtn.innerText = `Config (${extractedSerials.length})`;
-        snBtn.style.backgroundColor = "#16a34a";
-        snBtn.style.color = "white";
-
-        closeSnConfigModal();
     }
 
     function calculateLiveFreshStock(targetCode, skipFbKey = "") {
@@ -343,16 +249,7 @@
             const pool = row.querySelector('.go-pool-type').value;
             const rawCode = row.querySelector('.go-code').value.trim().toUpperCase();
             const qty = parseInt(row.querySelector('.go-qty').value) || 0;
-            const snRequired = row.querySelector('.go-sn-required').value;
-            
-            let savedSerialsList = [];
-            if(snRequired === 'YES') {
-                savedSerialsList = row.dataset.serials ? JSON.parse(row.dataset.serials) : [];
-                if(savedSerialsList.length !== qty) {
-                    alert(`⚠️ Serial Number Missing!\n\nRow [${rawCode}] requires Qty ${qty} serials, but only [${savedSerialsList.length}] are set.\nClick Config to paste!`);
-                    deficit = true; break;
-                }
-            }
+            const serialsVal = row.querySelector('.go-serials').value.trim().toUpperCase() || "-";
 
             if(pool === 'FRESH') {
                 let availableStock = calculateLiveFreshStock(rawCode, fbKey);
@@ -374,7 +271,7 @@
                 }
                 if(deficit) break;
             }
-            items.push({ pool, code: rawCode, name: row.querySelector('.go-name').value, qty, serials: savedSerialsList });
+            items.push({ pool, code: rawCode, name: row.querySelector('.go-name').value, qty, serials: serialsVal });
         }
         if(deficit) return;
 
@@ -414,9 +311,10 @@
             const matchRemarks = g.remarks ? g.remarks.toUpperCase().includes(searchStr) : false;
             let itemsList = g.gridItems || [];
             const matchItems = itemsList.some(item => {
+                let sTxt = getSerialsString(item.serials);
                 return (item.code && item.code.toUpperCase().includes(searchStr)) || 
                        (item.name && item.name.toUpperCase().includes(searchStr)) ||
-                       (item.serials && item.serials.some(s => s.toUpperCase().includes(searchStr)));
+                       (sTxt && sTxt.toUpperCase().includes(searchStr));
             });
             return matchVehicle || matchParty || matchRemarks || matchItems;
         });
@@ -436,8 +334,9 @@
             (g.gridItems || []).forEach(item => {
                 summaryHtml += `• [<b>${item.pool}</b>] <code>${item.code}</code> - ${item.name} (<b>${item.qty} NOS</b>)<br>`;
                 
-                if(item.serials && item.serials.length > 0) {
-                    summaryHtml += `<span style="font-size:11px; color:#16a34a; padding-left:10px; font-weight:bold;">🔢 S/N: ${item.serials.join(', ')}</span><br>`;
+                let sTxt = getSerialsString(item.serials);
+                if(sTxt && sTxt !== "-" && sTxt !== "") {
+                    summaryHtml += `<span style="font-size:11px; color:#16a34a; padding-left:10px; font-weight:bold;">🔢 S/N: ${sTxt}</span><br>`;
                 }
 
                 let linkedBOM = bomFormulaList.find(b => cleanStr(b.mainCode) === cleanStr(item.code));
@@ -475,24 +374,15 @@
 
         const body = document.getElementById('gateoutItemsBody'); body.innerHTML = '';
         (d.gridItems || []).forEach(item => {
-            let arrSerials = item.serials || [];
+            let sTxt = getSerialsString(item.serials);
             const tr = document.createElement('tr');
-            tr.dataset.serials = JSON.stringify(arrSerials);
-            
-            let hasSn = arrSerials.length > 0;
-            let selectHtml = `<select class="go-sn-required" onchange="toggleSnField(this)" style="padding:6px; border-radius:4px;"><option value="NO" ${!hasSn?'selected':''}>NO</option><option value="YES" ${hasSn?'selected':''}>YES</option></select>`;
-            let editBtnStyle = hasSn ? "background-color: #16a34a; color: white; display: inline-block;" : "display: none;";
-            let editBtnText = hasSn ? `Config (${arrSerials.length})` : "Config";
 
             tr.innerHTML = `<td><select class="go-pool-type"><option value="FRESH" ${item.pool==='FRESH'?'selected':''}>FRESH</option><option value="REWORK" ${item.pool==='REWORK'?'selected':''}>REWORK</option></select></td>
                 <td><input type="text" required class="go-code" value="${item.code}" oninput="autofillGo(this)" style="text-transform:uppercase;"></td>
                 <td><input type="text" required class="go-name" value="${item.name}"></td>
-                <td><input type="number" min="1" required class="go-qty" value="${item.qty}" oninput="handleQtyChange(this)"></td>
+                <td><input type="number" min="1" required class="go-qty" value="${item.qty}"></td>
                 <td>
-                    <div style="display:flex; gap:5px; align-items:center; justify-content:center;">
-                        ${selectHtml}
-                        <button type="button" class="btn-sn-setup" style="${editBtnStyle}" onclick="openSnConfigModal(this)">${editBtnText}</button>
-                    </div>
+                    <input type="text" class="go-serials" value="${sTxt}" placeholder="e.g. 2601001 TO 100" style="text-transform:uppercase; padding:6px; border:1px solid #cbd5e1; border-radius:4px; width:100%; box-sizing:border-box;">
                 </td>
                 <td><button type="button" class="btn-row-remove" onclick="this.closest('tr').remove()">×</button></td>`;
             body.appendChild(tr);
@@ -549,9 +439,10 @@
                 <td style="border:1px solid #000; padding:3px; text-align:center; font-weight:bold;">${item.qty}</td>
             </tr>`;
             
-            if(item.serials && item.serials.length > 0) {
+            let sTxt = getSerialsString(item.serials);
+            if(sTxt && sTxt !== "-" && sTxt !== "") {
                 rowsHtml += `<tr style="background:#fcfcfc;">
-                    <td colspan="4" style="border:1px solid #000; padding:3px 3px 3px 12px; font-size:9px; color:#16a34a;"><b>↳ S/N Allocations:</b> ${item.serials.join(', ')}</td>
+                    <td colspan="4" style="border:1px solid #000; padding:3px 3px 3px 12px; font-size:10px; color:#16a34a;"><b>↳ S/N Allocations:</b> ${sTxt}</td>
                 </tr>`;
             }
 
@@ -608,7 +499,7 @@
         targetList.forEach(g => {
             let rems = g.remarks ? g.remarks : "";
             (g.gridItems || []).forEach(item => {
-                let sns = item.serials ? item.serials.join(' | ') : "";
+                let sns = getSerialsString(item.serials);
                 let excelBOM = bomFormulaList.find(b => cleanStr(b.mainCode) === cleanStr(item.code));
                 if(excelBOM && excelBOM.accessories) {
                     excelBOM.accessories.forEach(acc => {
