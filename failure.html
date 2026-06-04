@@ -3,34 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Field Failure Log - GVM Rail</title>
+    <title>Gate Out Dispatch - Control System</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
     <style>
         .btn-edit-action { background-color: #0284c7; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
         .btn-edit-action:hover { background-color: #0369a1; }
-        .btn-delete-action { background-color: #dc2626; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; }
+        .btn-delete-action { background-color: #dc2626; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
         .btn-delete-action:hover { background-color: #b91c1c; }
+        .btn-print-receipt { background-color: #007bff; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
+        .btn-print-receipt:hover { background-color: #0056b3; }
         
-        /* 🎨 टैब नेविगेशन स्टाइल: एक्टिव फेलियर टैब रॉयल ब्लू रहेगा */
         .tabs-nav a { background-color: #e2e8f0; color: #334155; font-weight: 500; transition: all 0.3s; padding: 8px 12px; display: inline-block; border-radius: 4px; text-decoration: none; margin-right: 4px; }
         .tabs-nav a:hover { background-color: #cbd5e1; }
-        .tabs-nav a.active-failure { background-color: #1e3a8a !important; color: white !important; font-weight: bold; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        .tabs-nav a.active-gateout { background-color: #1e3a8a !important; color: white !important; font-weight: bold; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
 
         .table-filter-panel { display: flex; justify-content: space-between; align-items: center; background: #f1f5f9; padding: 10px 15px; border-radius: 6px 6px 0 0; border: 1px solid #cbd5e1; border-bottom: none; margin-top: 25px; gap: 15px; flex-wrap: wrap; }
-        .search-input-box { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; width: 300px; text-transform: uppercase; }
+        .search-input-box { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; width: 280px; text-transform: uppercase; }
         .limit-dropdown-select { padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; cursor: pointer; background: #fff; font-weight: bold; }
 
+        /* 🔒 पॉपअप और एस/एन बॉक्स मॉडल डिज़ाइन */
         .secret-modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 9999; }
-        .secret-modal-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); text-align: center; width: 320px; }
-        .secret-modal-card h4 { margin: 0 0 12px 0; color: #dc2626; }
+        .secret-modal-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); text-align: center; width: 340px; }
+        .secret-modal-card h4 { margin: 0 0 12px 0; color: #1e3a8a; }
         .secret-modal-input { width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #cbd5e1; border-radius: 4px; text-align: center; font-size: 16px; box-sizing: border-box; }
-        
-        .badge-status { padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; color: white; }
-        .bg-fail { background-color: #dc2626; }
-        .bg-ok { background-color: #16a34a; }
-        .bg-nil { background-color: #64748b; }
+        .secret-modal-btn-group { display: flex; gap: 10px; justify-content: center; }
+        .secret-modal-btn-confirm { background: #16a34a; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .secret-modal-btn-cancel { background: #64748b; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; }
+
+        @media print {
+            body * { visibility: hidden; }
+            #printSection, #printSection * { visibility: visible; }
+            #printSection { position: absolute; left: 0; top: 0; width: 210mm; padding: 4mm 6mm; background: #fff; font-family: monospace; font-size: 11px; }
+            @page { size: A4 portrait; margin: 0; }
+        }
     </style>
 </head>
 <body>
@@ -40,105 +47,108 @@
         <button class="logout-btn" onclick="logout()">Logout</button>
     </div>
     
-    <!-- 🛠️ मेनू बार को वापस जोड़ दिया गया है -->
     <div class="tabs-nav">
         <a href="index.html" class="tab-link">📦 New Entry (Fresh)</a>
         <a href="rework.html" class="tab-link">🛠️ Gate In (Rework)</a>
-        <a href="gateout.html" class="tab-link">🚪 Gate Out (Dispatch)</a>
+        <a href="gateout.html" class="tab-link active-gateout">🚪 Gate Out (Dispatch)</a>
         <a href="debit.html" class="tab-link">🧾 Debit Note (Vendor)</a>
         <a href="code.html" class="tab-link">🆕 Generate Code</a>
         <a href="ledger.html" class="tab-link">📊 Master Ledger & History</a>
         <a href="users.html" class="tab-link">👥 Manage Users</a>
         <a href="bom.html" class="tab-link">🔗 BOM Master</a>
-        <a href="failure.html" class="tab-link active-failure">🛠️ Failure Defect Log</a>
     </div>
 
-    <h3 id="formTitleFailure" style="color:#1e3a8a; margin: 15px 0 10px 0;">📋 GP0013 V2 Field Return Failure Registry</h3>
+    <h3 id="formTitleGateout" style="color:var(--primary); margin: 15px 0 10px 0;">🚪 Gate Out (Dispatch) Ledger</h3>
 
-    <form id="failureForm">
+    <form id="gateoutForm">
         <input type="hidden" id="editRowIndex" value="-1">
         <input type="hidden" id="editFirebaseKey" value="">
 
         <div class="form-grid">
-            <div class="form-group"><label>Controller Serial No. <span>*</span></label><input type="text" id="failController" placeholder="e.g. GR0000" required autocomplete="off" style="text-transform:uppercase;"></div>
-            <div class="form-group"><label>PCB Main Serial (BOTTOM) <span>*</span></label><input type="text" id="failPcbMain" placeholder="e.g. 00000" required autocomplete="off" style="text-transform:uppercase;"></div>
-            <div class="form-group"><label>PCB LED Serial (TOP) <span>*</span></label><input type="text" id="failPcbLed" placeholder="e.g. 00000" required autocomplete="off" style="text-transform:uppercase;"></div>
-            <div class="form-group"><label>Child Card Details</label><input type="text" id="failChildCard" placeholder="e.g.00000" autocomplete="off" style="text-transform:uppercase;"></div>
-            
-            <div class="form-group"><label>Display Status</label>
-                <select id="statusDisplay"><option value="NIL">NIL</option><option value="OK">OK</option><option value="FAIL">FAIL</option></select>
-            </div>
-            <div class="form-group"><label>Visual Inspection</label>
-                <select id="statusVisual"><option value="OK">OK</option><option value="FAIL">FAIL</option><option value="NIL">NIL</option></select>
-            </div>
-            <div class="form-group"><label>Electrical Test</label>
-                <select id="statusElectrical"><option value="FAIL">FAIL</option><option value="OK">OK</option><option value="NIL">NIL</option></select>
-            </div>
-            
-            <div class="form-group"><label>Problem Description <span>*</span></label><input type="text" id="failProblem" placeholder="e.g. POWER SUPPLY BLINK" required autocomplete="off" style="text-transform:uppercase;"></div>
-            <div class="form-group"><label>Defect Component Locations</label><input type="text" id="failLocations" placeholder="e.g. a1 b2" autocomplete="off" style="text-transform:uppercase;"></div>
-            <div class="form-group"><label>Action Taken <span>*</span></label><input type="text" id="failAction" placeholder="e.g. abc" required autocomplete="off" style="text-transform:uppercase;"></div>
-            
-            <div class="form-group"><label>Failure Date</label><input type="date" id="failDate"></div>
-            <div class="form-group"><label>Repair/Dispatch Date</label><input type="date" id="failDispatchDate"></div>
-            <div class="form-group"><label>Received From <span>*</span></label><input type="text" id="failFrom" placeholder="e.g. AMIT DELHI, GVM" required autocomplete="off" style="text-transform:uppercase;"></div>
+            <div class="form-group"><label>Dispatch Trans Date <span>*</span></label><input type="date" id="goDate" required></div>
+            <div class="form-group"><label>Vehicle Transport No <span>*</span></label><input type="text" id="goVehicleNo" required autocomplete="off" style="text-transform:uppercase;"></div>
+            <div class="form-group"><label>Target Party Account <span>*</span></label><input type="text" id="goPartyName" required autocomplete="off" style="text-transform:uppercase;"></div>
+            <div class="form-group"><label>Delivery Shipping Location <span>*</span></label><input type="text" id="goDeliveryShipping" required autocomplete="off" style="text-transform:uppercase;"></div>
+            <div class="form-group"><label>Send / Dispatched By</label><input type="text" id="goSendBy" autocomplete="off" style="text-transform:uppercase;"></div>
         </div>
+
+        <div style="overflow-x:auto; margin-top: 15px;">
+            <table class="grid-table">
+                <thead style="background-color: var(--secondary); color: white;">
+                    <tr><th>Stock Pool Type</th><th>Model Part Code 🔍</th><th>Item Name</th><th>Qty</th><th>S/N Track</th><th>Action</th></tr>
+                </thead>
+                <tbody id="gateoutItemsBody"></tbody>
+            </table>
+        </div>
+        <button type="button" class="btn-row-add" onclick="addGoRow()">+</button>
 
         <div class="form-group" style="margin-top: 15px;">
-            <label style="font-weight: bold;">Technical Diagnostic Remarks</label>
-            <input type="text" id="failRemarks" placeholder="Enter fresh board remarks, status OK details etc..." autocomplete="off" style="text-transform:uppercase; padding: 10px; width: 100%; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 4px;">
+            <label style="font-weight: bold;">Remarks / Transaction Notes</label>
+            <input type="text" id="goRemarks" placeholder="Enter any specific remarks or notes here..." autocomplete="off" style="text-transform:uppercase; padding: 10px; width: 100%; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 4px;">
         </div>
 
-        <button type="submit" id="btnSubmitForm" class="btn-submit" style="margin-top:15px; width: 100%; background-color: #1e3a8a; color: white; padding: 12px; font-weight: bold; border: none; border-radius: 4px; cursor: pointer;">Save Failure Log to Live Cloud</button>
-        <button type="button" id="btnCancelEdit" class="btn-submit" style="background-color:#64748b; color: white; display:none; margin-top:10px; width: 100%; padding: 12px; border: none; border-radius: 4px;" onclick="cancelEditMode()">Cancel Update</button>
+        <button type="submit" id="btnSubmitForm" class="btn-submit gateout-btn" style="margin-top:15px; width: 100%;">Authorize Gate Out (Deduct Stock)</button>
+        <button type="button" id="btnCancelEdit" class="btn-submit" style="background-color:#64748b; display:none; margin-top:10px; width: 100%;" onclick="cancelEditMode()">Cancel Update</button>
     </form>
 
     <div class="date-export-panel" style="margin-top: 30px;">
-        <label>From Date:</label> <input type="date" id="exportFromDate">
-        <label>To Date:</label> <input type="date" id="exportToDate">
-        <button class="btn-excel" onclick="exportFailureToExcel()">Download Failure Excel Report</button>
+        <label>From:</label> <input type="date" id="goFromDate">
+        <label>To:</label> <input type="date" id="goToDate">
+        <button class="btn-excel" onclick="exportGateoutToExcel()">Download Excel</button>
     </div>
 
     <div class="table-filter-panel">
         <div>
-            <input type="text" id="liveTableSearchBox" class="search-input-box" placeholder="🔍 Search Controller, PCB, From, Problem..." oninput="triggerTableRender()">
+            <input type="text" id="liveTableSearchBox" class="search-input-box" placeholder="🔍 Search Vehicle, Code, Party, Remarks..." oninput="triggerTableRender()">
         </div>
         <div>
             <label style="font-weight: bold; font-size: 13px; color:#475569;">Show Records:</label>
             <select id="liveTableLimitSelect" class="limit-dropdown-select" onchange="triggerTableRender()">
-                <option value="5">5 Records (Default)</option>
-                <option value="10">10 Records</option>
-                <option value="15">15 Records</option>
-                <option value="ALL">Show All History</option>
+                <option value="5">5 Bills (Default)</option>
+                <option value="10">10 Bills</option>
+                <option value="15">15 Bills</option>
+                <option value="ALL">Show All Bills</option>
             </select>
         </div>
     </div>
 
     <div class="table-responsive" style="margin-top: 0;">
-        <table class="history-table" style="border-top: none; min-width: 1500px;">
-            <thead style="background-color: #1e3a8a; color: white;">
-                <tr>
-                    <th>SR No.</th><th>Controller</th><th>PCB Main (BOTTOM)</th><th>PCB LED (TOP)</th><th>Child Card</th>
-                    <th>Disp</th><th>Vis</th><th>Elec</th><th>Problem Description</th><th>Locations</th>
-                    <th>Action Taken</th><th>Failure Date</th><th>From</th><th>Remarks</th><th>Controls</th>
-                </tr>
+        <table class="history-table" style="border-top: none;">
+            <thead style="background-color: #475569; color: white;">
+                <tr><th>Voucher No</th><th>Date</th><th>Vehicle No</th><th>Party Target</th><th>Items Dispatched Details</th><th>Remarks</th><th>Action Controls</th></tr>
             </thead>
-            <tbody id="failureHistoryBody"></tbody>
+            <tbody id="goHistoryBody"></tbody>
         </table>
     </div>
 </div>
 
-<div id="secretPasswordModal" class="secret-modal-overlay">
-    <div class="secret-modal-card">
-        <h4>🔑 Security Check</h4>
-        <p style="font-size: 12px; color: #64748b; margin-bottom: 10px;">Enter Secret Password to Wipe Defect Record:</p>
-        <input type="password" id="secretModalPasswordField" class="secret-modal-input" placeholder="••••" autocomplete="off">
-        <div style="display: flex; gap: 10px; justify-content: center;">
-            <button type="button" style="background:#dc2626; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer; font-weight:bold;" onclick="submitSecretDeletePassword()">Wipe Record</button>
-            <button type="button" style="background:#64748b; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;" onclick="closeSecretPasswordModal()">Cancel</button>
+<!-- ⚙️ डायनेमिक सीरियल नंबर एंट्री पॉपअप बॉक्स -->
+<div id="snConfigModal" class="secret-modal-overlay">
+    <div class="secret-modal-card" style="max-height: 85vh; overflow-y: auto;">
+        <h4 id="snModalHeaderTitle">🔢 Configure Serial Numbers</h4>
+        <p id="snModalSubtext" style="font-size: 11px; color:#64748b; margin-bottom:12px;"></p>
+        <div id="snDynamicInputsContainer" style="text-align:left; margin-bottom:15px;"></div>
+        <div class="secret-modal-btn-group">
+            <button type="button" class="secret-modal-btn-confirm" onclick="saveDynamicRowSerials()">Apply Serials</button>
+            <button type="button" class="secret-modal-btn-cancel" onclick="closeSnConfigModal()">Close</button>
         </div>
     </div>
 </div>
+
+<!-- 🔑 सीक्रेट पासवर्ड डिलीट पॉपअप -->
+<div id="secretPasswordModal" class="secret-modal-overlay">
+    <div class="secret-modal-card">
+        <h4>🔑 Security Check</h4>
+        <p style="font-size: 12px; color: #64748b; margin-bottom: 10px;">Enter Secret Password to Delete this Dispatch Record:</p>
+        <input type="password" id="secretModalPasswordField" class="secret-modal-input" placeholder="••••" autocomplete="off">
+        <div class="secret-modal-btn-group">
+            <button type="button" class="secret-modal-btn-confirm" style="background:#dc2626;" onclick="submitSecretDeletePassword()">Wipe Record</button>
+            <button type="button" class="secret-modal-btn-cancel" onclick="closeSecretPasswordModal()">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<div id="printSection"></div>
 
 <script>
     const firebaseConfig = {
@@ -153,129 +163,316 @@
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
 
-    let failureData = [];
-    let activeDeleteRowIdx = null;
+    const session = JSON.parse(localStorage.getItem('activeSession'));
+    if(!session) { window.location.href = 'login.html'; }
+    function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
+
+    let stockData = []; 
+    let gateoutData = [];
+    let bomFormulaList = []; 
+    let masterCatalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
+    let activeDeleteRowIdx = null; 
+    let activeSnTargetRow = null; // Holds target tr pointer for S/N injection
 
     const cleanStr = (str) => String(str || "").trim().toUpperCase().replace(/\s+/g, '');
 
-    database.ref('fieldFailureVouchers').on('value', (snapshot) => {
-        failureData = [];
-        const data = snapshot.val();
-        if(data) { for(let key in data) { failureData.push({ fbKey: key, ...data[key] }); } }
-        failureData.reverse(); 
+    database.ref('bomMasterData').on('value', (snapshot) => {
+        bomFormulaList = snapshot.val() ? Object.values(snapshot.val()) : [];
+    });
+
+    database.ref('freshStockVouchers').on('value', (snapshot) => {
+        stockData = snapshot.val() ? Object.values(snapshot.val()) : [];
         renderTable();
     });
 
-    document.getElementById('failureForm').addEventListener('submit', function(e) {
+    database.ref('gateoutStockData').on('value', (snapshot) => {
+        gateoutData = [];
+        const data = snapshot.val();
+        if(data) { for(let key in data) { gateoutData.push({ fbKey: key, ...data[key] }); } }
+        gateoutData.reverse(); 
+        renderTable();
+    });
+
+    function addGoRow(preExistingSerials = []) {
+        const body = document.getElementById('gateoutItemsBody');
+        const tr = document.createElement('tr');
+        tr.dataset.serials = JSON.stringify(preExistingSerials);
+        
+        let initialBtnStyle = preExistingSerials.length > 0 ? "background-color: #16a34a; color: white;" : "";
+        let initialBtnText = preExistingSerials.length > 0 ? `S/N (${preExistingSerials.length})` : "S/N";
+
+        tr.innerHTML = `<td><select class="go-pool-type"><option value="FRESH">FRESH</option><option value="REWORK">REWORK</option></select></td>
+            <td><input type="text" required class="go-code" oninput="autofillGo(this)" style="text-transform:uppercase;"></td>
+            <td><input type="text" required class="go-name"></td>
+            <td><input type="number" min="1" required class="go-qty"></td>
+            <td><button type="button" class="btn-sn-setup" style="${initialBtnStyle}" onclick="openSnConfigModal(this)">${initialBtnText}</button></td>
+            <td><button type="button" class="btn-row-remove" onclick="this.closest('tr').remove()">×</button></td>`;
+        body.appendChild(tr);
+    }
+
+    function autofillGo(input) {
+        let code = cleanStr(input.value);
+        let foundName = "";
+        for(let key in masterCatalog) {
+            const m = masterCatalog[key].find(i => cleanStr(i.code) === code);
+            if(m) foundName = m.name;
+        }
+        input.closest('tr').querySelector('.go-name').value = foundName;
+    }
+
+    // 📋 S/N पॉपअप इंजन ओपनर लॉजिक
+    function openSnConfigModal(btn) {
+        activeSnTargetRow = btn.closest('tr');
+        const qty = parseInt(activeSnTargetRow.querySelector('.go-qty').value) || 0;
+        const code = activeSnTargetRow.querySelector('.go-code').value.trim().toUpperCase();
+
+        if(!code || qty <= 0) {
+            alert("⚠️ Please enter Model Code and valid Qty first before setting up Serial Numbers!");
+            activeSnTargetRow = null;
+            return;
+        }
+
+        document.getElementById('snModalSubtext').innerText = `Enter exactly ${qty} serial track numbers for [${code}]:`;
+        const container = document.getElementById('snDynamicInputsContainer');
+        container.innerHTML = '';
+
+        let currentSavedSerials = [];
+        if(activeSnTargetRow.dataset.serials) {
+            currentSavedSerials = JSON.parse(activeSnTargetRow.dataset.serials);
+        }
+
+        for(let i = 0; i < qty; i++) {
+            let existingVal = currentSavedSerials[i] || "";
+            container.innerHTML += `<div style="margin-bottom:8px;">
+                <label style="font-size:11px; font-weight:bold; color:#475569;">S/N Unit ${i+1}:</label>
+                <input type="text" class="modal-live-sn-field" value="${existingVal}" required style="width:100%; padding:6px; box-sizing:border-box; text-transform:uppercase;" autocomplete="off">
+            </div>`;
+        }
+
+        document.getElementById('snConfigModal').style.display = "flex";
+    }
+
+    function closeSnConfigModal() {
+        document.getElementById('snConfigModal').style.display = "none";
+        activeSnTargetRow = null;
+    }
+
+    // 💾 एस/एन डेटा एरे को अस्थायी रूप से रो-डाटासेट में सेव करना
+    function saveDynamicRowSerials() {
+        const inputFields = document.querySelectorAll('.modal-live-sn-field');
+        let extractedSerials = [];
+        let cleanCheck = true;
+
+        inputFields.forEach(input => {
+            let val = input.value.trim().toUpperCase();
+            if(!val) cleanCheck = false;
+            extractedSerials.push(val);
+        });
+
+        if(!cleanCheck) {
+            alert("❌ Blocked: All generated Serial Number fields must be filled!");
+            return;
+        }
+
+        activeSnTargetRow.dataset.serials = JSON.stringify(extractedSerials);
+        const snBtn = activeSnTargetRow.querySelector('.btn-sn-setup');
+        snBtn.innerText = `S/N (${extractedSerials.length})`;
+        snBtn.style.backgroundColor = "#16a34a";
+        snBtn.style.color = "white";
+
+        closeSnConfigModal();
+    }
+
+    function calculateLiveFreshStock(targetCode, skipFbKey = "") {
+        let totalIn = 0; let totalOut = 0; let cleanedTarget = cleanStr(targetCode);
+        
+        stockData.forEach(v => {
+            let items = v.gridItems || [];
+            if(items.length === 0 && v.modelCode) { items.push({ modelCode: v.modelCode, qty: v.qty || v.receiveQty || 0 }); }
+            items.forEach(item => { if(cleanStr(item.modelCode) === cleanedTarget) { totalIn += parseInt(item.qty || item.receiveQty || 0); } });
+        });
+
+        gateoutData.forEach(g => {
+            if(skipFbKey && g.fbKey === skipFbKey) return;
+            let items = g.gridItems || [];
+            items.forEach(item => { 
+                if(item.pool === 'FRESH' && cleanStr(item.code) === cleanedTarget) { totalOut += parseInt(item.qty || 0); }
+                
+                let mainItemBOM = bomFormulaList.find(b => cleanStr(b.mainCode) === cleanStr(item.code));
+                if(mainItemBOM && mainItemBOM.accessories) {
+                    mainItemBOM.accessories.forEach(acc => {
+                        if(cleanStr(acc.code) === cleanedTarget) { totalOut += (parseInt(acc.qty) * parseInt(item.qty || 0)); }
+                    });
+                }
+            });
+        });
+        return (totalIn - totalOut);
+    }
+
+    // --- फॉर्म सबमिट गियर (S/N वेरिफिकेशन के साथ) ---
+    document.getElementById('gateoutForm').addEventListener('submit', function(e) {
         e.preventDefault();
+        let items = []; let rows = document.querySelectorAll('#gateoutItemsBody tr'); let deficit = false;
         const idx = parseInt(document.getElementById('editRowIndex').value);
         const fbKey = document.getElementById('editFirebaseKey').value;
 
-        const failureRecord = {
-            controller: document.getElementById('failController').value.trim().toUpperCase(),
-            pcbMain: document.getElementById('failPcbMain').value.trim().toUpperCase(),
-            pcbLed: document.getElementById('failPcbLed').value.trim().toUpperCase(),
-            childCard: document.getElementById('failChildCard').value.trim().toUpperCase() || "NIL",
-            display: document.getElementById('statusDisplay').value,
-            visual: document.getElementById('statusVisual').value,
-            electrical: document.getElementById('statusElectrical').value,
-            problem: document.getElementById('failProblem').value.trim().toUpperCase(),
-            locations: document.getElementById('failLocations').value.trim().toUpperCase() || "NA",
-            actionTaken: document.getElementById('failAction').value.trim().toUpperCase(),
-            failureDate: document.getElementById('failDate').value || "NIL",
-            dispatchDate: document.getElementById('failDispatchDate').value || "NIL",
-            receivedFrom: document.getElementById('failFrom').value.trim().toUpperCase(),
-            remarks: document.getElementById('failRemarks').value.trim().toUpperCase() || "-"
+        for(let row of rows) {
+            const pool = row.querySelector('.go-pool-type').value;
+            const rawCode = row.querySelector('.go-code').value.trim().toUpperCase();
+            const qty = parseInt(row.querySelector('.go-qty').value) || 0;
+            
+            // 🚨 S/N सुरक्षा कवच जांच: क्या डाले गए नंबर्स की संख्या मात्रा से मैच खाती है?
+            let savedSerialsList = row.dataset.serials ? JSON.parse(row.dataset.serials) : [];
+            if(savedSerialsList.length !== qty) {
+                alert(`⚠️ Serial Number Configuration Missing!\n\nYou requested Qty ${qty} for Code [${rawCode}], but set up [${savedSerialsList.length}] serials.\n\nPlease click the green/grey S/N button for this row and fill all fields!`);
+                deficit = true; break;
+            }
+
+            if(pool === 'FRESH') {
+                let availableStock = calculateLiveFreshStock(rawCode, fbKey);
+                if(availableStock < qty) { 
+                    alert(`🚫 Deficit in Fresh Pool for Main Item: ${rawCode}\n\nAvailable: ${availableStock} NOS\nRequested: ${qty} NOS`); 
+                    deficit = true; break; 
+                }
+
+                let targetBOM = bomFormulaList.find(b => cleanStr(b.mainCode) === cleanStr(rawCode));
+                if(targetBOM && targetBOM.accessories) {
+                    for(let acc of targetBOM.accessories) {
+                        let requiredAccQty = parseInt(acc.qty) * qty;
+                        let availableAccStock = calculateLiveFreshStock(acc.code, fbKey);
+                        if(availableAccStock < requiredAccQty) {
+                            alert(`🚫 BOM Component Deficit!\n\nMain Model [${rawCode}] requires [${requiredAccQty} NOS] of Component [${acc.code}].\nAvailable Component Stock: ${availableAccStock} NOS.`);
+                            deficit = true; break;
+                        }
+                    }
+                }
+                if(deficit) break;
+            }
+            items.push({ pool, code: rawCode, name: row.querySelector('.go-name').value, qty, serials: savedSerialsList });
+        }
+        if(deficit) return;
+
+        const dispatchVoucher = {
+            voucherNo: idx === -1 ? (gateoutData.length + 1) : gateoutData.find(x => x.fbKey === fbKey).voucherNo,
+            date: document.getElementById('goDate').value,
+            vehicleNo: document.getElementById('goVehicleNo').value.trim().toUpperCase(),
+            partyName: document.getElementById('goPartyName').value.trim().toUpperCase(),
+            deliveryShipping: document.getElementById('goDeliveryShipping').value.trim().toUpperCase(),
+            goSendBy: document.getElementById('goSendBy').value.trim().toUpperCase(),
+            remarks: document.getElementById('goRemarks').value.trim().toUpperCase(), 
+            gridItems: items
         };
 
         if(idx === -1) {
-            database.ref('fieldFailureVouchers').push(failureRecord).then(() => { alert("🎉 Failure Log saved to Live Cloud!"); cancelEditMode(); });
+            database.ref('gateoutStockData').push(dispatchVoucher).then(() => { alert("🎉 Gate Out dispatch authorized successfully!"); cancelEditMode(); });
         } else {
-            database.ref('fieldFailureVouchers/' + fbKey).set(failureRecord).then(() => { alert("🎯 Failure record updated successfully!"); cancelEditMode(); });
+            database.ref('gateoutStockData/' + fbKey).set(dispatchVoucher).then(() => { alert("🎯 Dispatch entry updated successfully!"); cancelEditMode(); });
         }
     });
 
     function triggerTableRender() { renderTable(); }
 
     function renderTable() {
-        const b = document.getElementById('failureHistoryBody'); b.innerHTML = '';
-        if(failureData.length === 0) {
-            b.innerHTML = `<tr><td colspan="15" style="text-align:center; padding:15px; color:#64748b;">No failure logs found on Cloud.</td></tr>`;
+        const b = document.getElementById('goHistoryBody'); b.innerHTML = '';
+        if(gateoutData.length === 0) {
+            b.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:15px; color:#64748b;">No dispatch records found on Cloud.</td></tr>`;
             return;
         }
 
         const searchStr = document.getElementById('liveTableSearchBox').value.trim().toUpperCase();
         const limitVal = document.getElementById('liveTableLimitSelect').value;
 
-        let filteredList = failureData.filter(f => {
-            return cleanStr(f.controller).includes(searchStr) || 
-                   cleanStr(f.pcbMain).includes(searchStr) || 
-                   cleanStr(f.pcbLed).includes(searchStr) || 
-                   cleanStr(f.receivedFrom).includes(searchStr) || 
-                   cleanStr(f.problem).includes(searchStr);
+        let filteredList = gateoutData.filter(g => {
+            const matchVehicle = g.vehicleNo ? g.vehicleNo.toUpperCase().includes(searchStr) : false;
+            const matchParty = g.partyName ? g.partyName.toUpperCase().includes(searchStr) : false;
+            const matchRemarks = g.remarks ? g.remarks.toUpperCase().includes(searchStr) : false;
+            let itemsList = g.gridItems || [];
+            const matchItems = itemsList.some(item => {
+                return (item.code && item.code.toUpperCase().includes(searchStr)) || 
+                       (item.name && item.name.toUpperCase().includes(searchStr)) ||
+                       (item.serials && item.serials.some(s => s.toUpperCase().includes(searchStr)));
+            });
+            return matchVehicle || matchParty || matchRemarks || matchItems;
         });
 
         if(filteredList.length === 0) {
-            b.innerHTML = `<tr><td colspan="15" style="text-align:center; padding:15px; color:#64748b;">No matching search records found.</td></tr>`;
+            b.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:15px; color:#64748b;">No matching search records found.</td></tr>`;
             return;
         }
 
         let viewList = filteredList;
         if (limitVal !== "ALL") { viewList = filteredList.slice(0, parseInt(limitVal)); }
 
-        viewList.forEach((f, index) => {
-            let origIdx = failureData.findIndex(x => x.fbKey === f.fbKey);
-            const getBadge = (val) => val === 'FAIL' ? 'bg-fail' : (val === 'OK' ? 'bg-ok' : 'bg-nil');
+        viewList.forEach((g) => {
+            let origIdx = gateoutData.findIndex(x => x.fbKey === g.fbKey);
+            let summaryHtml = "";
+            
+            (g.gridItems || []).forEach(item => {
+                summaryHtml += `• <code>${item.code}</code> - ${item.name} (<b>${item.qty} NOS</b>)<br>`;
+                
+                // 🔢 रेंडर स्क्रीन पर लाइव सीरियल नंबर दिखाना
+                if(item.serials && item.serials.length > 0) {
+                    summaryHtml += `<span style="font-size:11px; color:#16a34a; padding-left:10px; font-weight:bold;">🔢 S/N: ${item.serials.join(', ')}</span><br>`;
+                }
+
+                let linkedBOM = bomFormulaList.find(b => cleanStr(b.mainCode) === cleanStr(item.code));
+                if(linkedBOM && linkedBOM.accessories) {
+                    summaryHtml += `<span style="font-size:10px; color:#0284c7; padding-left:10px;">📦 BOM Parts Auto-Deducted:</span><br>`;
+                    linkedBOM.accessories.forEach(acc => {
+                        summaryHtml += `<span style="font-size:10px; color:#64748b; padding-left:15px;">↳ ${acc.code}: ${parseInt(acc.qty)*parseInt(item.qty)} NOS</span><br>`;
+                    });
+                }
+            });
+
+            let displayRemarks = g.remarks ? g.remarks : "-";
 
             b.innerHTML += `<tr>
-                <td><b>${index + 1}</b></td>
-                <td><code>${f.controller || 'NIL'}</code></td>
-                <td>${f.pcbMain}</td>
-                <td>${f.pcbLed}</td>
-                <td><small>${f.childCard}</small></td>
-                <td><span class="badge-status ${getBadge(f.display)}">${f.display}</span></td>
-                <td><span class="badge-status ${getBadge(f.visual)}">${f.visual}</span></td>
-                <td><span class="badge-status ${getBadge(f.electrical)}">${f.electrical}</span></td>
-                <td style="color:#b91c1c; font-weight:bold;">${f.problem}</td>
-                <td><code>${f.locations}</code></td>
-                <td><b>${f.actionTaken}</b></td>
-                <td>${f.failureDate}</td>
-                <td>${f.receivedFrom}</td>
-                <td><small>${f.remarks}</small></td>
+                <td>GVM-GO-${g.voucherNo}</td><td>${g.date}</td><td>${g.vehicleNo}</td><td><b>${g.partyName}</b></td><td style="text-align:left;">${summaryHtml}</td><td>${displayRemarks}</td>
                 <td>
-                    <button type="button" class="btn-edit-action" onclick="editFailureRow(${origIdx})">Edit</button>
-                    <button type="button" class="btn-delete-action" onclick="deleteFailureRow(${origIdx})">Delete</button>
+                    <button type="button" class="btn-print-receipt" onclick='triggerGateOutReceipt(${JSON.stringify(g)})'>🖨️ Print</button>
+                    <button type="button" class="btn-edit-action" onclick="editGateoutRow(${origIdx})">Edit</button>
+                    <button type="button" class="btn-delete-action" onclick="deleteGateoutRow(${origIdx})">Delete</button>
                 </td>
             </tr>`;
         });
     }
 
-    window.editFailureRow = function(origIdx) {
-        const d = failureData[origIdx];
+    window.editGateoutRow = function(origIdx) {
+        const d = gateoutData[origIdx];
         document.getElementById('editRowIndex').value = origIdx;
         document.getElementById('editFirebaseKey').value = d.fbKey;
-        
-        document.getElementById('failController').value = d.controller;
-        document.getElementById('failPcbMain').value = d.pcbMain;
-        document.getElementById('failPcbLed').value = d.pcbLed;
-        document.getElementById('failChildCard').value = d.childCard === 'NIL' ? '' : d.childCard;
-        document.getElementById('statusDisplay').value = d.display;
-        document.getElementById('statusVisual').value = d.visual;
-        document.getElementById('statusElectrical').value = d.electrical;
-        document.getElementById('failProblem').value = d.problem;
-        document.getElementById('failLocations').value = d.locations === 'NA' ? '' : d.locations;
-        document.getElementById('failAction').value = d.actionTaken;
-        document.getElementById('failDate').value = d.failureDate === 'NIL' ? '' : d.failureDate;
-        document.getElementById('failDispatchDate').value = d.dispatchDate === 'NIL' ? '' : d.dispatchDate;
-        document.getElementById('failFrom').value = d.receivedFrom;
-        document.getElementById('failRemarks').value = d.remarks === '-' ? '' : d.remarks;
+        document.getElementById('goDate').value = d.date;
+        document.getElementById('goVehicleNo').value = d.vehicleNo;
+        document.getElementById('goPartyName').value = d.partyName;
+        document.getElementById('goDeliveryShipping').value = d.deliveryShipping;
+        document.getElementById('goSendBy').value = d.goSendBy || '';
+        document.getElementById('goRemarks').value = d.remarks || ''; 
 
-        document.getElementById('btnSubmitForm').innerText = "Update Failure Log Entry";
+        const body = document.getElementById('gateoutItemsBody'); body.innerHTML = '';
+        (d.gridItems || []).forEach(item => {
+            let arrSerials = item.serials || [];
+            const tr = document.createElement('tr');
+            tr.dataset.serials = JSON.stringify(arrSerials);
+            
+            let editBtnStyle = arrSerials.length > 0 ? "background-color: #16a34a; color: white;" : "";
+            let editBtnText = arrSerials.length > 0 ? `S/N (${arrSerials.length})` : "S/N";
+
+            tr.innerHTML = `<td><select class="go-pool-type"><option value="FRESH" ${item.pool==='FRESH'?'selected':''}>FRESH</option><option value="REWORK" ${item.pool==='REWORK'?'selected':''}>REWORK</option></select></td>
+                <td><input type="text" required class="go-code" value="${item.code}" oninput="autofillGo(this)" style="text-transform:uppercase;"></td>
+                <td><input type="text" required class="go-name" value="${item.name}"></td>
+                <td><input type="number" min="1" required class="go-qty" value="${item.qty}"></td>
+                <td><button type="button" class="btn-sn-setup" style="${editBtnStyle}" onclick="openSnConfigModal(this)">${editBtnText}</button></td>
+                <td><button type="button" class="btn-row-remove" onclick="this.closest('tr').remove()">×</button></td>`;
+            body.appendChild(tr);
+        });
+
+        document.getElementById('formTitleGateout').innerText = "🛠️ Modify/Edit Gate Out Dispatch Entry";
+        document.getElementById('btnSubmitForm').innerText = "Update & Authorize Dispatch";
         document.getElementById('btnCancelEdit').style.display = "inline-block";
-        document.getElementById('failureForm').scrollIntoView({ behavior: 'smooth' });
+        document.getElementById('gateoutForm').scrollIntoView({ behavior: 'smooth' });
     };
 
-    window.deleteFailureRow = function(origIdx) {
+    window.deleteGateoutRow = function(origIdx) {
         activeDeleteRowIdx = origIdx;
         document.getElementById('secretModalPasswordField').value = "";
         document.getElementById('secretPasswordModal').style.display = "flex";
@@ -287,9 +484,9 @@
     function submitSecretDeletePassword() {
         const pass = document.getElementById('secretModalPasswordField').value;
         if (pass === "7004") {
-            const fbKey = failureData[activeDeleteRowIdx].fbKey;
-            database.ref('fieldFailureVouchers/' + fbKey).remove().then(() => {
-                alert("🗑️ Success: Defect failure record completely wiped from Cloud.");
+            const fbKey = gateoutData[activeDeleteRowIdx].fbKey;
+            database.ref('gateoutStockData/' + fbKey).remove().then(() => {
+                alert("🗑️ Success: Dispatch record wiped out and stock restored!");
                 closeSecretPasswordModal(); cancelEditMode();
             });
         } else {
@@ -301,44 +498,113 @@
     function cancelEditMode() {
         document.getElementById('editRowIndex').value = "-1";
         document.getElementById('editFirebaseKey').value = "";
-        document.getElementById('failureForm').reset();
-        document.getElementById('btnSubmitForm').innerText = "Save Failure Log to Live Cloud";
+        document.getElementById('gateoutForm').reset();
+        document.getElementById('gateoutItemsBody').innerHTML = '';
+        document.getElementById('formTitleGateout').innerText = "🚪 Gate Out (Dispatch) Ledger";
+        document.getElementById('btnSubmitForm').innerText = "Authorize Gate Out (Deduct Stock)";
         document.getElementById('btnCancelEdit').style.display = "none";
-        applyLiveDateRestrictions();
+        applyLiveDateRestrictions(); addGoRow();
     }
 
-    function exportFailureToExcel() {
-        const fromDate = document.getElementById('exportFromDate').value;
-        const toDate = document.getElementById('exportToDate').value;
+    function triggerGateOutReceipt(g) {
+        const shell = document.getElementById('printSection');
+        let rowsHtml = "";
+        (g.gridItems || []).forEach(item => {
+            rowsHtml += `<tr>
+                <td style="border:1px solid #000; padding:3px; font-weight:bold;">${item.code}</td>
+                <td style="border:1px solid #000; padding:3px;">${item.name}</td>
+                <td style="border:1px solid #000; padding:3px; text-align:center; font-weight:bold;">${item.pool}</td>
+                <td style="border:1px solid #000; padding:3px; text-align:center; font-weight:bold;">${item.qty}</td>
+            </tr>`;
+            
+            // 🔢 प्रिंट बिल रसीद में सीरियल नंबर्स को दिखाना
+            if(item.serials && item.serials.length > 0) {
+                rowsHtml += `<tr style="background:#fcfcfc;">
+                    <td colspan="4" style="border:1px solid #000; padding:3px 3px 3px 12px; font-size:9px; color:#16a34a;"><b>↳ S/N Allocations:</b> ${item.serials.join(', ')}</td>
+                </tr>`;
+            }
+
+            let printBOM = bomFormulaList.find(b => cleanStr(b.mainCode) === cleanStr(item.code));
+            if(printBOM && printBOM.accessories) {
+                printBOM.accessories.forEach(acc => {
+                    rowsHtml += `<tr style="color:#555; font-style:italic; background:#fafafa; font-size:9px;">
+                        <td style="border:1px solid #000; padding:2px 2px 2px 15px;">↳ Component: ${acc.code}</td>
+                        <td style="border:1px solid #000; padding:2px;" colspan="2">${acc.name}</td>
+                        <td style="border:1px solid #000; padding:2px; text-align:center;">${parseInt(acc.qty)*parseInt(item.qty)}</td>
+                    </tr>`;
+                });
+            }
+        });
+
+        let receiptRemarks = g.remarks ? g.remarks : "N/A";
+
+        shell.innerHTML = `
+            <div style="border:1px solid #000; padding:6px; height:100%; box-sizing:border-box; display:flex; flex-direction:column; justify-content:space-between;">
+                <div style="text-align:center; font-weight:bold; font-size:12px; border-bottom:1px solid #000; padding-bottom:2px; text-transform:uppercase;">GVM RAIL PVT LTD - DISPATCH OUTWARD REPORT</div>
+                <table style="width:100%; font-size:11px; margin-top:2px; line-height:1.2;">
+                    <tr><td><b>Voucher No:</b> GVM-GO-${g.voucherNo}</td><td><b>Dispatch Date:</b> ${g.date}</td></tr>
+                    <tr><td><b>Vehicle No:</b> ${g.vehicleNo}</td><td><b>Party Target:</b> ${g.partyName}</td></tr>
+                    <tr><td colspan="2"><b>Location:</b> ${g.deliveryShipping || '-'} | <b>Dispatched By:</b> ${g.goSendBy || 'N/A'}</td></tr>
+                    <tr><td colspan="2"><b>Remarks:</b> ${receiptRemarks}</td></tr>
+                </table>
+                <table style="width:100%; border-collapse:collapse; margin-top:4px; font-size:10px;">
+                    <thead>
+                        <tr style="background:#eee;">
+                            <th style="border:1px solid #000; padding:3px; text-align:left;">Model / BOM Code</th>
+                            <th style="border:1px solid #000; padding:3px; text-align:left;">Description / Specifications</th>
+                            <th style="border:1px solid #000; padding:3px;">Pool</th>
+                            <th style="border:1px solid #000; padding:3px;">Qty</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rowsHtml}</tbody>
+                </table>
+                <div style="text-align:right; font-weight:bold; font-size:9px; margin-top:15px;">Authorized Dispatched Signature</div>
+            </div>`;
+        window.print();
+    }
+
+    function exportGateoutToExcel() {
+        const fromDate = document.getElementById('goFromDate').value;
+        const toDate = document.getElementById('goToDate').value;
         
-        let csv = "SR NO.,Controller,PCB Main (BOTTOM),PCB LED (TOP),Child Card,Display,Visual,Electrical,Problem,Locations,Action Taken,Failure Date,Dispatch Date,From,Remarks\n";
+        let csv = "Voucher No,Date,Vehicle No,Party Target,Delivery Location,Dispatched By,Remarks,Pool Type,Model Code,Model Name,Main Qty,Serial Numbers,BOM Component Code,BOM Component Qty\n";
         
-        let targetList = failureData;
+        let targetList = gateoutData;
         if(fromDate && toDate) {
-            targetList = failureData.filter(f => f.failureDate >= fromDate && f.failureDate <= toDate);
+            targetList = gateoutData.filter(g => g.date >= fromDate && g.date <= toDate);
         }
 
-        targetList.forEach((f, idx) => {
-            csv += `"${idx+1}","${f.controller}","${f.pcbMain}","${f.pcbLed}","${f.childCard}","${f.display}","${f.visual}","${f.electrical}","${f.problem}","${f.locations}","${f.actionTaken}","${f.failureDate}","${f.dispatchDate}","${f.receivedFrom}","${f.remarks}"\n`;
+        targetList.forEach(g => {
+            let rems = g.remarks ? g.remarks : "";
+            (g.gridItems || []).forEach(item => {
+                let sns = item.serials ? item.serials.join(' | ') : "";
+                let excelBOM = bomFormulaList.find(b => cleanStr(b.mainCode) === cleanStr(item.code));
+                if(excelBOM && excelBOM.accessories) {
+                    excelBOM.accessories.forEach(acc => {
+                        csv += `"GVM-GO-${g.voucherNo}","${g.date}","${g.vehicleNo}","${g.partyName}","${g.deliveryShipping || ''}","${g.goSendBy || ''}","${rems}","${item.pool}","${item.code}","${item.name}","${item.qty}","${sns}","${acc.code}","${parseInt(acc.qty)*parseInt(item.qty)}"\n`;
+                    });
+                } else {
+                    csv += `"GVM-GO-${g.voucherNo}","${g.date}","${g.vehicleNo}","${g.partyName}","${g.deliveryShipping || ''}","${g.goSendBy || ''}","${rems}","${item.pool}","${item.code}","${item.name}","${item.qty}","${sns}","N/A","0"\n`;
+                }
+            });
         });
 
         let blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
         let link = document.createElement("a");
-        link.href = URL.createObjectURL(blob); link.setAttribute("download", `Field_Failure_Report_${fromDate || 'All'}.csv`);
+        link.href = URL.createObjectURL(blob); link.setAttribute("download", `Gateout_BOM_Report_${fromDate || 'All'}_to_${toDate || 'All'}.csv`);
         document.body.appendChild(link); link.click(); document.body.removeChild(link);
     }
 
     function applyLiveDateRestrictions() {
         const todayStr = new Date().toISOString().split('T')[0];
-        document.getElementById('failDate').setAttribute('max', todayStr);
-        document.getElementById('failDispatchDate').setAttribute('max', todayStr);
-        document.getElementById('failDate').value = todayStr;
-        document.getElementById('failDispatchDate').value = todayStr;
-        document.getElementById('exportFromDate').value = todayStr;
-        document.getElementById('exportToDate').value = todayStr;
+        document.getElementById('goDate').setAttribute('max', todayStr); 
+        document.getElementById('goDate').value = todayStr; 
+        document.getElementById('goFromDate').value = todayStr; 
+        document.getElementById('goToDate').value = todayStr; 
     }
 
     applyLiveDateRestrictions();
+    addGoRow();
 </script>
 </body>
 </html>
