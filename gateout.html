@@ -55,6 +55,7 @@
         <a href="ledger.html" class="tab-link">📊 Master Ledger & History</a>
         <a href="users.html" class="tab-link">👥 Manage Users</a>
         <a href="bom.html" class="tab-link">🔗 BOM Master</a>
+        <a href="failure.html" class="tab-link">🛠️ Failure Defect Log</a>
     </div>
 
     <h3 id="formTitleGateout" style="color:var(--primary); margin: 15px 0 10px 0;">🚪 Gate Out (Dispatch) Ledger</h3>
@@ -121,7 +122,7 @@
     </div>
 </div>
 
-<!-- ⚙️ अपग्रेड किया हुआ पेस्ट बॉक्स वाला सिंगल इनपुट S/N पॉपअप मोड्यूल -->
+<!-- ⚙️ पेस्ट बॉक्स वाला सीरियल नंबर कॉन्फिग पॉपअप -->
 <div id="snConfigModal" class="secret-modal-overlay">
     <div class="secret-modal-card" style="width: 420px;">
         <h4 id="snModalHeaderTitle">🔢 Paste Serial Numbers</h4>
@@ -222,7 +223,6 @@
         body.appendChild(tr);
     }
 
-    // Dropdown बदलने पर बटन छुपाने/दिखाने का इंजन
     window.toggleSnField = function(select) {
         let tr = select.closest('tr');
         let btn = tr.querySelector('.btn-sn-setup');
@@ -237,7 +237,6 @@
         }
     }
 
-    // अगर मात्रा बदले तो पुराने सीरियल रिसेट करें ताकि गलत डेटा न सेव हो
     window.handleQtyChange = function(input) {
         let tr = input.closest('tr');
         let btn = tr.querySelector('.btn-sn-setup');
@@ -288,12 +287,10 @@
         activeSnTargetRow = null;
     }
 
-    // थोक पेस्ट पार्सर और वैलिडेटर इंजन
     function saveDynamicRowSerials() {
         const rawText = document.getElementById('snBulkTextArea').value;
         const qty = parseInt(activeSnTargetRow.querySelector('.go-qty').value) || 0;
         
-        // न्यू-लाइन, स्पेस या कोमा से स्प्लिट करके क्लीन एरे बनाना
         let extractedSerials = rawText.split(/[\n,\s]+/).map(s => s.trim().toUpperCase()).filter(s => s.length > 0);
 
         if(extractedSerials.length !== qty) {
@@ -437,7 +434,7 @@
             let summaryHtml = "";
             
             (g.gridItems || []).forEach(item => {
-                summaryHtml += `• <code>${item.code}</code> - ${item.name} (<b>${item.qty} NOS</b>)<br>`;
+                summaryHtml += `• [<b>${item.pool}</b>] <code>${item.code}</code> - ${item.name} (<b>${item.qty} NOS</b>)<br>`;
                 
                 if(item.serials && item.serials.length > 0) {
                     summaryHtml += `<span style="font-size:11px; color:#16a34a; padding-left:10px; font-weight:bold;">🔢 S/N: ${item.serials.join(', ')}</span><br>`;
@@ -578,7 +575,7 @@
                 <table style="width:100%; font-size:11px; margin-top:2px; line-height:1.2;">
                     <tr><td><b>Voucher No:</b> GVM-GO-${g.voucherNo}</td><td><b>Dispatch Date:</b> ${g.date}</td></tr>
                     <tr><td><b>Vehicle No:</b> ${g.vehicleNo}</td><td><b>Party Target:</b> ${g.partyName}</td></tr>
-                    <tr><td colspan="2"><b>Location:</b> ${g.deliveryShipping || '-'} | <b>Dispatched By:</b> ${g.goSend By || 'N/A'}</td></tr>
+                    <tr><td colspan="2"><b>Location:</b> ${g.deliveryShipping || '-'} | <b>Dispatched By:</b> ${g.goSendBy || 'N/A'}</td></tr>
                     <tr><td colspan="2"><b>Remarks:</b> ${receiptRemarks}</td></tr>
                 </table>
                 <table style="width:100%; border-collapse:collapse; margin-top:4px; font-size:10px;">
