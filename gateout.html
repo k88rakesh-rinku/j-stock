@@ -9,7 +9,6 @@
         .btn-edit-action { background-color: #0284c7; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
         .btn-delete-action { background-color: #dc2626; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; }
         .btn-print-receipt { background-color: #007bff; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
-        
         @media print {
             body * { visibility: hidden; }
             #printSection, #printSection * { visibility: visible; }
@@ -115,18 +114,28 @@
             const qty = parseInt(row.querySelector('.go-qty').value) || 0;
             
             if(pool === 'FRESH') {
-                let match = tempStockData.find(s => s.modelCode === code);
+                // FIX: .includes() इस्तेमाल किया ताकि बड़े स्ट्रिंग के अंदर कोड मिल सके
+                let match = tempStockData.find(s => (s.modelCode || "").toUpperCase().includes(code));
                 let current = match ? parseInt(match.qty || match.inQty || 0) : 0;
-                if(current < qty) { alert("🚨 Deficit in Fresh Pool: " + code); deficit = true; break; }
+                
+                if(!match || current < qty) { 
+                    alert("🚨 Deficit or Code not found in Fresh Pool: " + code + "\nAvailable in system: " + current); 
+                    deficit = true; break; 
+                }
                 if(match.qty !== undefined) match.qty -= qty; else match.inQty -= qty;
             } else {
                 let totalRework = 0;
-                tempReworkData.forEach(r => r.gridItems.forEach(gi => { if(gi.itemShort === code) totalRework += parseInt(gi.qty); }));
-                if(totalRework < qty) { alert("🚨 Deficit in Rework Pool: " + code); deficit = true; break; }
+                // FIX: .includes() का इस्तेमाल
+                tempReworkData.forEach(r => r.gridItems.forEach(gi => { if(gi.itemShort.toUpperCase().includes(code)) totalRework += parseInt(gi.qty); }));
+                
+                if(totalRework < qty) { 
+                    alert("🚨 Deficit in Rework Pool: " + code + "\nAvailable: " + totalRework); 
+                    deficit = true; break; 
+                }
                 let rem = qty;
                 for(let r of tempReworkData) {
                     for(let gi of r.gridItems) {
-                        if(gi.itemShort === code && gi.qty > 0) {
+                        if(gi.itemShort.toUpperCase().includes(code) && gi.qty > 0) {
                             let take = Math.min(gi.qty, rem);
                             gi.qty -= take; rem -= take;
                         }
@@ -149,6 +158,8 @@
         location.reload();
     });
 
+    // Helper: Initial Date
+    document.getElementById('goDate').value = new Date().toISOString().split('T')[0];
     addGoRow();
 </script>
 </body>
