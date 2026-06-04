@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Field Failure Log - GVM Rail</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+    <style>
+        /* 🛠️ इस पेज की खुद की स्वतंत्र स्टाइलिंग */
+        .btn-edit-action { background-color: #0284c7; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
+        .btn-edit-action:hover { background-color: #0369a1; }
+        .btn-delete-action { background-color: #dc2626; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; }
+        .btn-delete-action:hover { background-color: #b91c1c; }
+        
+        .table-filter-panel { display: flex; justify-content: space-between; align-items: center; background: #f1f5f9; padding: 10px 15px; border-radius: 6px 6px 0 0; border: 1px solid #cbd5e1; border-bottom: none; margin-top: 25px; gap: 15px; flex-wrap: wrap; }
+        .search-input-box { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; width: 300px; text-transform: uppercase; }
+        .limit-dropdown-select { padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; cursor: pointer; background: #fff; font-weight: bold; }
+
+        .secret-modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 9999; }
+        .secret-modal-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); text-align: center; width: 320px; }
+        .secret-modal-card h4 { margin: 0 0 12px 0; color: #dc2626; }
+        .secret-modal-input { width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #cbd5e1; border-radius: 4px; text-align: center; font-size: 16px; box-sizing: border-box; }
+        
+        .badge-status { padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; color: white; }
+        .bg-fail { background-color: #dc2626; }
+        .bg-ok { background-color: #16a34a; }
+        .bg-nil { background-color: #64748b; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="erp-header" style="background-color: #1e3a8a; color: white; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
+        <h1 style="margin: 0; font-size: 20px;">🛠️ GP0013 V2 Field Failure & Defect Registry</h1>
+    </div>
+    
+    <!-- 📝 स्वतंत्र एंट्री फॉर्म -->
+    <form id="failureForm">
+        <input type="hidden" id="editRowIndex" value="-1">
+        <input type="hidden" id="editFirebaseKey" value="">
+
+        <div class="form-grid">
+            <div class="form-group"><label>Controller Serial No. <span>*</span></label><input type="text" id="failController" placeholder="e.g. GR2601098" required autocomplete="off" style="text-transform:uppercase;"></div>
+            <div class="form-group"><label>PCB Main Serial (BOTTOM) <span>*</span></label><input type="text" id="failPcbMain" placeholder="e.g. KU722T/11/25/0672" required autocomplete="off" style="text-transform:uppercase;"></div>
+            <div class="form-group"><label>PCB LED Serial (TOP) <span>*</span></label><input type="text" id="failPcbLed" placeholder="e.g. BB870L" required autocomplete="off" style="text-transform:uppercase;"></div>
+            <div class="form-group"><label>Child Card Details</label><input type="text" id="failChildCard" placeholder="e.g. AJ842T, AH748T" autocomplete="off" style="text-transform:uppercase;"></div>
+            
+            <div class="form-group"><label>Display Status</label>
+                <select id="statusDisplay"><option value="NIL">NIL</option><option value="OK">OK</option><option value="FAIL">FAIL</option></select>
+            </div>
+            <div class="form-group"><label>Visual Inspection</label>
+                <select id="statusVisual"><option value="OK">OK</option><option value="FAIL">FAIL</option><option value="NIL">NIL</option></select>
+            </div>
+            <div class="form-group"><label>Electrical Test</label>
+                <select id="statusElectrical"><option value="FAIL">FAIL</option><option value="OK">OK</option><option value="NIL">NIL</option></select>
+            </div>
+            
+            <div class="form-group"><label>Problem Description <span>*</span></label><input type="text" id="failProblem" placeholder="e.g. POWER SUPPLY BLINK" required autocomplete="off" style="text-transform:uppercase;"></div>
+            <div class="form-group"><label>Defect Component Locations</label><input type="text" id="failLocations" placeholder="e.g. D96, R284" autocomplete="off" style="text-transform:uppercase;"></div>
+            <div class="form-group"><label>Action Taken <span>*</span></label><input type="text" id="failAction" placeholder="e.g. SEND TO VINYAS / REPAIRED" required autocomplete="off" style="text-transform:uppercase;"></div>
+            
+            <div class="form-group"><label>Failure Date</label><input type="date" id="failDate"></div>
+            <div class="form-group"><label>Repair/Dispatch Date</label><input type="date" id="failDispatchDate"></div>
+            <div class="form-group"><label>Received From <span>*</span></label><input type="text" id="failFrom" placeholder="e.g. AMIT DELHI, GVM" required autocomplete="off" style="text-transform:uppercase;"></div>
+        </div>
+
+        <div class="form-group" style="margin-top: 15px;">
+            <label style="font-weight: bold;">Technical Diagnostic Remarks</label>
+            <input type="text" id="failRemarks" placeholder="Enter fresh board remarks, status OK details etc..." autocomplete="off" style="text-transform:uppercase; padding: 10px; width: 100%; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 4px;">
+        </div>
+
+        <button type="submit" id="btnSubmitForm" class="btn-submit" style="margin-top:15px; width: 100%; background-color: #1e3a8a; color: white; padding: 12px; font-weight: bold; border: none; border-radius: 4px; cursor: pointer;">Save Failure Log to Live Cloud</button>
+        <button type="button" id="btnCancelEdit" class="btn-submit" style="background-color:#64748b; color: white; display:none; margin-top:10px; width: 100%; padding: 12px; border: none; border-radius: 4px;" onclick="cancelEditMode()">Cancel Update</button>
+    </form>
+
+    <!-- 📥 इंडिपेंडेंट एक्सेल डाउनलोड पैनल -->
+    <div class="date-export-panel" style="margin-top: 30px;">
+        <label>From Date:</label> <input type="date" id="exportFromDate">
+        <label>To Date:</label> <input type="date" id="exportToDate">
+        <button class="btn-excel" onclick="exportFailureToExcel()">Download Failure Excel Report</button>
+    </div>
+
+    <!-- 📊 लाइव सर्च पैनल -->
+    <div class="table-filter-panel">
+        <div>
+            <input type="text" id="liveTableSearchBox" class="search-input-box" placeholder="🔍 Search Controller, PCB, From, Problem..." oninput="triggerTableRender()">
+        </div>
+        <div>
+            <label style="font-weight: bold; font-size: 13px; color:#475569;">Show Records:</label>
+            <select id="liveTableLimitSelect" class="limit-dropdown-select" onchange="triggerTableRender()">
+                <option value="5">5 Records (Default)</option>
+                <option value="10">10 Records</option>
+                <option value="15">15 Records</option>
+                <option value="ALL">Show All History</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="table-responsive" style="margin-top: 0;">
+        <table class="history-table" style="border-top: none; min-width: 1500px;">
+            <thead style="background-color: #1e3a8a; color: white;">
+                <tr>
+                    <th>SR No.</th><th>Controller</th><th>PCB Main (BOTTOM)</th><th>PCB LED (TOP)</th><th>Child Card</th>
+                    <th>Disp</th><th>Vis</th><th>Elec</th><th>Problem Description</th><th>Locations</th>
+                    <th>Action Taken</th><th>Failure Date</th><th>From</th><th>Remarks</th><th>Controls</th>
+                </tr>
+            </thead>
+            <tbody id="failureHistoryBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 🔑 सीक्रेट पासवर्ड डिलीट पॉपअप -->
+<div id="secretPasswordModal" class="secret-modal-overlay">
+    <div class="secret-modal-card">
+        <h4>🔑 Security Check</h4>
+        <p style="font-size: 12px; color: #64748b; margin-bottom: 10px;">Enter Secret Password to Wipe Defect Record:</p>
+        <input type="password" id="secretModalPasswordField" class="secret-modal-input" placeholder="••••" autocomplete="off">
+        <div style="display: flex; gap: 10px; justify-content: center;">
+            <button type="button" style="background:#dc2626; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer; font-weight:bold;" onclick="submitSecretDeletePassword()">Wipe Record</button>
+            <button type="button" style="background:#64748b; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;" onclick="closeSecretPasswordModal()">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const firebaseConfig = {
+        apiKey: "AIzaSyCAOXbPwuFR3wh1QSLBXWsodupKWoRYmqs",
+        authDomain: "gvm-stock-control.firebaseapp.com",
+        databaseURL: "https://gvm-stock-control-default-rtdb.firebaseio.com",
+        projectId: "gvm-stock-control",
+        storageBucket: "gvm-stock-control.firebasestorage.app",
+        messagingSenderId: "202991207119",
+        appId: "1:202991207119:web:2246ffb7b92f9eb0c4adba"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+
+    let failureData = [];
+    let activeDeleteRowIdx = null;
+
+    const cleanStr = (str) => String(str || "").trim().toUpperCase().replace(/\s+/g, '');
+
+    // लाइव क्लाउड रीयलटाइम डेटा फेच गियर (स्वतंत्र नोड बॉक्स)
+    database.ref('fieldFailureVouchers').on('value', (snapshot) => {
+        failureData = [];
+        const data = snapshot.val();
+        if(data) {
+            for(let key in data) { failureData.push({ fbKey: key, ...data[key] }); }
+        }
+        failureData.reverse(); 
+        renderTable();
+    });
+
+    document.getElementById('failureForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const idx = parseInt(document.getElementById('editRowIndex').value);
+        const fbKey = document.getElementById('editFirebaseKey').value;
+
+        const failureRecord = {
+            controller: document.getElementById('failController').value.trim().toUpperCase(),
+            pcbMain: document.getElementById('failPcbMain').value.trim().toUpperCase(),
+            pcbLed: document.getElementById('failPcbLed').value.trim().toUpperCase(),
+            childCard: document.getElementById('failChildCard').value.trim().toUpperCase() || "NIL",
+            display: document.getElementById('statusDisplay').value,
+            visual: document.getElementById('statusVisual').value,
+            electrical: document.getElementById('statusElectrical').value,
+            problem: document.getElementById('failProblem').value.trim().toUpperCase(),
+            locations: document.getElementById('failLocations').value.trim().toUpperCase() || "NA",
+            actionTaken: document.getElementById('failAction').value.trim().toUpperCase(),
+            failureDate: document.getElementById('failDate').value || "NIL",
+            dispatchDate: document.getElementById('failDispatchDate').value || "NIL",
+            receivedFrom: document.getElementById('failFrom').value.trim().toUpperCase(),
+            remarks: document.getElementById('failRemarks').value.trim().toUpperCase() || "-"
+        };
+
+        if(idx === -1) {
+            database.ref('fieldFailureVouchers').push(failureRecord).then(() => { alert("🎉 Failure Log saved to Live Cloud!"); cancelEditMode(); });
+        } else {
+            database.ref('fieldFailureVouchers/' + fbKey).set(failureRecord).then(() => { alert("🎯 Failure record updated successfully!"); cancelEditMode(); });
+        }
+    });
+
+    function triggerTableRender() { renderTable(); }
+
+    function renderTable() {
+        const b = document.getElementById('failureHistoryBody'); b.innerHTML = '';
+        if(failureData.length === 0) {
+            b.innerHTML = `<tr><td colspan="15" style="text-align:center; padding:15px; color:#64748b;">No failure logs found on Cloud.</td></tr>`;
+            return;
+        }
+
+        const searchStr = document.getElementById('liveTableSearchBox').value.trim().toUpperCase();
+        const limitVal = document.getElementById('liveTableLimitSelect').value;
+
+        let filteredList = failureData.filter(f => {
+            return cleanStr(f.controller).includes(searchStr) || 
+                   cleanStr(f.pcbMain).includes(searchStr) || 
+                   cleanStr(f.pcbLed).includes(searchStr) || 
+                   cleanStr(f.receivedFrom).includes(searchStr) || 
+                   cleanStr(f.problem).includes(searchStr);
+        });
+
+        if(filteredList.length === 0) {
+            b.innerHTML = `<tr><td colspan="15" style="text-align:center; padding:15px; color:#64748b;">No matching search records found.</td></tr>`;
+            return;
+        }
+
+        let viewList = filteredList;
+        if (limitVal !== "ALL") { viewList = filteredList.slice(0, parseInt(limitVal)); }
+
+        viewList.forEach((f, index) => {
+            let origIdx = failureData.findIndex(x => x.fbKey === f.fbKey);
+            const getBadge = (val) => val === 'FAIL' ? 'bg-fail' : (val === 'OK' ? 'bg-ok' : 'bg-nil');
+
+            b.innerHTML += `<tr>
+                <td><b>${index + 1}</b></td>
+                <td><code>${f.controller || 'NIL'}</code></td>
+                <td>${f.pcbMain}</td>
+                <td>${f.pcbLed}</td>
+                <td><small>${f.childCard}</small></td>
+                <td><span class="badge-status ${getBadge(f.display)}">${f.display}</span></td>
+                <td><span class="badge-status ${getBadge(f.visual)}">${f.visual}</span></td>
+                <td><span class="badge-status ${getBadge(f.electrical)}">${f.electrical}</span></td>
+                <td style="color:#b91c1c; font-weight:bold;">${f.problem}</td>
+                <td><code>${f.locations}</code></td>
+                <td><b>${f.actionTaken}</b></td>
+                <td>${f.failureDate}</td>
+                <td>${f.receivedFrom}</td>
+                <td><small>${f.remarks}</small></td>
+                <td>
+                    <button type="button" class="btn-edit-action" onclick="editFailureRow(${origIdx})">Edit</button>
+                    <button type="button" class="btn-delete-action" onclick="deleteFailureRow(${origIdx})">Delete</button>
+                </td>
+            </tr>`;
+        });
+    }
+
+    window.editFailureRow = function(origIdx) {
+        const d = failureData[origIdx];
+        document.getElementById('editRowIndex').value = origIdx;
+        document.getElementById('editFirebaseKey').value = d.fbKey;
+        
+        document.getElementById('failController').value = d.controller;
+        document.getElementById('failPcbMain').value = d.pcbMain;
+        document.getElementById('failPcbLed').value = d.pcbLed;
+        document.getElementById('failChildCard').value = d.childCard === 'NIL' ? '' : d.childCard;
+        document.getElementById('statusDisplay').value = d.display;
+        document.getElementById('statusVisual').value = d.visual;
+        document.getElementById('statusElectrical').value = d.electrical;
+        document.getElementById('failProblem').value = d.problem;
+        document.getElementById('failLocations').value = d.locations === 'NA' ? '' : d.locations;
+        document.getElementById('failAction').value = d.actionTaken;
+        document.getElementById('failDate').value = d.failureDate === 'NIL' ? '' : d.failureDate;
+        document.getElementById('failDispatchDate').value = d.dispatchDate === 'NIL' ? '' : d.dispatchDate;
+        document.getElementById('failFrom').value = d.receivedFrom;
+        document.getElementById('failRemarks').value = d.remarks === '-' ? '' : d.remarks;
+
+        document.getElementById('btnSubmitForm').innerText = "Update Failure Log Entry";
+        document.getElementById('btnCancelEdit').style.display = "inline-block";
+        document.getElementById('failureForm').scrollIntoView({ behavior: 'smooth' });
+    };
+
+    window.deleteFailureRow = function(origIdx) {
+        activeDeleteRowIdx = origIdx;
+        document.getElementById('secretModalPasswordField').value = "";
+        document.getElementById('secretPasswordModal').style.display = "flex";
+        document.getElementById('secretModalPasswordField').focus();
+    };
+
+    function closeSecretPasswordModal() { document.getElementById('secretPasswordModal').style.display = "none"; activeDeleteRowIdx = null; }
+
+    function submitSecretDeletePassword() {
+        const pass = document.getElementById('secretModalPasswordField').value;
+        if (pass === "7004") {
+            const fbKey = failureData[activeDeleteRowIdx].fbKey;
+            database.ref('fieldFailureVouchers/' + fbKey).remove().then(() => {
+                alert("🗑️ Success: Defect failure record completely wiped from Cloud.");
+                closeSecretPasswordModal(); cancelEditMode();
+            });
+        } else {
+            alert("❌ Access Denied: Incorrect Password!");
+            closeSecretPasswordModal();
+        }
+    }
+
+    function cancelEditMode() {
+        document.getElementById('editRowIndex').value = "-1";
+        document.getElementById('editFirebaseKey').value = "";
+        document.getElementById('failureForm').reset();
+        document.getElementById('btnSubmitForm').innerText = "Save Failure Log to Live Cloud";
+        document.getElementById('btnCancelEdit').style.display = "none";
+        applyLiveDateRestrictions();
+    }
+
+    function exportFailureToExcel() {
+        const fromDate = document.getElementById('exportFromDate').value;
+        const toDate = document.getElementById('exportToDate').value;
+        
+        let csv = "SR NO.,Controller,PCB Main (BOTTOM),PCB LED (TOP),Child Card,Display,Visual,Electrical,Problem,Locations,Action Taken,Failure Date,Dispatch Date,From,Remarks\n";
+        
+        let targetList = failureData;
+        if(fromDate && toDate) {
+            targetList = failureData.filter(f => f.failureDate >= fromDate && f.failureDate <= toDate);
+        }
+
+        targetList.forEach((f, idx) => {
+            csv += `"${idx+1}","${f.controller}","${f.pcbMain}","${f.pcbLed}","${f.childCard}","${f.display}","${f.visual}","${f.electrical}","${f.problem}","${f.locations}","${f.actionTaken}","${f.failureDate}","${f.dispatchDate}","${f.receivedFrom}","${f.remarks}"\n`;
+        });
+
+        let blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
+        let link = document.createElement("a");
+        link.href = URL.createObjectURL(blob); link.setAttribute("download", `Field_Failure_Report_${fromDate || 'All'}.csv`);
+        document.body.appendChild(link); link.click(); document.body.removeChild(link);
+    }
+
+    function applyLiveDateRestrictions() {
+        const todayStr = new Date().toISOString().split('T')[0];
+        document.getElementById('failDate').setAttribute('max', todayStr);
+        document.getElementById('failDispatchDate').setAttribute('max', todayStr);
+        document.getElementById('failDate').value = todayStr;
+        document.getElementById('failDispatchDate').value = todayStr;
+        document.getElementById('exportFromDate').value = todayStr;
+        document.getElementById('exportToDate').value = todayStr;
+    }
+
+    applyLiveDateRestrictions();
+</script>
+</body>
+</html>
