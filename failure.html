@@ -60,10 +60,10 @@
         <input type="hidden" id="editFirebaseKey" value="">
 
         <div class="form-grid">
-            <div class="form-group"><label>Controller Serial No. <span>*</span></label><input type="text" id="failController" placeholder="e.g. GR2601098" required autocomplete="off" style="text-transform:uppercase;"></div>
-            <div class="form-group"><label>PCB Main Serial (BOTTOM) <span>*</span></label><input type="text" id="failPcbMain" placeholder="e.g. KU722T/11/25/0672" required autocomplete="off" style="text-transform:uppercase;"></div>
-            <div class="form-group"><label>PCB LED Serial (TOP) <span>*</span></label><input type="text" id="failPcbLed" placeholder="e.g. BB870L" required autocomplete="off" style="text-transform:uppercase;"></div>
-            <div class="form-group"><label>Child Card Details</label><input type="text" id="failChildCard" placeholder="e.g. AJ842T, AH748T" autocomplete="off" style="text-transform:uppercase;"></div>
+            <div class="form-group"><label>Controller Serial No. <span>*</span></label><input type="text" id="failController" placeholder="e.g. GR0000" required autocomplete="off" style="text-transform:uppercase;"></div>
+            <div class="form-group"><label>PCB Main Serial (BOTTOM) <span>*</span></label><input type="text" id="failPcbMain" placeholder="e.g. 00000" required autocomplete="off" style="text-transform:uppercase;"></div>
+            <div class="form-group"><label>PCB LED Serial (TOP) <span>*</span></label><input type="text" id="failPcbLed" placeholder="e.g. 00000" required autocomplete="off" style="text-transform:uppercase;"></div>
+            <div class="form-group"><label>Child Card Details</label><input type="text" id="failChildCard" placeholder="e.g.00000" autocomplete="off" style="text-transform:uppercase;"></div>
             
             <div class="form-group"><label>Display Status</label>
                 <select id="statusDisplay"><option value="NIL">NIL</option><option value="OK">OK</option><option value="FAIL">FAIL</option></select>
@@ -76,8 +76,8 @@
             </div>
             
             <div class="form-group"><label>Problem Description <span>*</span></label><input type="text" id="failProblem" placeholder="e.g. POWER SUPPLY BLINK" required autocomplete="off" style="text-transform:uppercase;"></div>
-            <div class="form-group"><label>Defect Component Locations</label><input type="text" id="failLocations" placeholder="e.g. D96, R284" autocomplete="off" style="text-transform:uppercase;"></div>
-            <div class="form-group"><label>Action Taken <span>*</span></label><input type="text" id="failAction" placeholder="e.g. SEND TO VINYAS / REPAIRED" required autocomplete="off" style="text-transform:uppercase;"></div>
+            <div class="form-group"><label>Defect Component Locations</label><input type="text" id="failLocations" placeholder="e.g. a1 b2" autocomplete="off" style="text-transform:uppercase;"></div>
+            <div class="form-group"><label>Action Taken <span>*</span></label><input type="text" id="failAction" placeholder="e.g. abc" required autocomplete="off" style="text-transform:uppercase;"></div>
             
             <div class="form-group"><label>Failure Date</label><input type="date" id="failDate"></div>
             <div class="form-group"><label>Repair/Dispatch Date</label><input type="date" id="failDispatchDate"></div>
