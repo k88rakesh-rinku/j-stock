@@ -8,12 +8,16 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
     <style>
-        /* 🛠️ इस पेज की खुद की स्वतंत्र स्टाइलिंग */
         .btn-edit-action { background-color: #0284c7; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
         .btn-edit-action:hover { background-color: #0369a1; }
         .btn-delete-action { background-color: #dc2626; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; }
         .btn-delete-action:hover { background-color: #b91c1c; }
         
+        /* 🎨 टैब नेविगेशन स्टाइल: एक्टिव फेलियर टैब रॉयल ब्लू रहेगा */
+        .tabs-nav a { background-color: #e2e8f0; color: #334155; font-weight: 500; transition: all 0.3s; padding: 8px 12px; display: inline-block; border-radius: 4px; text-decoration: none; margin-right: 4px; }
+        .tabs-nav a:hover { background-color: #cbd5e1; }
+        .tabs-nav a.active-failure { background-color: #1e3a8a !important; color: white !important; font-weight: bold; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+
         .table-filter-panel { display: flex; justify-content: space-between; align-items: center; background: #f1f5f9; padding: 10px 15px; border-radius: 6px 6px 0 0; border: 1px solid #cbd5e1; border-bottom: none; margin-top: 25px; gap: 15px; flex-wrap: wrap; }
         .search-input-box { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; width: 300px; text-transform: uppercase; }
         .limit-dropdown-select { padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; cursor: pointer; background: #fff; font-weight: bold; }
@@ -31,11 +35,26 @@
 </head>
 <body>
 <div class="container">
-    <div class="erp-header" style="background-color: #1e3a8a; color: white; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
-        <h1 style="margin: 0; font-size: 20px;">🛠️ GP0013 V2 Field Failure & Defect Registry</h1>
+    <div class="erp-header">
+        <h1>Material Lifecycle Control & Inventory Ledger Systems</h1>
+        <button class="logout-btn" onclick="logout()">Logout</button>
     </div>
     
-    <!-- 📝 स्वतंत्र एंट्री फॉर्म -->
+    <!-- 🛠️ मेनू बार को वापस जोड़ दिया गया है -->
+    <div class="tabs-nav">
+        <a href="index.html" class="tab-link">📦 New Entry (Fresh)</a>
+        <a href="rework.html" class="tab-link">🛠️ Gate In (Rework)</a>
+        <a href="gateout.html" class="tab-link">🚪 Gate Out (Dispatch)</a>
+        <a href="debit.html" class="tab-link">🧾 Debit Note (Vendor)</a>
+        <a href="code.html" class="tab-link">🆕 Generate Code</a>
+        <a href="ledger.html" class="tab-link">📊 Master Ledger & History</a>
+        <a href="users.html" class="tab-link">👥 Manage Users</a>
+        <a href="bom.html" class="tab-link">🔗 BOM Master</a>
+        <a href="failure.html" class="tab-link active-failure">🛠️ Failure Defect Log</a>
+    </div>
+
+    <h3 id="formTitleFailure" style="color:#1e3a8a; margin: 15px 0 10px 0;">📋 GP0013 V2 Field Return Failure Registry</h3>
+
     <form id="failureForm">
         <input type="hidden" id="editRowIndex" value="-1">
         <input type="hidden" id="editFirebaseKey" value="">
@@ -74,14 +93,12 @@
         <button type="button" id="btnCancelEdit" class="btn-submit" style="background-color:#64748b; color: white; display:none; margin-top:10px; width: 100%; padding: 12px; border: none; border-radius: 4px;" onclick="cancelEditMode()">Cancel Update</button>
     </form>
 
-    <!-- 📥 इंडिपेंडेंट एक्सेल डाउनलोड पैनल -->
     <div class="date-export-panel" style="margin-top: 30px;">
         <label>From Date:</label> <input type="date" id="exportFromDate">
         <label>To Date:</label> <input type="date" id="exportToDate">
         <button class="btn-excel" onclick="exportFailureToExcel()">Download Failure Excel Report</button>
     </div>
 
-    <!-- 📊 लाइव सर्च पैनल -->
     <div class="table-filter-panel">
         <div>
             <input type="text" id="liveTableSearchBox" class="search-input-box" placeholder="🔍 Search Controller, PCB, From, Problem..." oninput="triggerTableRender()">
@@ -111,7 +128,6 @@
     </div>
 </div>
 
-<!-- 🔑 सीक्रेट पासवर्ड डिलीट पॉपअप -->
 <div id="secretPasswordModal" class="secret-modal-overlay">
     <div class="secret-modal-card">
         <h4>🔑 Security Check</h4>
@@ -142,13 +158,10 @@
 
     const cleanStr = (str) => String(str || "").trim().toUpperCase().replace(/\s+/g, '');
 
-    // लाइव क्लाउड रीयलटाइम डेटा फेच गियर (स्वतंत्र नोड बॉक्स)
     database.ref('fieldFailureVouchers').on('value', (snapshot) => {
         failureData = [];
         const data = snapshot.val();
-        if(data) {
-            for(let key in data) { failureData.push({ fbKey: key, ...data[key] }); }
-        }
+        if(data) { for(let key in data) { failureData.push({ fbKey: key, ...data[key] }); } }
         failureData.reverse(); 
         renderTable();
     });
