@@ -24,11 +24,11 @@
         .limit-dropdown-select { padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; cursor: pointer; background: #fff; font-weight: bold; }
 
         .secret-modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 9999; }
-        .secret-modal-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); text-align: center; width: 320px; }
-        .secret-modal-card h4 { margin: 0 0 12px 0; color: #dc2626; }
+        .secret-modal-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); text-align: center; width: 360px; }
+        .secret-modal-card h4 { margin: 0 0 12px 0; color: #1e3a8a; }
         .secret-modal-input { width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #cbd5e1; border-radius: 4px; text-align: center; font-size: 16px; box-sizing: border-box; }
         .secret-modal-btn-group { display: flex; gap: 10px; justify-content: center; }
-        .secret-modal-btn-confirm { background: #dc2626; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .secret-modal-btn-confirm { background: #16a34a; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; }
         .secret-modal-btn-cancel { background: #64748b; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; }
 
         @media print {
@@ -55,7 +55,6 @@
         <a href="ledger.html" class="tab-link">📊 Master Ledger & History</a>
         <a href="users.html" class="tab-link">👥 Manage Users</a>
         <a href="bom.html" class="tab-link">🔗 BOM Master</a>
-        <a href="failure.html" class="tab-link">🛠️ Failure Defect Log</a>
     </div>
 
     <h3 id="formTitleGateout" style="color:var(--primary); margin: 15px 0 10px 0;">🚪 Gate Out (Dispatch) Ledger</h3>
@@ -82,7 +81,6 @@
         </div>
         <button type="button" class="btn-row-add" onclick="addGoRow()">+</button>
 
-        <!-- 📝 Remarks Input Field -->
         <div class="form-group" style="margin-top: 15px;">
             <label style="font-weight: bold;">Remarks / Transaction Notes</label>
             <input type="text" id="goRemarks" placeholder="Enter any specific remarks or notes here..." autocomplete="off" style="text-transform:uppercase; padding: 10px; width: 100%; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 4px;">
@@ -123,13 +121,33 @@
     </div>
 </div>
 
+<!-- ⚙️ अपग्रेड किया हुआ पेस्ट बॉक्स वाला सिंगल इनपुट S/N पॉपअप मोड्यूल -->
+<div id="snConfigModal" class="secret-modal-overlay">
+    <div class="secret-modal-card" style="width: 420px;">
+        <h4 id="snModalHeaderTitle">🔢 Paste Serial Numbers</h4>
+        <p id="snModalSubtext" style="font-size: 11px; color:#64748b; margin-bottom:12px;"></p>
+        
+        <div style="text-align:left; margin-bottom:15px;">
+            <textarea id="snBulkTextArea" placeholder="EXCEL से कॉपी करके यहाँ सीधे पेस्ट करें...&#10;या एक लाइन में एक सीरियल नंबर डालें।" 
+                      style="width:100%; height:180px; box-sizing:border-box; text-transform:uppercase; font-family:monospace; padding:10px; border: 1px solid #cbd5e1; border-radius: 4px; resize: none;"></textarea>
+            <span style="font-size: 10px; color:#64748b; display:block; margin-top:4px;">* नोट: हर सीरियल नंबर अलग लाइन या कोमा (,) से अलग होना चाहिए।</span>
+        </div>
+
+        <div class="secret-modal-btn-group">
+            <button type="button" class="secret-modal-btn-confirm" onclick="saveDynamicRowSerials()">Apply & Validate</button>
+            <button type="button" class="secret-modal-btn-cancel" onclick="closeSnConfigModal()">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- 🔑 सीक्रेट पासवर्ड डिलीट पॉपअप -->
 <div id="secretPasswordModal" class="secret-modal-overlay">
     <div class="secret-modal-card">
         <h4>🔑 Security Check</h4>
         <p style="font-size: 12px; color: #64748b; margin-bottom: 10px;">Enter Secret Password to Delete this Dispatch Record:</p>
         <input type="password" id="secretModalPasswordField" class="secret-modal-input" placeholder="••••" autocomplete="off">
         <div class="secret-modal-btn-group">
-            <button type="button" class="secret-modal-btn-confirm" onclick="submitSecretDeletePassword()">Wipe Record</button>
+            <button type="button" class="secret-modal-btn-confirm" style="background:#dc2626;" onclick="submitSecretDeletePassword()">Wipe Record</button>
             <button type="button" class="secret-modal-btn-cancel" onclick="closeSecretPasswordModal()">Cancel</button>
         </div>
     </div>
@@ -155,11 +173,11 @@
     function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
 
     let stockData = []; 
-    let reworkData = [];
     let gateoutData = [];
     let bomFormulaList = []; 
     let masterCatalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
     let activeDeleteRowIdx = null; 
+    let activeSnTargetRow = null; 
 
     const cleanStr = (str) => String(str || "").trim().toUpperCase().replace(/\s+/g, '');
 
@@ -180,16 +198,56 @@
         renderTable();
     });
 
-    function addGoRow() {
+    function addGoRow(preExistingSerials = []) {
         const body = document.getElementById('gateoutItemsBody');
         const tr = document.createElement('tr');
+        tr.dataset.serials = JSON.stringify(preExistingSerials);
+        
+        let hasSn = preExistingSerials.length > 0;
+        let selectHtml = `<select class="go-sn-required" onchange="toggleSnField(this)" style="padding:6px; border-radius:4px;"><option value="NO" ${!hasSn?'selected':''}>NO</option><option value="YES" ${hasSn?'selected':''}>YES</option></select>`;
+        let btnStyle = hasSn ? "background-color: #16a34a; color: white; display: inline-block;" : "display: none;";
+        let btnText = hasSn ? `Config (${preExistingSerials.length})` : "Config";
+
         tr.innerHTML = `<td><select class="go-pool-type"><option value="FRESH">FRESH</option><option value="REWORK">REWORK</option></select></td>
             <td><input type="text" required class="go-code" oninput="autofillGo(this)" style="text-transform:uppercase;"></td>
             <td><input type="text" required class="go-name"></td>
-            <td><input type="number" min="1" required class="go-qty"></td>
-            <td><button type="button" class="btn-sn-setup">S/N</button></td>
+            <td><input type="number" min="1" required class="go-qty" oninput="handleQtyChange(this)"></td>
+            <td>
+                <div style="display:flex; gap:5px; align-items:center; justify-content:center;">
+                    ${selectHtml}
+                    <button type="button" class="btn-sn-setup" style="${btnStyle}" onclick="openSnConfigModal(this)">${btnText}</button>
+                </div>
+            </td>
             <td><button type="button" class="btn-row-remove" onclick="this.closest('tr').remove()">×</button></td>`;
         body.appendChild(tr);
+    }
+
+    // Dropdown बदलने पर बटन छुपाने/दिखाने का इंजन
+    window.toggleSnField = function(select) {
+        let tr = select.closest('tr');
+        let btn = tr.querySelector('.btn-sn-setup');
+        if(select.value === 'YES') {
+            btn.style.display = 'inline-block';
+        } else {
+            btn.style.display = 'none';
+            tr.dataset.serials = "[]";
+            btn.innerText = "Config";
+            btn.style.backgroundColor = "";
+            btn.style.color = "";
+        }
+    }
+
+    // अगर मात्रा बदले तो पुराने सीरियल रिसेट करें ताकि गलत डेटा न सेव हो
+    window.handleQtyChange = function(input) {
+        let tr = input.closest('tr');
+        let btn = tr.querySelector('.btn-sn-setup');
+        let select = tr.querySelector('.go-sn-required');
+        if(select.value === 'YES') {
+            tr.dataset.serials = "[]";
+            btn.innerText = "Config";
+            btn.style.backgroundColor = "";
+            btn.style.color = "";
+        }
     }
 
     function autofillGo(input) {
@@ -200,6 +258,56 @@
             if(m) foundName = m.name;
         }
         input.closest('tr').querySelector('.go-name').value = foundName;
+    }
+
+    function openSnConfigModal(btn) {
+        activeSnTargetRow = btn.closest('tr');
+        const qty = parseInt(activeSnTargetRow.querySelector('.go-qty').value) || 0;
+        const code = activeSnTargetRow.querySelector('.go-code').value.trim().toUpperCase();
+
+        if(!code || qty <= 0) {
+            alert("⚠️ Please enter Model Code and valid Qty first!");
+            activeSnTargetRow = null;
+            return;
+        }
+
+        document.getElementById('snModalSubtext').innerText = `Paste exactly ${qty} serial numbers for [${code}] below:`;
+        
+        let currentSavedSerials = [];
+        if(activeSnTargetRow.dataset.serials) {
+            currentSavedSerials = JSON.parse(activeSnTargetRow.dataset.serials);
+        }
+        
+        document.getElementById('snBulkTextArea').value = currentSavedSerials.join('\n');
+        document.getElementById('snConfigModal').style.display = "flex";
+        document.getElementById('snBulkTextArea').focus();
+    }
+
+    function closeSnConfigModal() {
+        document.getElementById('snConfigModal').style.display = "none";
+        activeSnTargetRow = null;
+    }
+
+    // थोक पेस्ट पार्सर और वैलिडेटर इंजन
+    function saveDynamicRowSerials() {
+        const rawText = document.getElementById('snBulkTextArea').value;
+        const qty = parseInt(activeSnTargetRow.querySelector('.go-qty').value) || 0;
+        
+        // न्यू-लाइन, स्पेस या कोमा से स्प्लिट करके क्लीन एरे बनाना
+        let extractedSerials = rawText.split(/[\n,\s]+/).map(s => s.trim().toUpperCase()).filter(s => s.length > 0);
+
+        if(extractedSerials.length !== qty) {
+            alert(`❌ Mismatch Error!\n\nRequested Qty is ${qty} NOS, but you pasted ${extractedSerials.length} serial numbers.\nPlease check and correct the list.`);
+            return;
+        }
+
+        activeSnTargetRow.dataset.serials = JSON.stringify(extractedSerials);
+        const snBtn = activeSnTargetRow.querySelector('.btn-sn-setup');
+        snBtn.innerText = `Config (${extractedSerials.length})`;
+        snBtn.style.backgroundColor = "#16a34a";
+        snBtn.style.color = "white";
+
+        closeSnConfigModal();
     }
 
     function calculateLiveFreshStock(targetCode, skipFbKey = "") {
@@ -220,9 +328,7 @@
                 let mainItemBOM = bomFormulaList.find(b => cleanStr(b.mainCode) === cleanStr(item.code));
                 if(mainItemBOM && mainItemBOM.accessories) {
                     mainItemBOM.accessories.forEach(acc => {
-                        if(cleanStr(acc.code) === cleanedTarget) {
-                            totalOut += (parseInt(acc.qty) * parseInt(item.qty || 0));
-                        }
+                        if(cleanStr(acc.code) === cleanedTarget) { totalOut += (parseInt(acc.qty) * parseInt(item.qty || 0)); }
                     });
                 }
             });
@@ -238,9 +344,19 @@
 
         for(let row of rows) {
             const pool = row.querySelector('.go-pool-type').value;
-            const rawCode = row.querySelector('.go-code').value.trim();
+            const rawCode = row.querySelector('.go-code').value.trim().toUpperCase();
             const qty = parseInt(row.querySelector('.go-qty').value) || 0;
+            const snRequired = row.querySelector('.go-sn-required').value;
             
+            let savedSerialsList = [];
+            if(snRequired === 'YES') {
+                savedSerialsList = row.dataset.serials ? JSON.parse(row.dataset.serials) : [];
+                if(savedSerialsList.length !== qty) {
+                    alert(`⚠️ Serial Number Missing!\n\nRow [${rawCode}] requires Qty ${qty} serials, but only [${savedSerialsList.length}] are set.\nClick Config to paste!`);
+                    deficit = true; break;
+                }
+            }
+
             if(pool === 'FRESH') {
                 let availableStock = calculateLiveFreshStock(rawCode, fbKey);
                 if(availableStock < qty) { 
@@ -261,7 +377,7 @@
                 }
                 if(deficit) break;
             }
-            items.push({ pool, code: rawCode.toUpperCase(), name: row.querySelector('.go-name').value, qty, serials: [] });
+            items.push({ pool, code: rawCode, name: row.querySelector('.go-name').value, qty, serials: savedSerialsList });
         }
         if(deficit) return;
 
@@ -272,12 +388,12 @@
             partyName: document.getElementById('goPartyName').value.trim().toUpperCase(),
             deliveryShipping: document.getElementById('goDeliveryShipping').value.trim().toUpperCase(),
             goSendBy: document.getElementById('goSendBy').value.trim().toUpperCase(),
-            remarks: document.getElementById('goRemarks').value.trim().toUpperCase(), // Remarks saved here
+            remarks: document.getElementById('goRemarks').value.trim().toUpperCase(), 
             gridItems: items
         };
 
         if(idx === -1) {
-            database.ref('gateoutStockData').push(dispatchVoucher).then(() => { alert("🎉 Gate Out dispatch authored successfully!"); cancelEditMode(); });
+            database.ref('gateoutStockData').push(dispatchVoucher).then(() => { alert("🎉 Gate Out dispatch authorized successfully!"); cancelEditMode(); });
         } else {
             database.ref('gateoutStockData/' + fbKey).set(dispatchVoucher).then(() => { alert("🎯 Dispatch entry updated successfully!"); cancelEditMode(); });
         }
@@ -301,9 +417,9 @@
             const matchRemarks = g.remarks ? g.remarks.toUpperCase().includes(searchStr) : false;
             let itemsList = g.gridItems || [];
             const matchItems = itemsList.some(item => {
-                const matchCode = item.code ? item.code.toUpperCase().includes(searchStr) : false;
-                const matchName = item.name ? item.name.toUpperCase().includes(searchStr) : false;
-                return matchCode || matchName;
+                return (item.code && item.code.toUpperCase().includes(searchStr)) || 
+                       (item.name && item.name.toUpperCase().includes(searchStr)) ||
+                       (item.serials && item.serials.some(s => s.toUpperCase().includes(searchStr)));
             });
             return matchVehicle || matchParty || matchRemarks || matchItems;
         });
@@ -319,9 +435,14 @@
         viewList.forEach((g) => {
             let origIdx = gateoutData.findIndex(x => x.fbKey === g.fbKey);
             let summaryHtml = "";
+            
             (g.gridItems || []).forEach(item => {
                 summaryHtml += `• <code>${item.code}</code> - ${item.name} (<b>${item.qty} NOS</b>)<br>`;
                 
+                if(item.serials && item.serials.length > 0) {
+                    summaryHtml += `<span style="font-size:11px; color:#16a34a; padding-left:10px; font-weight:bold;">🔢 S/N: ${item.serials.join(', ')}</span><br>`;
+                }
+
                 let linkedBOM = bomFormulaList.find(b => cleanStr(b.mainCode) === cleanStr(item.code));
                 if(linkedBOM && linkedBOM.accessories) {
                     summaryHtml += `<span style="font-size:10px; color:#0284c7; padding-left:10px;">📦 BOM Parts Auto-Deducted:</span><br>`;
@@ -353,16 +474,29 @@
         document.getElementById('goPartyName').value = d.partyName;
         document.getElementById('goDeliveryShipping').value = d.deliveryShipping;
         document.getElementById('goSendBy').value = d.goSendBy || '';
-        document.getElementById('goRemarks').value = d.remarks || ''; // Load remarks in edit mode
+        document.getElementById('goRemarks').value = d.remarks || ''; 
 
         const body = document.getElementById('gateoutItemsBody'); body.innerHTML = '';
         (d.gridItems || []).forEach(item => {
+            let arrSerials = item.serials || [];
             const tr = document.createElement('tr');
+            tr.dataset.serials = JSON.stringify(arrSerials);
+            
+            let hasSn = arrSerials.length > 0;
+            let selectHtml = `<select class="go-sn-required" onchange="toggleSnField(this)" style="padding:6px; border-radius:4px;"><option value="NO" ${!hasSn?'selected':''}>NO</option><option value="YES" ${hasSn?'selected':''}>YES</option></select>`;
+            let editBtnStyle = hasSn ? "background-color: #16a34a; color: white; display: inline-block;" : "display: none;";
+            let editBtnText = hasSn ? `Config (${arrSerials.length})` : "Config";
+
             tr.innerHTML = `<td><select class="go-pool-type"><option value="FRESH" ${item.pool==='FRESH'?'selected':''}>FRESH</option><option value="REWORK" ${item.pool==='REWORK'?'selected':''}>REWORK</option></select></td>
                 <td><input type="text" required class="go-code" value="${item.code}" oninput="autofillGo(this)" style="text-transform:uppercase;"></td>
                 <td><input type="text" required class="go-name" value="${item.name}"></td>
-                <td><input type="number" min="1" required class="go-qty" value="${item.qty}"></td>
-                <td><button type="button" class="btn-sn-setup">S/N</button></td>
+                <td><input type="number" min="1" required class="go-qty" value="${item.qty}" oninput="handleQtyChange(this)"></td>
+                <td>
+                    <div style="display:flex; gap:5px; align-items:center; justify-content:center;">
+                        ${selectHtml}
+                        <button type="button" class="btn-sn-setup" style="${editBtnStyle}" onclick="openSnConfigModal(this)">${editBtnText}</button>
+                    </div>
+                </td>
                 <td><button type="button" class="btn-row-remove" onclick="this.closest('tr').remove()">×</button></td>`;
             body.appendChild(tr);
         });
@@ -412,16 +546,22 @@
         let rowsHtml = "";
         (g.gridItems || []).forEach(item => {
             rowsHtml += `<tr>
-                <td style="border:1px solid #000; padding:3px;">${item.code}</td>
+                <td style="border:1px solid #000; padding:3px; font-weight:bold;">${item.code}</td>
                 <td style="border:1px solid #000; padding:3px;">${item.name}</td>
                 <td style="border:1px solid #000; padding:3px; text-align:center; font-weight:bold;">${item.pool}</td>
                 <td style="border:1px solid #000; padding:3px; text-align:center; font-weight:bold;">${item.qty}</td>
             </tr>`;
             
+            if(item.serials && item.serials.length > 0) {
+                rowsHtml += `<tr style="background:#fcfcfc;">
+                    <td colspan="4" style="border:1px solid #000; padding:3px 3px 3px 12px; font-size:9px; color:#16a34a;"><b>↳ S/N Allocations:</b> ${item.serials.join(', ')}</td>
+                </tr>`;
+            }
+
             let printBOM = bomFormulaList.find(b => cleanStr(b.mainCode) === cleanStr(item.code));
             if(printBOM && printBOM.accessories) {
                 printBOM.accessories.forEach(acc => {
-                    rowsHtml += `<tr style="color:#555; font-style:italic; background:#fafafa;">
+                    rowsHtml += `<tr style="color:#555; font-style:italic; background:#fafafa; font-size:9px;">
                         <td style="border:1px solid #000; padding:2px 2px 2px 15px;">↳ Component: ${acc.code}</td>
                         <td style="border:1px solid #000; padding:2px;" colspan="2">${acc.name}</td>
                         <td style="border:1px solid #000; padding:2px; text-align:center;">${parseInt(acc.qty)*parseInt(item.qty)}</td>
@@ -438,7 +578,7 @@
                 <table style="width:100%; font-size:11px; margin-top:2px; line-height:1.2;">
                     <tr><td><b>Voucher No:</b> GVM-GO-${g.voucherNo}</td><td><b>Dispatch Date:</b> ${g.date}</td></tr>
                     <tr><td><b>Vehicle No:</b> ${g.vehicleNo}</td><td><b>Party Target:</b> ${g.partyName}</td></tr>
-                    <tr><td colspan="2"><b>Location:</b> ${g.deliveryShipping || '-'} | <b>Dispatched By:</b> ${g.goSendBy || 'N/A'}</td></tr>
+                    <tr><td colspan="2"><b>Location:</b> ${g.deliveryShipping || '-'} | <b>Dispatched By:</b> ${g.goSend By || 'N/A'}</td></tr>
                     <tr><td colspan="2"><b>Remarks:</b> ${receiptRemarks}</td></tr>
                 </table>
                 <table style="width:100%; border-collapse:collapse; margin-top:4px; font-size:10px;">
@@ -461,7 +601,7 @@
         const fromDate = document.getElementById('goFromDate').value;
         const toDate = document.getElementById('goToDate').value;
         
-        let csv = "Voucher No,Date,Vehicle No,Party Target,Delivery Location,Dispatched By,Remarks,Pool Type,Model Code,Model Name,Main Qty,BOM Component Code,BOM Component Qty\n";
+        let csv = "Voucher No,Date,Vehicle No,Party Target,Delivery Location,Dispatched By,Remarks,Pool Type,Model Code,Model Name,Main Qty,Serial Numbers,BOM Component Code,BOM Component Qty\n";
         
         let targetList = gateoutData;
         if(fromDate && toDate) {
@@ -471,13 +611,14 @@
         targetList.forEach(g => {
             let rems = g.remarks ? g.remarks : "";
             (g.gridItems || []).forEach(item => {
+                let sns = item.serials ? item.serials.join(' | ') : "";
                 let excelBOM = bomFormulaList.find(b => cleanStr(b.mainCode) === cleanStr(item.code));
                 if(excelBOM && excelBOM.accessories) {
                     excelBOM.accessories.forEach(acc => {
-                        csv += `"GVM-GO-${g.voucherNo}","${g.date}","${g.vehicleNo}","${g.partyName}","${g.deliveryShipping || ''}","${g.goSendBy || ''}","${rems}","${item.pool}","${item.code}","${item.name}","${item.qty}","${acc.code}","${parseInt(acc.qty)*parseInt(item.qty)}"\n`;
+                        csv += `"GVM-GO-${g.voucherNo}","${g.date}","${g.vehicleNo}","${g.partyName}","${g.deliveryShipping || ''}","${g.goSendBy || ''}","${rems}","${item.pool}","${item.code}","${item.name}","${item.qty}","${sns}","${acc.code}","${parseInt(acc.qty)*parseInt(item.qty)}"\n`;
                     });
                 } else {
-                    csv += `"GVM-GO-${g.voucherNo}","${g.date}","${g.vehicleNo}","${g.partyName}","${g.deliveryShipping || ''}","${g.goSendBy || ''}","${rems}","${item.pool}","${item.code}","${item.name}","${item.qty}","N/A","0"\n`;
+                    csv += `"GVM-GO-${g.voucherNo}","${g.date}","${g.vehicleNo}","${g.partyName}","${g.deliveryShipping || ''}","${g.goSendBy || ''}","${rems}","${item.pool}","${item.code}","${item.name}","${item.qty}","${sns}","N/A","0"\n`;
                 }
             });
         });
