@@ -55,11 +55,11 @@
         <a href="failure.html" class="tab-link">🛠️ Failure Defect Log</a>
     </div>
 
-    <!-- 🌟 अब यहाँ 3 मुख्य टैब बन गए हैं राकेश भाई -->
+    <!-- 🌟 3 मुख्य टैब लेआउट -->
     <div class="ledger-tabs">
-        <button class="ledger-tab-btn active" onclick="switchLedgerTab('po-tab', this)">📊 PO Records</button>
-        <button class="ledger-tab-btn" onclick="switchLedgerTab('stock-tab', this)">🏬 Stock</button>
-        <button class="ledger-tab-btn" onclick="switchLedgerTab('rework-tab', this)">🛠️Rework Inventory</button>
+        <button class="ledger-tab-btn active" onclick="switchLedgerTab('po-tab', this)">📊 PO Matrix Ledger</button>
+        <button class="ledger-tab-btn" onclick="switchLedgerTab('stock-tab', this)">🏬 Live Fresh Stock (Bills)</button>
+        <button class="ledger-tab-btn" onclick="switchLedgerTab('rework-tab', this)">🛠️ Live Rework Inventory (Gate Pass)</button>
     </div>
 
     <!-- =================== टैब 1: PO MATRIX LEDGER =================== -->
@@ -324,13 +324,16 @@
             if(!v) return;
             let items = safeConvertToArray(v.gridItems);
             items.forEach(item => {
-                if(!item || !item.modelCode) return;
-                let code = cleanStr(item.modelCode);
+                if(!item) return;
+                // 🌟 सुधार: itemShort या modelCode दोनों को सपोर्ट करता है
+                let code = cleanStr(item.itemShort || item.modelCode || item.code);
+                if(!code) return;
+                
                 let rowPool = item.pool ? cleanStr(item.pool) : "REWORK";
                 if (rowPool === "FRESH") {
                     globalFreshInMap[code] = (globalFreshInMap[code] || 0) + parseInt(item.qty || item.receiveQty || 0);
                 }
-                if(item.modelName) itemNamesMap[code] = String(item.modelName).toUpperCase();
+                if(item.itemName || item.modelName) itemNamesMap[code] = String(item.itemName || item.modelName).toUpperCase();
             });
         });
 
@@ -389,7 +392,7 @@
         });
     }
 
-    // 3. 🌟 बिलकूल नया: LIVE REWORK INVENTORY TAB ENGINE (अलग से देखने के लिए)
+    // 3. 🌟 सुधार लॉक: LIVE REWORK INVENTORY TAB ENGINE (itemShort फ़िक्स के साथ)
     function renderReworkStockTable() {
         const tbody = document.getElementById('reworkStockBody');
         tbody.innerHTML = '';
@@ -400,23 +403,23 @@
         let globalReworkInMap = {};
         let itemNamesMap = {};
 
-        // 'pool === REWORK' वाला गेट इन छांटना
         reworkInboundVouchers.forEach(v => {
             if(!v) return;
             let items = safeConvertToArray(v.gridItems);
             items.forEach(item => {
-                if(!item || !item.modelCode) return;
-                let code = cleanStr(item.modelCode);
-                let poolType = item.pool ? cleanStr(item.pool) : "REWORK";
+                if(!item) return;
+                // 🔥 यहाँ बड़ा सुधार किया गया है: itemShort को रीड करने के लिए लॉजिक फिट किया है
+                let code = cleanStr(item.itemShort || item.modelCode || item.code);
+                if(!code) return;
                 
+                let poolType = item.pool ? cleanStr(item.pool) : "REWORK";
                 if(poolType === "REWORK") {
                     globalReworkInMap[code] = (globalReworkInMap[code] || 0) + parseInt(item.qty || item.receiveQty || 0);
                 }
-                if(item.modelName) itemNamesMap[code] = String(item.modelName).toUpperCase();
+                if(item.itemName || item.modelName) itemNamesMap[code] = String(item.itemName || item.modelName).toUpperCase();
             });
         });
 
-        // 'pool === REWORK' वाला गेट आउट डिस्पैच छांटना
         let globalReworkOutMap = {};
         outwardDispatches.forEach(g => {
             if(!g) return;
@@ -504,8 +507,8 @@
         reworkInboundVouchers.forEach(v => {
             if(!v) return;
             safeConvertToArray(v.gridItems).forEach(item => {
-                if(item && item.modelCode && cleanStr(item.pool) === "FRESH") {
-                    let code = cleanStr(item.modelCode);
+                let code = cleanStr(item.itemShort || item.modelCode || item.code);
+                if(item && code && cleanStr(item.pool) === "FRESH") {
                     globalFreshInMap[code] = (globalFreshInMap[code] || 0) + parseInt(item.qty || item.receiveQty || 0);
                 }
             });
@@ -534,7 +537,7 @@
         triggerDownloadBlob(csv, "Live_Fresh_Stock_Report.csv");
     }
 
-    // 6. 🌟 रीवर्क स्टॉक एक्सेल डाउनलोड 
+    // 6. रीवर्क स्टॉक एक्सेल डाउनलोड 
     function exportReworkStockToExcel() {
         let csv = "Model Part Code,Item Description,Total Rework Gate In,Total Rework Out,Live Rework Stock\n";
         let globalReworkInMap = {}; let globalReworkOutMap = {}; let itemNamesMap = {};
@@ -542,10 +545,10 @@
         reworkInboundVouchers.forEach(v => {
             if(!v) return;
             safeConvertToArray(v.gridItems).forEach(item => {
-                if(item && item.modelCode && (!item.pool || cleanStr(item.pool) === "REWORK")) {
-                    let code = cleanStr(item.modelCode);
+                let code = cleanStr(item.itemShort || item.modelCode || item.code);
+                if(item && code && (!item.pool || cleanStr(item.pool) === "REWORK")) {
                     globalReworkInMap[code] = (globalReworkInMap[code] || 0) + parseInt(item.qty || item.receiveQty || 0);
-                    if(item.modelName) itemNamesMap[code] = String(item.modelName).toUpperCase();
+                    if(item.itemName || item.modelName) itemNamesMap[code] = String(item.itemName || item.modelName).toUpperCase();
                 }
             });
         });
