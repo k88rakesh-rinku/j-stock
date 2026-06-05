@@ -96,7 +96,6 @@
 <script>
     const normalize = (str) => String(str || "").toUpperCase().replace(/\s+/g, '');
 
-    // 🛠️ FIX 1: पूरा फुल कॉन्फिगरेशन क्रेडेंशियल्स जोड़ा जो बाकी फाइलों में है
     const firebaseConfig = {
         apiKey: "AIzaSyCAOXbPwuFR3wh1QSLBXWsodupKWoRYmqs",
         authDomain: "gvm-stock-control.firebaseapp.com",
@@ -117,22 +116,54 @@
     let currentModalRows = []; 
     let allModalRowsBackup = [];
 
-    // 🛠️ FIX 2: एरर कैचर इंजन चालू किया ताकि एरर होने पर लाइव स्क्रीन पर दिखे
-    Promise.all([
-        database.ref('freshStockVouchers').once('value'),
-        database.ref('gateoutStockData').once('value'),
-        database.ref('systemMasterCatalogFlat').once('value'),
-        database.ref('bomMasterData').once('value')
-    ]).then(s => {
-        freshData = s[0].val() ? Object.values(s[0].val()) : [];
-        gateoutData = s[1].val() ? Object.values(s[1].val()) : [];
-        flatCatalogPOList = s[2].val() ? Object.values(s[2].val()) : [];
-        bomFormulaList = s[3].val() ? Object.values(s[3].val()) : [];
-        renderPOBalanceTable();
-    }).catch(err => {
-        console.error("Firebase Sync Error: ", err);
-        document.getElementById('poLedgerBody').innerHTML = `<tr><td colspan="10" style="text-align:center; padding:20px; color:#dc2626; font-weight:bold;">❌ Cloud Sync Failed!<br><span style="font-size:12px; font-weight:normal; color:#64748b;">Reason: ${err.message}</span></td></tr>`;
-    });
+    // 🛠️ नया प्रोग्रेसिव लोडिंग इंजन (Step-by-Step Loader)
+    async function initProgressiveLedgerLoad() {
+        const poBody = document.getElementById('poLedgerBody');
+        try {
+            // स्टेप 1: फ्रेश इनवर्ड स्टॉक लोड करना
+            poBody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:15px; color:#0284c7; font-weight:bold;">📦 Step 1/4: Loading Fresh Inward Vouchers...</td></tr>`;
+            let freshSnap = await database.ref('freshStockVouchers').once('value');
+            freshData = freshSnap.val() ? Object.values(freshSnap.val()) : [];
+
+            // स्टेप 2: गेट आउट डिस्पैच लोड करना
+            poBody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:15px; color:#0284c7; font-weight:bold;">🚪 Step 2/4: Loading Gate Out Dispatch Records...</td></tr>`;
+            let goSnap = await database.ref('gateoutStockData').once('value');
+            gateoutData = goSnap.val() ? Object.values(goSnap.val()) : [];
+
+            // स्टेप 3: बीओएम फॉर्मूला लोड करना
+            poBody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:15px; color:#0284c7; font-weight:bold;">🔗 Step 3/4: Loading BOM Formulas...</td></tr>`;
+            let bomSnap = await database.ref('bomMasterData').once('value');
+            bomFormulaList = bomSnap.val() ? Object.values(bomSnap.val()) : [];
+
+            // स्टेप 4: पीओ मैट्रिक्स कैटलॉग लोड करना
+            poBody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:15px; color:#0284c7; font-weight:bold;">📋 Step 4/4: Syncing Master PO Catalog...</td></tr>`;
+            let catalogSnap = await database.ref('systemMasterCatalogFlat').once('value');
+            flatCatalogPOList = catalogSnap.val() ? Object.values(catalogSnap.val()) : [];
+
+            // 🛡️ सुरक्षा कवच: अगर क्लाउड पर कैटलॉग एरे खाली मिले, तो लोकल स्टोरेज से पीओ एक्सट्रैक्ट करना
+            if(flatCatalogPOList.length === 0) {
+                console.log("Cloud PO list empty, launching LocalStorage fallback parser...");
+                let localMaster = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
+                let parsedFlat = [];
+                for(let category in localMaster) {
+                    if(Array.isArray(localMaster[category])) {
+                        localMaster[category].forEach(item => {
+                            if(item.hasPO === "YES") parsedFlat.push(item);
+                        });
+                    }
+                }
+                flatCatalogPOList = parsedFlat;
+            }
+
+            // टेबल रेंडर करना
+            poBody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:15px; color:#16a34a; font-weight:bold;">⚙ Recalculating Inventory Matrices...</td></tr>`;
+            renderPOBalanceTable();
+
+        } catch (err) {
+            console.error("Critical Load Error: ", err);
+            poBody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:20px; color:#dc2626; font-weight:bold;">❌ Cloud Sync Failed!<br><span style="font-size:12px; font-weight:normal; color:#64748b;">Fault Location: ${err.message}</span></td></tr>`;
+        }
+    }
 
     function renderPOBalanceTable() {
         const poBody = document.getElementById('poLedgerBody');
@@ -146,7 +177,7 @@
         );
 
         if(foundPOs.length === 0) {
-            poBody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:15px; color:#dc2626; font-weight:bold;">⚠ No PO Matrix Data found on Cloud.</td></tr>`;
+            poBody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:15px; color:#dc2626; font-weight:bold;">⚠ No PO Active Records found.</td></tr>`;
             return;
         }
 
@@ -246,6 +277,9 @@
     }
     
     function closeModal() { document.getElementById('historyModal').style.display = 'none'; }
+
+    // प्रोग्रेसिव लोडिंग शुरू करना
+    initProgressiveLedgerLoad();
 </script>
 </body>
 </html>
