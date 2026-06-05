@@ -23,9 +23,7 @@
         .panel-right { display: flex; gap: 10px; align-items: center; }
 
         .select-filter { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; font-weight: bold; background: #fff; cursor: pointer; }
-        .search-box { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; width: 260px; text-transform: uppercase; }
-        .btn-search-trigger { background: #0f172a; color: white; border: none; padding: 8px 16px; border-radius: 4px; font-weight: bold; cursor: pointer; }
-        .btn-search-trigger:hover { background: #1e293b; }
+        .search-box { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; width: 280px; text-transform: uppercase; }
 
         .tabs-nav a { background-color: #e2e8f0; color: #334155; font-weight: 500; transition: all 0.3s; padding: 8px 12px; display: inline-block; border-radius: 4px; text-decoration: none; margin-right: 4px; }
         .tabs-nav a:hover { background-color: #cbd5e1; }
@@ -96,9 +94,8 @@
     <div id="stock-tab" class="tab-content">
         <div class="control-panel">
             <div class="panel-left">
-                <!-- 🌟 सर्च बॉक्स बिना ऑटोफ़िल पंगे के (autocomplete="off") -->
-                <input type="text" id="stockSearchBox" class="search-box" placeholder="🔍 Search Model Code or Item Name..." autocomplete="off">
-                <button type="button" class="btn-search-trigger" onclick="renderPhysicalStockTable()">Search</button>
+                <!-- 🌟 लाइव सर्च इंजन (oninput लगाते ही टाइप करते ही लिस्ट एक्टिव हो जाएगी) -->
+                <input type="text" id="stockSearchBox" class="search-box" placeholder="🔍 Type Model Code or Item Name..." autocomplete="off" oninput="renderPhysicalStockTable()">
             </div>
             <div class="panel-left">
                 <label style="font-weight: bold; font-size: 13px; color:#475569;">Show Records:</label>
@@ -194,7 +191,7 @@
         renderPhysicalStockTable();
     }
 
-    // 1. पीओ लेज़र रेंडर टेबल (Active / Completed / All फ़िल्टर के साथ)
+    // 1. पीओ लेज़र रेंडर टेबल (पेंडिंग बैलेंस सुधार के साथ)
     function renderPoLedgerTable() {
         const tbody = document.getElementById('poLedgerItemsBody');
         tbody.innerHTML = '';
@@ -225,13 +222,15 @@
             if(!c || !c.poNumber) return;
             let key = cleanStr(c.poNumber) + "_" + cleanStr(c.code);
             let totalReceived = poSummaryMap[key] || 0;
-            let poQty = parseInt(c.poQty || 0);
+            
+            // 🌟 यहाँ सुधार किया गया है: आपके पुराने कैटलॉग नोड में कॉलम का नाम 'qty' ही था!
+            let poQty = parseInt(c.qty || c.poQty || 0); 
             let pendingBalance = poQty - totalReceived;
             if (pendingBalance < 0) pendingBalance = 0;
 
             let isCompleted = pendingBalance === 0;
 
-            // ड्रॉपडाउन फ़िल्टर नियम लागू करना
+            // ड्रॉपडाउन फ़िल्टर नियम
             if(poFilter === 'ACTIVE' && isCompleted) return;
             if(poFilter === 'COMPLETED' && !isCompleted) return;
 
@@ -254,7 +253,7 @@
         }
     }
 
-    // 2. जनरल फिजिकल स्टॉक रेंडर टेबल (PO + डायरेक्ट नॉन-PO सभी का लाइव बैलेंस)
+    // 2. जनरल फिजिकल स्टॉक रेंडर टेबल (लाइव टाइपिंग फ़िल्टर और सर्च इंजन)
     function renderPhysicalStockTable() {
         const tbody = document.getElementById('physicalStockBody');
         tbody.innerHTML = '';
@@ -262,7 +261,6 @@
         const searchStr = document.getElementById('stockSearchBox').value.trim().toUpperCase();
         const limitVal = document.getElementById('stockLimitDropdown').value;
 
-        // स्टेप ए: सभी इनवर्ड वाउचरों से टोटल इनवर्ड (In) कैलकुलेट करना
         let globalInMap = {};
         let itemNamesMap = {};
 
@@ -280,7 +278,6 @@
             });
         });
 
-        // स्टेप बी: गेटआउट से टोटल डिस्पैच (Out) कैलकुलेट करना + BOM एक्सेसरीज ऑटो-कैलकुलेशन
         let globalOutMap = {};
         outwardDispatches.forEach(g => {
             if(!g) return;
@@ -294,7 +291,6 @@
                     globalOutMap[mainCode] = (globalOutMap[mainCode] || 0) + mainQty;
                 }
 
-                // बीओएम ऑटो-लिंक फॉर्मूला चेक करना
                 let targetBOM = bomFormulaList.find(b => b && cleanStr(b.mainCode) === mainCode);
                 if(targetBOM && targetBOM.accessories) {
                     let accs = safeConvertToArray(targetBOM.accessories);
@@ -308,15 +304,13 @@
             });
         });
 
-        // कैटलॉग से नामों का मिलान सुनिश्चित करना
         catalogFlatList.forEach(c => {
             if(c && c.code) { itemNamesMap[cleanStr(c.code)] = String(c.name).toUpperCase(); }
         });
 
-        // अनूठे कोड्स की मास्टर लिस्ट तैयार करना
         let allUniqueCodes = Array.from(new Set([...Object.keys(globalInMap), ...Object.keys(globalOutMap)]));
 
-        // सर्च बॉक्स फ़िल्टर लगाना
+        // 🌟 टाइप करते ही लाइव फ़िल्टर करने का इंजन
         let filteredCodes = allUniqueCodes.filter(code => {
             let name = itemNamesMap[code] || "UNKNOWN ITEM DESCRIPTION";
             return code.includes(searchStr) || name.includes(searchStr);
@@ -327,7 +321,6 @@
             return;
         }
 
-        // लिमिट ड्रॉपडाउन सेट करना
         let viewCodes = filteredCodes;
         if(limitVal !== 'ALL') { viewCodes = filteredCodes.slice(0, parseInt(limitVal)); }
 
@@ -350,7 +343,7 @@
         });
     }
 
-    // 3. पीओ रिपोर्ट डाउनलोड (Excel Export)
+    // 3. पीओ रिपोर्ट एक्सेल डाउनलोड
     function exportPoLedgerToExcel() {
         let csv = "PO Number,Model Code,Item Name,Total PO Qty,Total Received,Pending Balance,Status\n";
         
@@ -371,16 +364,17 @@
             if(!c || !c.poNumber) return;
             let key = cleanStr(c.poNumber) + "_" + cleanStr(c.code);
             let received = poSummaryMap[key] || 0;
-            let bal = parseInt(c.poQty || 0) - received;
+            let poQty = parseInt(c.qty || c.poQty || 0);
+            let bal = poQty - received;
             if(bal < 0) bal = 0;
             let status = bal === 0 ? "COMPLETED" : "ACTIVE";
-            csv += `"${c.poNumber}","${c.code}","${c.name}","${c.poQty}","${received}","${bal}","${status}"\n`;
+            csv += `"${c.poNumber}","${c.code}","${c.name}","${poQty}","${received}","${bal}","${status}"\n`;
         });
 
         triggerDownloadBlob(csv, "PO_Master_Ledger_Report.csv");
     }
 
-    // 4. पूरे फिजिकल स्टॉक की एक्सेल डाउनलोड (Excel Export Engine)
+    // 4. जनरल स्टॉक एक्सेल डाउनलोड
     function exportPhysicalStockToExcel() {
         let csv = "Model Part Code,Item Description,Total Inward (In),Total Dispatched (Out),Live Available Stock\n";
         
@@ -439,7 +433,7 @@
         document.body.appendChild(link); link.click(); document.body.removeChild(link);
     }
 
-    // ऑटोफ़िल प्रोटेक्शन लॉक रूल
+    // ऑटोफ़िल प्रोटेक्शन इंजन
     window.addEventListener('DOMContentLoaded', () => {
         const box = document.getElementById('stockSearchBox');
         if (box) box.value = "";
