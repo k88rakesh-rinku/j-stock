@@ -55,10 +55,11 @@
         <a href="failure.html" class="tab-link">🛠️ Failure Defect Log</a>
     </div>
 
-    <!-- 🌟 मुख्य दो टैब (PO Ledger और Physical Stock) -->
+    <!-- 🌟 अब यहाँ 3 मुख्य टैब बन गए हैं राकेश भाई -->
     <div class="ledger-tabs">
         <button class="ledger-tab-btn active" onclick="switchLedgerTab('po-tab', this)">📊 PO Matrix Ledger</button>
-        <button class="ledger-tab-btn" onclick="switchLedgerTab('stock-tab', this)">🏬 General Physical Stock (All Items)</button>
+        <button class="ledger-tab-btn" onclick="switchLedgerTab('stock-tab', this)">🏬 Live Fresh Stock (Bills)</button>
+        <button class="ledger-tab-btn" onclick="switchLedgerTab('rework-tab', this)">🛠️ Live Rework Inventory (Gate Pass)</button>
     </div>
 
     <!-- =================== टैब 1: PO MATRIX LEDGER =================== -->
@@ -90,11 +91,10 @@
         </div>
     </div>
 
-    <!-- =================== टैब 2: GENERAL PHYSICAL STOCK =================== -->
+    <!-- =================== टैब 2: LIVE FRESH STOCK (BILLS) =================== -->
     <div id="stock-tab" class="tab-content">
         <div class="control-panel">
             <div class="panel-left">
-                <!-- liveType फिल्टर ऑनइनपुट एक्टिव -->
                 <input type="text" id="stockSearchBox" class="search-box" placeholder="🔍 Type Model Code or Item Name..." autocomplete="off" oninput="renderPhysicalStockTable()">
             </div>
             <div class="panel-left">
@@ -107,7 +107,7 @@
                 </select>
             </div>
             <div class="panel-right">
-                <button class="btn-excel" style="background:#16a34a;" onclick="exportPhysicalStockToExcel()">Download Stock Excel</button>
+                <button class="btn-excel" style="background:#16a34a;" onclick="exportPhysicalStockToExcel()">Download Fresh Stock Excel</button>
             </div>
         </div>
 
@@ -116,10 +116,43 @@
                 <thead style="background-color: #1e3a8a; color: white;">
                     <tr>
                         <th>Model Part Code</th><th>Description / Item Name</th>
-                        <th>Live Fresh Stock (Bill)</th><th>Live Rework Stock (Gate Pass)</th><th>Store Total Stock</th>
+                        <th>Total Fresh Inward</th><th>Total Fresh Out (BOM)</th><th>Live Available Fresh Stock</th>
                     </tr>
                 </thead>
                 <tbody id="physicalStockBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- =================== टैब 3: LIVE REWORK INVENTORY (GATE PASS) =================== -->
+    <div id="rework-tab" class="tab-content">
+        <div class="control-panel">
+            <div class="panel-left">
+                <input type="text" id="reworkSearchBox" class="search-box" placeholder="🔍 Type Model Code or Item Name..." autocomplete="off" oninput="renderReworkStockTable()">
+            </div>
+            <div class="panel-left">
+                <label style="font-weight: bold; font-size: 13px; color:#475569;">Show Records:</label>
+                <select id="reworkLimitDropdown" class="select-filter" onchange="renderReworkStockTable()">
+                    <option value="5">5 Records</option>
+                    <option value="10">10 Records</option>
+                    <option value="15">15 Records</option>
+                    <option value="ALL" selected>Show All Rework</option>
+                </select>
+            </div>
+            <div class="panel-right">
+                <button class="btn-excel" style="background:#0369a1;" onclick="exportReworkStockToExcel()">Download Rework Excel</button>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="history-table">
+                <thead style="background-color: #0369a1; color: white;">
+                    <tr>
+                        <th>Model Part Code</th><th>Description / Item Name</th>
+                        <th>Total Rework Gate In</th><th>Total Rework Dispatched</th><th>Live Available Rework Stock</th>
+                    </tr>
+                </thead>
+                <tbody id="reworkStockBody"></tbody>
             </table>
         </div>
     </div>
@@ -144,11 +177,10 @@
 
     let catalogFlatList = [];
     let inboundVouchers = [];
-    let reworkInboundVouchers = []; // 🌟 Gate In (Rework) का नया डेटा कंटेनर
+    let reworkInboundVouchers = []; 
     let outwardDispatches = [];
     let bomFormulaList = [];
 
-    // 🛡️ स्पेस को बिना छेड़े केवल बड़े अक्षरों में ट्रिम करने वाला बुलेटप्रूफ क्लीनर
     const cleanStr = (str) => String(str || "").trim().toUpperCase();
 
     function safeConvertToArray(rawVal) {
@@ -162,6 +194,7 @@
         document.getElementById(tabId).classList.add('active');
         btn.classList.add('active');
         if(tabId === 'stock-tab') { renderPhysicalStockTable(); }
+        else if(tabId === 'rework-tab') { renderReworkStockTable(); }
         else { renderPoLedgerTable(); }
     }
 
@@ -175,7 +208,6 @@
         calculateMasterLogic();
     });
 
-    // 🌟 Gate In (Rework) का लाइव क्लाउड नोड रीयल-टाइम कनेक्शन सिंक
     database.ref('reworkStockVouchers').on('value', (snap) => {
         reworkInboundVouchers = safeConvertToArray(snap.val());
         calculateMasterLogic();
@@ -194,9 +226,10 @@
     function calculateMasterLogic() {
         renderPoLedgerTable();
         renderPhysicalStockTable();
+        renderReworkStockTable();
     }
 
-    // 1. पीओ लेज़र टेबल रेंडरर
+    // 1. PO Ledger Table Renderer
     function renderPoLedgerTable() {
         const tbody = document.getElementById('poLedgerItemsBody');
         tbody.innerHTML = '';
@@ -262,7 +295,7 @@
         }
     }
 
-    // 2. जनरल फिजिकल स्टॉक रेंडरर (Fresh + Rework दोनों कॉलम के साथ लाइव स्टॉक)
+    // 2. LIVE FRESH STOCK TAB ENGINE
     function renderPhysicalStockTable() {
         const tbody = document.getElementById('physicalStockBody');
         tbody.innerHTML = '';
@@ -271,10 +304,8 @@
         const limitVal = document.getElementById('stockLimitDropdown').value;
 
         let globalFreshInMap = {};
-        let globalReworkInMap = {}; // 🌟 गेट पास इनवार्ड काउंटर मैप
         let itemNamesMap = {};
 
-        // स्टेप ए: Fresh Inward (Bill) कैलकुलेट करना
         inboundVouchers.forEach(v => {
             if(!v) return;
             let items = safeConvertToArray(v.gridItems);
@@ -289,25 +320,21 @@
             });
         });
 
-        // स्टेप बी: Gate In Rework (Gate Pass) कैलकुलेट करना
         reworkInboundVouchers.forEach(v => {
             if(!v) return;
             let items = safeConvertToArray(v.gridItems);
-            if(items.length === 0 && v.modelCode) {
-                items.push({ modelCode: v.modelCode, modelName: v.modelName || '', qty: v.qty || v.receiveQty || 0 });
-            }
             items.forEach(item => {
                 if(!item || !item.modelCode) return;
                 let code = cleanStr(item.modelCode);
-                globalReworkInMap[code] = (globalReworkInMap[code] || 0) + parseInt(item.qty || item.receiveQty || 0);
+                let rowPool = item.pool ? cleanStr(item.pool) : "REWORK";
+                if (rowPool === "FRESH") {
+                    globalFreshInMap[code] = (globalFreshInMap[code] || 0) + parseInt(item.qty || item.receiveQty || 0);
+                }
                 if(item.modelName) itemNamesMap[code] = String(item.modelName).toUpperCase();
             });
         });
 
-        // स्टेप सी: Gate Out डिस्पैच का दोनों खातों (FRESH / REWORK) से अलग-अलग डिडक्शन
         let globalFreshOutMap = {};
-        let globalReworkOutMap = {};
-
         outwardDispatches.forEach(g => {
             if(!g) return;
             let items = safeConvertToArray(g.gridItems);
@@ -318,126 +345,155 @@
 
                 if(item.pool === 'FRESH') {
                     globalFreshOutMap[mainCode] = (globalFreshOutMap[mainCode] || 0) + mainQty;
-                } else if(item.pool === 'REWORK') {
-                    globalReworkOutMap[mainCode] = (globalReworkOutMap[mainCode] || 0) + mainQty;
-                }
-
-                // बीओएम फॉर्मूला ऑटो-लिंक केवल फ्रेश पूल डिस्पैच पर कटता है
-                if(item.pool === 'FRESH') {
                     let targetBOM = bomFormulaList.find(b => b && cleanStr(b.mainCode) === mainCode);
                     if(targetBOM && targetBOM.accessories) {
-                        let accs = safeConvertToArray(targetBOM.accessories);
-                        accs.forEach(acc => {
+                        safeConvertToArray(targetBOM.accessories).forEach(acc => {
                             if(!acc || !acc.code) return;
                             let accCode = cleanStr(acc.code);
-                            let totalAccDeduct = parseInt(acc.qty || 0) * mainQty;
-                            globalFreshOutMap[accCode] = (globalFreshOutMap[accCode] || 0) + totalAccDeduct;
+                            globalFreshOutMap[accCode] = (globalFreshOutMap[accCode] || 0) + (parseInt(acc.qty || 0) * mainQty);
                         });
                     }
                 }
             });
         });
 
-        catalogFlatList.forEach(c => {
-            if(c && c.code) { itemNamesMap[cleanStr(c.code)] = String(c.name).toUpperCase(); }
-        });
+        catalogFlatList.forEach(c => { if(c && c.code) itemNamesMap[cleanStr(c.code)] = String(c.name).toUpperCase(); });
+        let allCodes = Array.from(new Set([...Object.keys(globalFreshInMap), ...Object.keys(globalFreshOutMap)]));
 
-        // चारों मैप्स के कोड्स को कंबाइन करके यूनिक मास्टर लिस्ट बनाना
-        let allUniqueCodes = Array.from(new Set([
-            ...Object.keys(globalFreshInMap), 
-            ...Object.keys(globalReworkInMap),
-            ...Object.keys(globalFreshOutMap),
-            ...Object.keys(globalReworkOutMap)
-        ]));
-
-        let filteredCodes = allUniqueCodes.filter(code => {
-            let name = itemNamesMap[code] || "UNKNOWN ITEM DESCRIPTION";
+        let filteredCodes = allCodes.filter(code => {
+            let name = itemNamesMap[code] || "UNKNOWN ITEM";
             return code.includes(searchStr) || name.includes(searchStr);
         });
 
         if(filteredCodes.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:15px; color:#64748b;">No matching stock items found.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:15px; color:#64748b;">No matching fresh stock items found.</td></tr>`;
             return;
         }
 
-        let viewCodes = filteredCodes;
-        if(limitVal !== 'ALL') { viewCodes = filteredCodes.slice(0, parseInt(limitVal)); }
+        if(limitVal !== 'ALL') { filteredCodes = filteredCodes.slice(0, parseInt(limitVal)); }
 
-        viewCodes.forEach(code => {
-            // १. फ्रेश मटीरियल लाइव गणना
-            let freshIn = globalFreshInMap[code] || 0;
-            let freshOut = globalFreshOutMap[code] || 0;
-            let liveFresh = freshIn - freshOut;
-            if(liveFresh < 0) liveFresh = 0;
-
-            // २. रीवर्क (गेट पास) लाइव गणना
-            let reworkIn = globalReworkInMap[code] || 0;
-            let reworkOut = globalReworkOutMap[code] || 0;
-            let liveRework = reworkIn - reworkOut;
-            if(liveRework < 0) liveRework = 0;
-
-            // ३. कुल मटीरियल स्टॉक योग
-            let totalStoreStock = liveFresh + liveRework;
-
-            let desc = itemNamesMap[code] || "DIRECT FRESH ENTERED ITEM (NO PO)";
-            
-            let freshBadge = liveFresh > 0 ? `<span class="badge-stock badge-plus">${liveFresh} NOS</span>` : `<span class="badge-stock badge-zero">0 NOS</span>`;
-            let reworkBadge = liveRework > 0 ? `<span class="badge-stock badge-rework">${liveRework} NOS</span>` : `<span class="badge-stock badge-zero">0 NOS</span>`;
-            let totalStoreBadge = totalStoreStock > 0 ? `<b>${totalStoreStock} NOS</b>` : `<span style="color:#dc2626; font-weight:bold;">0 NOS</span>`;
+        filteredCodes.forEach(code => {
+            let tin = globalFreshInMap[code] || 0;
+            let tout = globalFreshOutMap[code] || 0;
+            let live = tin - tout; if(live < 0) live = 0;
+            let desc = itemNamesMap[code] || "STORE GENERIC COMPONENT";
+            let freshBadge = live > 0 ? `<span class="badge-stock badge-plus">${live} NOS</span>` : `<span class="badge-stock badge-zero">0 NOS</span>`;
 
             tbody.innerHTML += `<tr>
                 <td><code>${code}</code></td>
-                <td style="text-align:left; font-weight:500;">${desc}</td>
+                <td style="text-align:left;">${desc}</td>
+                <td style="color:#16a34a; font-weight:bold;">${tin}</td>
+                <td style="color:#64748b;">${tout}</td>
                 <td>${freshBadge}</td>
-                <td>${reworkBadge}</td>
-                <td>${totalStoreBadge}</td>
             </tr>`;
         });
     }
 
-    // 3. पीओ रिपोर्ट एक्सेल डाउनलोड इंजन
+    // 3. 🌟 बिलकूल नया: LIVE REWORK INVENTORY TAB ENGINE (अलग से देखने के लिए)
+    function renderReworkStockTable() {
+        const tbody = document.getElementById('reworkStockBody');
+        tbody.innerHTML = '';
+
+        const searchStr = document.getElementById('reworkSearchBox').value.trim().toUpperCase();
+        const limitVal = document.getElementById('reworkLimitDropdown').value;
+
+        let globalReworkInMap = {};
+        let itemNamesMap = {};
+
+        // 'pool === REWORK' वाला गेट इन छांटना
+        reworkInboundVouchers.forEach(v => {
+            if(!v) return;
+            let items = safeConvertToArray(v.gridItems);
+            items.forEach(item => {
+                if(!item || !item.modelCode) return;
+                let code = cleanStr(item.modelCode);
+                let poolType = item.pool ? cleanStr(item.pool) : "REWORK";
+                
+                if(poolType === "REWORK") {
+                    globalReworkInMap[code] = (globalReworkInMap[code] || 0) + parseInt(item.qty || item.receiveQty || 0);
+                }
+                if(item.modelName) itemNamesMap[code] = String(item.modelName).toUpperCase();
+            });
+        });
+
+        // 'pool === REWORK' वाला गेट आउट डिस्पैच छांटना
+        let globalReworkOutMap = {};
+        outwardDispatches.forEach(g => {
+            if(!g) return;
+            let items = safeConvertToArray(g.gridItems);
+            items.forEach(item => {
+                if(!item || !item.code) return;
+                let code = cleanStr(item.code);
+                if(item.pool === 'REWORK') {
+                    globalReworkOutMap[code] = (globalReworkOutMap[code] || 0) + parseInt(item.qty || 0);
+                }
+            });
+        });
+
+        catalogFlatList.forEach(c => { if(c && c.code) itemNamesMap[cleanStr(c.code)] = String(c.name).toUpperCase(); });
+        let allCodes = Array.from(new Set([...Object.keys(globalReworkInMap), ...Object.keys(globalReworkOutMap)]));
+
+        let filteredCodes = allCodes.filter(code => {
+            let name = itemNamesMap[code] || "UNKNOWN ITEM";
+            return code.includes(searchStr) || name.includes(searchStr);
+        });
+
+        if(filteredCodes.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:15px; color:#64748b;">No repair/rework items currently found in store.</td></tr>`;
+            return;
+        }
+
+        if(limitVal !== 'ALL') { filteredCodes = filteredCodes.slice(0, parseInt(limitVal)); }
+
+        filteredCodes.forEach(code => {
+            let rin = globalReworkInMap[code] || 0;
+            let rout = globalReworkOutMap[code] || 0;
+            let live = rin - rout; if(live < 0) live = 0;
+            let desc = itemNamesMap[code] || "REWORK RETURNED MATERIAL";
+            let reworkBadge = live > 0 ? `<span class="badge-stock badge-rework">${live} NOS</span>` : `<span class="badge-stock badge-zero">0 NOS</span>`;
+
+            tbody.innerHTML += `<tr>
+                <td><code>${code}</code></td>
+                <td style="text-align:left;">${desc}</td>
+                <td style="color:#0369a1; font-weight:bold;">${rin}</td>
+                <td style="color:#64748b;">${rout}</td>
+                <td>${reworkBadge}</td>
+            </tr>`;
+        });
+    }
+
+    // 4. पीओ एक्सेल डाउनलोड
     function exportPoLedgerToExcel() {
         let csv = "PO Number,Model Code,Item Name,Total PO Qty,Total Received,Pending Balance,Status\n";
-        
         let poSummaryMap = {};
         inboundVouchers.forEach(v => {
             if(!v) return;
             let currentPoNo = v.poNo ? cleanStr(v.poNo) : "";
-            let items = safeConvertToArray(v.gridItems);
-            if(items.length === 0 && v.modelCode) items.push({ modelCode: v.modelCode, qty: v.qty || v.receiveQty || 0 });
-            items.forEach(item => {
+            safeConvertToArray(v.gridItems).forEach(item => {
                 if(item && item.modelCode) {
                     let key = currentPoNo + "|||" + cleanStr(item.modelCode);
                     poSummaryMap[key] = (poSummaryMap[key] || 0) + parseInt(item.qty || item.receiveQty || 0);
                 }
             });
         });
-
         catalogFlatList.forEach(c => {
             if(!c || !c.poNumber) return;
             let key = cleanStr(c.poNumber) + "|||" + cleanStr(c.code);
             let received = poSummaryMap[key] || 0;
             let poQty = parseInt(c.qty || c.poTotalQty || 0);
-            let bal = poQty - received;
-            if(bal < 0) bal = 0;
-            let status = bal === 0 ? "COMPLETED" : "ACTIVE";
-            csv += `"${c.poNumber}","${c.code}","${c.name}","${poQty}","${received}","${bal}","${status}"\n`;
+            let bal = poQty - received; if(bal < 0) bal = 0;
+            csv += `"${c.poNumber}","${c.code}","${c.name}","${poQty}","${received}","${bal}","${bal === 0 ? 'COMPLETED':'ACTIVE'}"\n`;
         });
-
         triggerDownloadBlob(csv, "PO_Master_Ledger_Report.csv");
     }
 
-    // 4. जनरल स्टॉक एक्सेल डाउनलोड (दोनों पूल्स का पूरा डेटा एक्सेल में जाएगा)
+    // 5. फ्रेश स्टॉक एक्सेल डाउनलोड
     function exportPhysicalStockToExcel() {
-        let csv = "Model Part Code,Item Description,Live Fresh Stock (Bill),Live Rework Stock (Gate Pass),Total Store Inventory Stock\n";
-        
-        let globalFreshInMap = {}; let globalReworkInMap = {}; let itemNamesMap = {};
-        
+        let csv = "Model Part Code,Item Description,Total Inward (In),Total Dispatched (Out),Live Fresh Stock\n";
+        let globalFreshInMap = {}; let itemNamesMap = {};
         inboundVouchers.forEach(v => {
             if(!v) return;
-            let items = safeConvertToArray(v.gridItems);
-            if(items.length === 0 && v.modelCode) items.push({ modelCode: v.modelCode, modelName: v.modelName || '', qty: v.qty || v.receiveQty || 0 });
-            items.forEach(item => {
+            safeConvertToArray(v.gridItems).forEach(item => {
                 if(item && item.modelCode) {
                     let code = cleanStr(item.modelCode);
                     globalFreshInMap[code] = (globalFreshInMap[code] || 0) + parseInt(item.qty || item.receiveQty || 0);
@@ -445,73 +501,80 @@
                 }
             });
         });
-
         reworkInboundVouchers.forEach(v => {
             if(!v) return;
-            let items = safeConvertToArray(v.gridItems);
-            if(items.length === 0 && v.modelCode) items.push({ modelCode: v.modelCode, modelName: v.modelName || '', qty: v.qty || v.receiveQty || 0 });
-            items.forEach(item => {
-                if(item && item.modelCode) {
+            safeConvertToArray(v.gridItems).forEach(item => {
+                if(item && item.modelCode && cleanStr(item.pool) === "FRESH") {
+                    let code = cleanStr(item.modelCode);
+                    globalFreshInMap[code] = (globalFreshInMap[code] || 0) + parseInt(item.qty || item.receiveQty || 0);
+                }
+            });
+        });
+        let globalFreshOutMap = {};
+        outwardDispatches.forEach(g => {
+            if(!g) return;
+            safeConvertToArray(g.gridItems).forEach(item => {
+                if(item && item.code && item.pool === 'FRESH') {
+                    let mainCode = cleanStr(item.code); let mainQty = parseInt(item.qty || 0);
+                    globalFreshOutMap[mainCode] = (globalFreshOutMap[mainCode] || 0) + mainQty;
+                    let targetBOM = bomFormulaList.find(b => b && cleanStr(b.mainCode) === mainCode);
+                    if(targetBOM && targetBOM.accessories) {
+                        safeConvertToArray(targetBOM.accessories).forEach(acc => {
+                            if(acc && acc.code) globalFreshOutMap[cleanStr(acc.code)] = (globalFreshOutMap[cleanStr(acc.code)] || 0) + (parseInt(acc.qty || 0) * mainQty);
+                        });
+                    }
+                }
+            });
+        });
+        catalogFlatList.forEach(c => { if(c && c.code) itemNamesMap[cleanStr(c.code)] = String(c.name).toUpperCase(); });
+        Array.from(new Set([...Object.keys(globalFreshInMap), ...Object.keys(globalFreshOutMap)])).forEach(code => {
+            let tin = globalFreshInMap[code] || 0; let tout = globalFreshOutMap[code] || 0;
+            csv += `"${code}","${itemNamesMap[code] || 'GENERIC ITEM'}","${tin}","${tout}","${tin - tout < 0 ? 0 : tin - tout}"\n`;
+        });
+        triggerDownloadBlob(csv, "Live_Fresh_Stock_Report.csv");
+    }
+
+    // 6. 🌟 रीवर्क स्टॉक एक्सेल डाउनलोड 
+    function exportReworkStockToExcel() {
+        let csv = "Model Part Code,Item Description,Total Rework Gate In,Total Rework Out,Live Rework Stock\n";
+        let globalReworkInMap = {}; let globalReworkOutMap = {}; let itemNamesMap = {};
+        
+        reworkInboundVouchers.forEach(v => {
+            if(!v) return;
+            safeConvertToArray(v.gridItems).forEach(item => {
+                if(item && item.modelCode && (!item.pool || cleanStr(item.pool) === "REWORK")) {
                     let code = cleanStr(item.modelCode);
                     globalReworkInMap[code] = (globalReworkInMap[code] || 0) + parseInt(item.qty || item.receiveQty || 0);
                     if(item.modelName) itemNamesMap[code] = String(item.modelName).toUpperCase();
                 }
             });
         });
-
-        let globalFreshOutMap = {}; let globalReworkOutMap = {};
         outwardDispatches.forEach(g => {
             if(!g) return;
-            let items = safeConvertToArray(g.gridItems);
-            items.forEach(item => {
-                if(!item || !item.code) return;
-                let mainCode = cleanStr(item.code); let mainQty = parseInt(item.qty || 0);
-                if(item.pool === 'FRESH') {
-                    globalFreshOutMap[mainCode] = (globalFreshOutMap[mainCode] || 0) + mainQty;
-                    let targetBOM = bomFormulaList.find(b => b && cleanStr(b.mainCode) === mainCode);
-                    if(targetBOM && targetBOM.accessories) {
-                        safeConvertToArray(targetBOM.accessories).forEach(acc => {
-                            if(acc && acc.code) {
-                                let accCode = cleanStr(acc.code);
-                                globalFreshOutMap[accCode] = (globalFreshOutMap[accCode] || 0) + (parseInt(acc.qty || 0) * mainQty);
-                            }
-                        });
-                    }
-                } else if(item.pool === 'REWORK') {
-                    globalReworkOutMap[mainCode] = (globalReworkOutMap[mainCode] || 0) + mainQty;
+            safeConvertToArray(g.gridItems).forEach(item => {
+                if(item && item.code && item.pool === 'REWORK') {
+                    let code = cleanStr(item.code);
+                    globalReworkOutMap[code] = (globalReworkOutMap[code] || 0) + parseInt(item.qty || 0);
                 }
             });
         });
-
         catalogFlatList.forEach(c => { if(c && c.code) itemNamesMap[cleanStr(c.code)] = String(c.name).toUpperCase(); });
-        
-        let allCodes = Array.from(new Set([
-            ...Object.keys(globalFreshInMap), 
-            ...Object.keys(globalReworkInMap),
-            ...Object.keys(globalFreshOutMap),
-            ...Object.keys(globalReworkOutMap)
-        ]));
-
-        allCodes.forEach(code => {
-            let lFresh = (globalFreshInMap[code] || 0) - (globalFreshOutMap[code] || 0); if(lFresh < 0) lFresh = 0;
-            let lRework = (globalReworkInMap[code] || 0) - (globalReworkOutMap[code] || 0); if(lRework < 0) lRework = 0;
-            let desc = itemNamesMap[code] || "DIRECT ENTERED ITEM";
-            csv += `"${code}","${desc}","${lFresh}","${lRework}","${lFresh + lRework}"\n`;
+        Array.from(new Set([...Object.keys(globalReworkInMap), ...Object.keys(globalReworkOutMap)])).forEach(code => {
+            let rin = globalReworkInMap[code] || 0; let rout = globalReworkOutMap[code] || 0;
+            csv += `"${code}","${itemNamesMap[code] || 'REPAIR ITEM'}","${rin}","${rout}","${rin - rout < 0 ? 0 : rin - rout}"\n`;
         });
-
-        triggerDownloadBlob(csv, "Physical_Inventory_Stock_Report.csv");
+        triggerDownloadBlob(csv, "Live_Rework_Stock_Report.csv");
     }
 
     function triggerDownloadBlob(csvContent, filename) {
         let blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
-        let link = document.createElement("a");
-        link.href = URL.createObjectURL(blob); link.setAttribute("download", filename);
-        document.body.appendChild(link); link.click(); document.body.removeChild(link);
+        let link = document.createElement("a"); link.href = URL.createObjectURL(blob);
+        link.setAttribute("download", filename); document.body.appendChild(link); link.click(); document.body.removeChild(link);
     }
 
     window.addEventListener('DOMContentLoaded', () => {
-        const box = document.getElementById('stockSearchBox');
-        if (box) box.value = "";
+        if(document.getElementById('stockSearchBox')) document.getElementById('stockSearchBox').value = "";
+        if(document.getElementById('reworkSearchBox')) document.getElementById('reworkSearchBox').value = "";
     });
 </script>
 </body>
