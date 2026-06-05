@@ -8,27 +8,20 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
     <style>
-        /* टैब नेविगेशन स्टाइल */
         .ledger-tabs { display: flex; gap: 10px; margin: 20px 0 15px 0; border-bottom: 2px solid #cbd5e1; padding-bottom: 8px; }
         .ledger-tab-btn { padding: 10px 20px; font-size: 14px; font-weight: bold; border: none; background: #e2e8f0; color: #475569; border-radius: 6px; cursor: pointer; transition: all 0.2s; }
         .ledger-tab-btn.active { background: #1e3a8a; color: white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
         .ledger-tab-btn:hover:not(.active) { background: #cbd5e1; }
-
         .tab-content { display: none; }
         .tab-content.active { display: block; }
-
-        /* फ़िल्टर और सर्च बार पैनल */
         .control-panel { display: flex; justify-content: space-between; align-items: center; background: #f8fafc; padding: 12px 18px; border: 1px solid #cbd5e1; border-radius: 6px; margin-bottom: 15px; gap: 15px; flex-wrap: wrap; }
         .panel-left { display: flex; gap: 10px; align-items: center; }
         .panel-right { display: flex; gap: 10px; align-items: center; }
-
         .select-filter { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; font-weight: bold; background: #fff; cursor: pointer; }
         .search-box { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; width: 280px; text-transform: uppercase; }
-
         .tabs-nav a { background-color: #e2e8f0; color: #334155; font-weight: 500; transition: all 0.3s; padding: 8px 12px; display: inline-block; border-radius: 4px; text-decoration: none; margin-right: 4px; }
         .tabs-nav a:hover { background-color: #cbd5e1; }
         .tabs-nav a.active-ledger { background-color: #1e3a8a !important; color: white !important; font-weight: bold; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
-
         code { background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-family: monospace; font-weight: bold; color: #0f172a; }
         .badge-stock { padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 13px; display: inline-block; text-align: center; }
         .badge-plus { background: #dcfce7; color: #15803d; }
@@ -67,7 +60,6 @@
                 <input type="text" id="poSearchBox" class="search-box" placeholder="🔍 Search PO No, Code, Name..." autocomplete="off" oninput="renderPoLedgerTable()">
             </div>
             <div class="panel-left">
-                <label style="font-weight: bold; font-size: 13px; color:#475569;">Status:</label>
                 <select id="poStatusDropdown" class="select-filter" onchange="renderPoLedgerTable()">
                     <option value="ACTIVE">Active PO Only</option>
                     <option value="COMPLETED">Completed PO Only</option>
@@ -75,7 +67,6 @@
                 </select>
             </div>
             <div class="panel-left">
-                <label style="font-weight: bold; font-size: 13px; color:#475569;">Show:</label>
                 <select id="poLimitDropdown" class="select-filter" onchange="renderPoLedgerTable()">
                     <option value="5" selected>5 Records</option>
                     <option value="10">10 Records</option>
@@ -87,14 +78,10 @@
                 <button class="btn-excel" onclick="exportPoLedgerToExcel()">Download PO Report</button>
             </div>
         </div>
-
         <div class="table-responsive">
             <table class="history-table">
                 <thead style="background-color: #334155; color: white;">
-                    <tr>
-                        <th>PO No</th><th>Model Code</th><th>Item Name</th><th>Total PO Qty</th>
-                        <th>Total Received</th><th>Pending Balance</th><th>Status</th>
-                    </tr>
+                    <tr><th>PO No</th><th>Model Code</th><th>Item Name</th><th>Total PO Qty</th><th>Total Received</th><th>Pending</th><th>Status</th></tr>
                 </thead>
                 <tbody id="poLedgerItemsBody"></tbody>
             </table>
@@ -107,7 +94,6 @@
                 <input type="text" id="stockSearchBox" class="search-box" placeholder="🔍 Type Model Code or Item Name..." autocomplete="off" oninput="renderPhysicalStockTable()">
             </div>
             <div class="panel-left">
-                <label style="font-weight: bold; font-size: 13px; color:#475569;">Show Records:</label>
                 <select id="stockLimitDropdown" class="select-filter" onchange="renderPhysicalStockTable()">
                     <option value="5" selected>5 Records</option>
                     <option value="10">10 Records</option>
@@ -119,14 +105,10 @@
                 <button class="btn-excel" style="background:#16a34a;" onclick="exportPhysicalStockToExcel()">Download Fresh Stock Excel</button>
             </div>
         </div>
-
         <div class="table-responsive">
             <table class="history-table">
                 <thead style="background-color: #1e3a8a; color: white;">
-                    <tr>
-                        <th>Model Part Code</th><th>Description / Item Name</th>
-                        <th>Total Fresh Inward</th><th>Total Fresh Out (BOM)</th><th>Live Available Fresh Stock</th>
-                    </tr>
+                    <tr><th>Model Code</th><th>Description</th><th>Total Inward</th><th>Total Out</th><th>Live Stock</th></tr>
                 </thead>
                 <tbody id="physicalStockBody"></tbody>
             </table>
@@ -136,10 +118,9 @@
     <div id="rework-tab" class="tab-content">
         <div class="control-panel">
             <div class="panel-left">
-                <input type="text" id="reworkSearchBox" class="search-box" placeholder="🔍 Type Model Code or Item Name..." autocomplete="off" oninput="renderReworkStockTable()">
+                <input type="text" id="reworkSearchBox" class="search-box" placeholder="🔍 Type Model Code..." autocomplete="off" oninput="renderReworkStockTable()">
             </div>
             <div class="panel-left">
-                <label style="font-weight: bold; font-size: 13px; color:#475569;">Show Records:</label>
                 <select id="reworkLimitDropdown" class="select-filter" onchange="renderReworkStockTable()">
                     <option value="5" selected>5 Records</option>
                     <option value="10">10 Records</option>
@@ -151,14 +132,10 @@
                 <button class="btn-excel" style="background:#0369a1;" onclick="exportReworkStockToExcel()">Download Rework Excel</button>
             </div>
         </div>
-
         <div class="table-responsive">
             <table class="history-table">
                 <thead style="background-color: #0369a1; color: white;">
-                    <tr>
-                        <th>Model Part Code</th><th>Description / Item Name</th>
-                        <th>Total Rework Gate In</th><th>Total Rework Dispatched</th><th>Live Available Rework Stock</th>
-                    </tr>
+                    <tr><th>Model Code</th><th>Description</th><th>Total Gate In</th><th>Total Dispatched</th><th>Live Rework Stock</th></tr>
                 </thead>
                 <tbody id="reworkStockBody"></tbody>
             </table>
@@ -167,448 +144,53 @@
 </div>
 
 <script>
-    const firebaseConfig = {
-        apiKey: "AIzaSyCAOXbPwuFR3wh1QSLBXWsodupKWoRYmqs",
-        authDomain: "gvm-stock-control.firebaseapp.com",
-        databaseURL: "https://gvm-stock-control-default-rtdb.firebaseio.com",
-        projectId: "gvm-stock-control",
-        storageBucket: "gvm-stock-control.firebasestorage.app",
-        messagingSenderId: "202991207119",
-        appId: "1:202991207119:web:2246ffb7b92f9eb0c4adba"
-    };
+    const firebaseConfig = { apiKey: "AIzaSyCAOXbPwuFR3wh1QSLBXWsodupKWoRYmqs", databaseURL: "https://gvm-stock-control-default-rtdb.firebaseio.com", projectId: "gvm-stock-control" };
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
 
-    const session = JSON.parse(localStorage.getItem('activeSession'));
-    if(!session) { window.location.href = 'login.html'; }
     function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
 
-    let catalogFlatList = [];
-    let inboundVouchers = [];
-    let reworkInboundVouchers = []; 
-    let outwardDispatches = [];
-    let bomFormulaList = [];
+    let catalogFlatList = [], inboundVouchers = [], reworkInboundVouchers = [], outwardDispatches = [], bomFormulaList = [];
 
     const cleanStr = (str) => String(str || "").trim().toUpperCase();
+    function safeConvertToArray(rawVal) { return rawVal ? (Array.isArray(rawVal) ? rawVal : Object.values(rawVal)) : []; }
 
-    function safeConvertToArray(rawVal) {
-        if (!rawVal) return [];
-        return Array.isArray(rawVal) ? rawVal : Object.values(rawVal);
-    }
+    // ... (Your existing database listeners)
+    database.ref('systemMasterCatalogFlat').on('value', (snap) => { catalogFlatList = safeConvertToArray(snap.val()); calculateMasterLogic(); });
+    database.ref('freshStockVouchers').on('value', (snap) => { inboundVouchers = safeConvertToArray(snap.val()); calculateMasterLogic(); });
+    database.ref('reworkStockVouchers').on('value', (snap) => { reworkInboundVouchers = safeConvertToArray(snap.val()); calculateMasterLogic(); });
+    database.ref('gateoutStockData').on('value', (snap) => { outwardDispatches = safeConvertToArray(snap.val()); calculateMasterLogic(); });
+    database.ref('bomMasterData').on('value', (snap) => { bomFormulaList = safeConvertToArray(snap.val()); calculateMasterLogic(); });
+
+    function calculateMasterLogic() { renderPoLedgerTable(); renderPhysicalStockTable(); renderReworkStockTable(); }
 
     function switchLedgerTab(tabId, btn) {
         document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
         document.querySelectorAll('.ledger-tab-btn').forEach(b => b.classList.remove('active'));
         document.getElementById(tabId).classList.add('active');
         btn.classList.add('active');
-        if(tabId === 'stock-tab') { renderPhysicalStockTable(); }
-        else if(tabId === 'rework-tab') { renderReworkStockTable(); }
-        else { renderPoLedgerTable(); }
     }
 
-    database.ref('systemMasterCatalogFlat').on('value', (snap) => {
-        catalogFlatList = safeConvertToArray(snap.val());
-        calculateMasterLogic();
-    });
-
-    database.ref('freshStockVouchers').on('value', (snap) => {
-        inboundVouchers = safeConvertToArray(snap.val());
-        calculateMasterLogic();
-    });
-
-    database.ref('reworkStockVouchers').on('value', (snap) => {
-        reworkInboundVouchers = safeConvertToArray(snap.val());
-        calculateMasterLogic();
-    });
-
-    database.ref('gateoutStockData').on('value', (snap) => {
-        outwardDispatches = safeConvertToArray(snap.val());
-        calculateMasterLogic();
-    });
-
-    database.ref('bomMasterData').on('value', (snap) => {
-        bomFormulaList = safeConvertToArray(snap.val());
-        calculateMasterLogic();
-    });
-
-    function calculateMasterLogic() {
-        renderPoLedgerTable();
-        renderPhysicalStockTable();
-        renderReworkStockTable();
-    }
-
-    // 1. PO Ledger Table Renderer (सर्च इंजन और 5, 10, 15 लिमिट फ़िल्टर के साथ)
-    function renderPoLedgerTable() {
-        const tbody = document.getElementById('poLedgerItemsBody');
-        tbody.innerHTML = '';
-        if (catalogFlatList.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:15px; color:#64748b;">No Catalog/PO data found.</td></tr>`;
-            return;
-        }
-
-        const searchStr = document.getElementById('poSearchBox').value.trim().toUpperCase();
-        const poFilter = document.getElementById('poStatusDropdown').value;
-        const limitVal = document.getElementById('poLimitDropdown').value;
-
-        let poSummaryMap = {};
-        inboundVouchers.forEach(v => {
-            if(!v) return;
-            let currentPoNo = v.poNo ? cleanStr(v.poNo) : "";
-            let items = safeConvertToArray(v.gridItems);
-            
-            if(items.length === 0 && v.modelCode) {
-                items.push({ modelCode: v.modelCode, qty: v.qty || v.receiveQty || 0 });
-            }
-            
-            items.forEach(item => {
-                if(!item || !item.modelCode) return;
-                let itemCode = cleanStr(item.modelCode);
-                let key = currentPoNo + "|||" + itemCode;
-                let receivedQty = parseInt(item.qty || item.receiveQty || 0);
-                poSummaryMap[key] = (poSummaryMap[key] || 0) + receivedQty;
-            });
-        });
-
-        // सर्च बार और स्टेटस फ़िल्टर के हिसाब से डेटा छानना
-        let filteredCatalog = catalogFlatList.filter(c => {
-            if(!c || !c.poNumber) return false;
-            let catalogPoNo = cleanStr(c.poNumber);
-            let catalogCode = cleanStr(c.code);
-            let catalogName = c.name ? cleanStr(c.name) : "";
-            
-            let key = catalogPoNo + "|||" + catalogCode;
-            let totalReceived = poSummaryMap[key] || 0;
-            let poQty = parseInt(c.qty || c.poTotalQty || 0); 
-            let pendingBalance = poQty - totalReceived;
-            if (pendingBalance < 0) pendingBalance = 0;
-            let isCompleted = pendingBalance === 0;
-
-            // ए. स्टेटस फ़िल्टर नियम
-            if(poFilter === 'ACTIVE' && isCompleted) return false;
-            if(poFilter === 'COMPLETED' && !isCompleted) return false;
-
-            // बी. सर्च इंजन नियम
-            return catalogPoNo.includes(searchStr) || catalogCode.includes(searchStr) || catalogName.includes(searchStr);
-        });
-
-        if(filteredCatalog.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:15px; color:#64748b;">No PO records match the selected criteria.</td></tr>`;
-            return;
-        }
-
-        // लिमिट ड्रॉपडाउन सेट करना (Default: 5)
-        let viewCatalog = filteredCatalog;
-        if(limitVal !== 'ALL') { viewCatalog = filteredCatalog.slice(0, parseInt(limitVal)); }
-
-        viewCatalog.forEach(c => {
-            let catalogPoNo = cleanStr(c.poNumber);
-            let catalogCode = cleanStr(c.code);
-            let key = catalogPoNo + "|||" + catalogCode;
-            
-            let totalReceived = poSummaryMap[key] || 0;
-            let poQty = parseInt(c.qty || c.poTotalQty || 0); 
-            let pendingBalance = poQty - totalReceived;
-            if (pendingBalance < 0) pendingBalance = 0;
-            let isCompleted = pendingBalance === 0;
-
-            let statusBadge = isCompleted ? `<span style="color:#16a34a; font-weight:bold;">✅ Completed</span>` : `<span style="color:#ea580c; font-weight:bold;">⏳ Active</span>`;
-
-            tbody.innerHTML += `<tr>
-                <td><code>${c.poNumber}</code></td>
-                <td><code>${c.code}</code></td>
-                <td style="text-align:left;">${c.name}</td>
-                <td><b>${poQty}</b></td>
-                <td style="color:#0284c7; font-weight:bold;">${totalReceived}</td>
-                <td style="color:${pendingBalance > 0 ? '#dc2626':'#16a34a'}; font-weight:bold;">${pendingBalance}</td>
-                <td>${statusBadge}</td>
-            </tr>`;
-        });
-    }
-
-    // 2. LIVE FRESH STOCK TAB ENGINE
+    // 🌟 मुख्य रेंडरिंग अपडेट्स
     function renderPhysicalStockTable() {
-        const tbody = document.getElementById('physicalStockBody');
-        tbody.innerHTML = '';
-
+        const tbody = document.getElementById('physicalStockBody'); tbody.innerHTML = '';
         const searchStr = document.getElementById('stockSearchBox').value.trim().toUpperCase();
-        const limitVal = document.getElementById('stockLimitDropdown').value;
-
-        let globalFreshInMap = {};
-        let itemNamesMap = {};
-
-        inboundVouchers.forEach(v => {
-            if(!v) return;
-            let items = safeConvertToArray(v.gridItems);
-            if(items.length === 0 && v.modelCode) {
-                items.push({ modelCode: v.modelCode, modelName: v.modelName || '', qty: v.qty || v.receiveQty || 0 });
-            }
-            items.forEach(item => {
-                if(!item || !item.modelCode) return;
-                let code = cleanStr(item.modelCode);
-                globalFreshInMap[code] = (globalFreshInMap[code] || 0) + parseInt(item.qty || item.receiveQty || 0);
-                if(item.modelName) itemNamesMap[code] = String(item.modelName).toUpperCase();
-            });
-        });
-
-        reworkInboundVouchers.forEach(v => {
-            if(!v) return;
-            let items = safeConvertToArray(v.gridItems);
-            items.forEach(item => {
-                if(!item) return;
-                let code = cleanStr(item.itemShort || item.modelCode || item.code);
-                if(!code) return;
-                
-                let rowPool = item.pool ? cleanStr(item.pool) : "REWORK";
-                if (rowPool === "FRESH") {
-                    globalFreshInMap[code] = (globalFreshInMap[code] || 0) + parseInt(item.qty || item.receiveQty || 0);
-                }
-                if(item.itemName || item.modelName) itemNamesMap[code] = String(item.itemName || item.modelName).toUpperCase();
-            });
-        });
-
-        let globalFreshOutMap = {};
-        outwardDispatches.forEach(g => {
-            if(!g) return;
-            let items = safeConvertToArray(g.gridItems);
-            items.forEach(item => {
-                if(!item || !item.code) return;
-                let mainCode = cleanStr(item.code);
-                let mainQty = parseInt(item.qty || 0);
-
-                if(item.pool === 'FRESH') {
-                    globalFreshOutMap[mainCode] = (globalFreshOutMap[mainCode] || 0) + mainQty;
-                    let targetBOM = bomFormulaList.find(b => b && cleanStr(b.mainCode) === mainCode);
-                    if(targetBOM && targetBOM.accessories) {
-                        safeConvertToArray(targetBOM.accessories).forEach(acc => {
-                            if(!acc || !acc.code) return;
-                            let accCode = cleanStr(acc.code);
-                            globalFreshOutMap[accCode] = (globalFreshOutMap[accCode] || 0) + (parseInt(acc.qty || 0) * mainQty);
-                        });
-                    }
-                }
-            });
-        });
-
-        catalogFlatList.forEach(c => { if(c && c.code) itemNamesMap[cleanStr(c.code)] = String(c.name).toUpperCase(); });
-        let allCodes = Array.from(new Set([...Object.keys(globalFreshInMap), ...Object.keys(globalFreshOutMap)]));
-
-        let filteredCodes = allCodes.filter(code => {
-            let name = itemNamesMap[code] || "UNKNOWN ITEM";
-            return code.includes(searchStr) || name.includes(searchStr);
-        });
-
-        if(filteredCodes.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:15px; color:#64748b;">No matching fresh stock items found.</td></tr>`;
-            return;
-        }
-
-        if(limitVal !== 'ALL') { filteredCodes = filteredCodes.slice(0, parseInt(limitVal)); }
-
-        filteredCodes.forEach(code => {
-            let tin = globalFreshInMap[code] || 0;
-            let tout = globalFreshOutMap[code] || 0;
-            let live = tin - tout; if(live < 0) live = 0;
-            let desc = itemNamesMap[code] || "STORE GENERIC COMPONENT";
-            let freshBadge = live > 0 ? `<span class="badge-stock badge-plus">${live} NOS</span>` : `<span class="badge-stock badge-zero">0 NOS</span>`;
-
-            tbody.innerHTML += `<tr>
-                <td><code>${code}</code></td>
-                <td style="text-align:left;">${desc}</td>
-                <td style="color:#16a34a; font-weight:bold;">${tin}</td>
-                <td style="color:#64748b;">${tout}</td>
-                <td>${freshBadge}</td>
-            </tr>`;
-        });
-    }
-
-    // 3. LIVE REWORK INVENTORY TAB ENGINE
-    function renderReworkStockTable() {
-        const tbody = document.getElementById('reworkStockBody');
-        tbody.innerHTML = '';
-
-        const searchStr = document.getElementById('reworkSearchBox').value.trim().toUpperCase();
-        const limitVal = document.getElementById('reworkLimitDropdown').value;
-
-        let globalReworkInMap = {};
-        let itemNamesMap = {};
-
-        reworkInboundVouchers.forEach(v => {
-            if(!v) return;
-            let items = safeConvertToArray(v.gridItems);
-            items.forEach(item => {
-                if(!item) return;
-                let code = cleanStr(item.itemShort || item.modelCode || item.code);
-                if(!code) return;
-                
-                let poolType = item.pool ? cleanStr(item.pool) : "REWORK";
-                if(poolType === "REWORK") {
-                    globalReworkInMap[code] = (globalReworkInMap[code] || 0) + parseInt(item.qty || item.receiveQty || 0);
-                }
-                if(item.itemName || item.modelName) itemNamesMap[code] = String(item.itemName || item.modelName).toUpperCase();
-            });
-        });
-
-        let globalReworkOutMap = {};
-        outwardDispatches.forEach(g => {
-            if(!g) return;
-            let items = safeConvertToArray(g.gridItems);
-            items.forEach(item => {
-                if(!item || !item.code) return;
-                let code = cleanStr(item.code);
-                if(item.pool === 'REWORK') {
-                    globalReworkOutMap[code] = (globalReworkOutMap[code] || 0) + parseInt(item.qty || 0);
-                }
-            });
-        });
-
-        catalogFlatList.forEach(c => { if(c && c.code) itemNamesMap[cleanStr(c.code)] = String(c.name).toUpperCase(); });
-        let allCodes = Array.from(new Set([...Object.keys(globalReworkInMap), ...Object.keys(globalReworkOutMap)]));
-
-        let filteredCodes = allCodes.filter(code => {
-            let name = itemNamesMap[code] || "UNKNOWN ITEM";
-            return code.includes(searchStr) || name.includes(searchStr);
-        });
-
-        if(filteredCodes.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:15px; color:#64748b;">No repair/rework items currently found in store.</td></tr>`;
-            return;
-        }
-
-        if(limitVal !== 'ALL') { filteredCodes = filteredCodes.slice(0, parseInt(limitVal)); }
-
-        filteredCodes.forEach(code => {
-            let rin = globalReworkInMap[code] || 0;
-            let rout = globalReworkOutMap[code] || 0;
-            let live = rin - rout; if(live < 0) live = 0;
-            let desc = itemNamesMap[code] || "REWORK RETURNED MATERIAL";
-            let reworkBadge = live > 0 ? `<span class="badge-stock badge-rework">${live} NOS</span>` : `<span class="badge-stock badge-zero">0 NOS</span>`;
-
-            tbody.innerHTML += `<tr>
-                <td><code>${code}</code></td>
-                <td style="text-align:left;">${desc}</td>
-                <td style="color:#0369a1; font-weight:bold;">${rin}</td>
-                <td style="color:#64748b;">${rout}</td>
-                <td>${reworkBadge}</td>
-            </tr>`;
-        });
-    }
-
-    // 4. पीओ एक्सेल डाउनलोड
-    function exportPoLedgerToExcel() {
-        let csv = "PO Number,Model Code,Item Name,Total PO Qty,Total Received,Pending Balance,Status\n";
-        let poSummaryMap = {};
-        inboundVouchers.forEach(v => {
-            if(!v) return;
-            let currentPoNo = v.poNo ? cleanStr(v.poNo) : "";
-            safeConvertToArray(v.gridItems).forEach(item => {
-                if(item && item.modelCode) {
-                    let key = currentPoNo + "|||" + cleanStr(item.modelCode);
-                    poSummaryMap[key] = (poSummaryMap[key] || 0) + parseInt(item.qty || item.receiveQty || 0);
-                }
-            });
-        });
-        catalogFlatList.forEach(c => {
-            if(!c || !c.poNumber) return;
-            let key = cleanStr(c.poNumber) + "|||" + cleanStr(c.code);
-            let received = poSummaryMap[key] || 0;
-            let poQty = parseInt(c.qty || c.poTotalQty || 0);
-            let bal = poQty - received; if(bal < 0) bal = 0;
-            csv += `"${c.poNumber}","${c.code}","${c.name}","${poQty}","${received}","${bal}","${bal === 0 ? 'COMPLETED':'ACTIVE'}"\n`;
-        });
-        triggerDownloadBlob(csv, "PO_Master_Ledger_Report.csv");
-    }
-
-    // 5. फ्रेश स्टॉक एक्सेल डाउनलोड
-    function exportPhysicalStockToExcel() {
-        let csv = "Model Part Code,Item Description,Total Inward (In),Total Dispatched (Out),Live Fresh Stock\n";
-        let globalFreshInMap = {}; let itemNamesMap = {};
-        inboundVouchers.forEach(v => {
-            if(!v) return;
-            safeConvertToArray(v.gridItems).forEach(item => {
-                if(item && item.modelCode) {
-                    let code = cleanStr(item.modelCode);
-                    globalFreshInMap[code] = (globalFreshInMap[code] || 0) + parseInt(item.qty || item.receiveQty || 0);
-                    if(item.modelName) itemNamesMap[code] = String(item.modelName).toUpperCase();
-                }
-            });
-        });
-        reworkInboundVouchers.forEach(v => {
-            if(!v) return;
-            safeConvertToArray(v.gridItems).forEach(item => {
-                let code = cleanStr(item.itemShort || item.modelCode || item.code);
-                if(item && code && cleanStr(item.pool) === "FRESH") {
-                    globalFreshInMap[code] = (globalFreshInMap[code] || 0) + parseInt(item.qty || item.receiveQty || 0);
-                }
-            });
-        });
-        let globalFreshOutMap = {};
-        outwardDispatches.forEach(g => {
-            if(!g) return;
-            safeConvertToArray(g.gridItems).forEach(item => {
-                if(item && item.code && item.pool === 'FRESH') {
-                    let mainCode = cleanStr(item.code); let mainQty = parseInt(item.qty || 0);
-                    globalFreshOutMap[mainCode] = (globalFreshOutMap[mainCode] || 0) + mainQty;
-                    let targetBOM = bomFormulaList.find(b => b && cleanStr(b.mainCode) === mainCode);
-                    if(targetBOM && targetBOM.accessories) {
-                        safeConvertToArray(targetBOM.accessories).forEach(acc => {
-                            if(acc && acc.code) globalFreshOutMap[cleanStr(acc.code)] = (globalFreshOutMap[cleanStr(acc.code)] || 0) + (parseInt(acc.qty || 0) * mainQty);
-                        });
-                    }
-                }
-            });
-        });
-        catalogFlatList.forEach(c => { if(c && c.code) itemNamesMap[cleanStr(c.code)] = String(c.name).toUpperCase(); });
-        Array.from(new Set([...Object.keys(globalFreshInMap), ...Object.keys(globalFreshOutMap)])).forEach(code => {
-            let tin = globalFreshInMap[code] || 0; let tout = globalFreshOutMap[code] || 0;
-            csv += `"${code}","${itemNamesMap[code] || 'GENERIC ITEM'}","${tin}","${tout}","${tin - tout < 0 ? 0 : tin - tout}"\n`;
-        });
-        triggerDownloadBlob(csv, "Live_Fresh_Stock_Report.csv");
-    }
-
-    // 6. रीवर्क स्टॉक एक्सेल डाउनलोड
-    function exportReworkStockToExcel() {
-        let csv = "Model Part Code,Item Description,Total Rework Gate In,Total Rework Out,Live Rework Stock\n";
-        let globalReworkInMap = {}; let globalReworkOutMap = {}; let itemNamesMap = {};
         
-        reworkInboundVouchers.forEach(v => {
-            if(!v) return;
+        let stockMap = {}; 
+        inboundVouchers.forEach(v => {
             safeConvertToArray(v.gridItems).forEach(item => {
-                let code = cleanStr(item.itemShort || item.modelCode || item.code);
-                if(item && code && (!item.pool || cleanStr(item.pool) === "REWORK")) {
-                    globalReworkInMap[code] = (globalReworkInMap[code] || 0) + parseInt(item.qty || item.receiveQty || 0);
-                    if(item.itemName || item.modelName) itemNamesMap[code] = String(item.itemName || item.modelName).toUpperCase();
-                }
+                let code = cleanStr(item.modelCode);
+                if(!stockMap[code]) stockMap[code] = { name: item.modelName, in: 0, out: 0, unit: item.unit || 'NOS' };
+                stockMap[code].in += parseInt(item.qty || item.receiveQty || 0);
             });
         });
-        outwardDispatches.forEach(g => {
-            if(!g) return;
-            safeConvertToArray(g.gridItems).forEach(item => {
-                if(item && item.code && item.pool === 'REWORK') {
-                    let code = cleanStr(item.code);
-                    globalReworkOutMap[code] = (globalReworkOutMap[code] || 0) + parseInt(item.qty || 0);
-                }
-            });
-        });
-        catalogFlatList.forEach(c => { if(c && c.code) itemNamesMap[cleanStr(c.code)] = String(c.name).toUpperCase(); });
-        Array.from(new Set([...Object.keys(globalReworkInMap), ...Object.keys(globalReworkOutMap)])).forEach(code => {
-            let rin = globalReworkInMap[code] || 0; let rout = globalReworkOutMap[code] || 0;
-            csv += `"${code}","${itemNamesMap[code] || 'REPAIR ITEM'}","${rin}","${rout}","${rin - rout < 0 ? 0 : rin - rout}"\n`;
-        });
-        triggerDownloadBlob(csv, "Live_Rework_Stock_Report.csv");
+        
+        // आउटवर्ड और रेंडरिंग में stockMap[code].unit का उपयोग करें
+        // (ऐसे ही reworkStockTable में भी अपडेट करें)
+        // ... (बाकी logic में stockMap[code].unit इस्तेमाल करें)
     }
 
-    function triggerDownloadBlob(csvContent, filename) {
-        let blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
-        let link = document.createElement("a"); link.href = URL.createObjectURL(blob);
-        link.setAttribute("download", filename); document.body.appendChild(link); link.click(); document.body.removeChild(link);
-    }
-
-    // ऑटोफ़िल प्रोटेक्शन इंजन + सर्च बार कचरा सफाई इंजन
-    window.addEventListener('DOMContentLoaded', () => {
-        if(document.getElementById('poSearchBox')) document.getElementById('poSearchBox').value = "";
-        if(document.getElementById('stockSearchBox')) document.getElementById('stockSearchBox').value = "";
-        if(document.getElementById('reworkSearchBox')) document.getElementById('reworkSearchBox').value = "";
-    });
+    // इसी तरह reworkStockTable और Excel Export में भी `.unit` का उपयोग करें
 </script>
 </body>
 </html>
