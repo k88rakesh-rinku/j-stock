@@ -162,6 +162,12 @@
 
     const cleanStr = (str) => String(str || "").trim().toUpperCase().replace(/\s+/g, '');
 
+    function safeConvertToArray(rawVal) {
+        if (!rawVal) return [];
+        let arr = Array.isArray(rawVal) ? rawVal : Object.values(rawVal);
+        return arr.filter(item => item !== null && item !== undefined);
+    }
+
     const getSerialsString = (serialsField) => {
         if (!serialsField) return "";
         if (Array.isArray(serialsField)) return serialsField.join(', ');
@@ -169,23 +175,29 @@
     };
 
     database.ref('bomMasterData').on('value', (snapshot) => {
-        bomFormulaList = snapshot.val() ? Object.values(snapshot.val()) : [];
+        bomFormulaList = safeConvertToArray(snapshot.val());
     });
 
     database.ref('freshStockVouchers').on('value', (snapshot) => {
-        stockData = snapshot.val() ? Object.values(snapshot.val()) : [];
+        stockData = safeConvertToArray(snapshot.val());
         renderTable();
     });
 
     database.ref('gateoutStockData').on('value', (snapshot) => {
         gateoutData = [];
         const data = snapshot.val();
-        if(data) { for(let key in data) { gateoutData.push({ fbKey: key, ...data[key] }); } }
+        if(data) { 
+            for(let key in data) { 
+                if(data[key] !== null) {
+                    gateoutData.push({ fbKey: key, ...data[key] }); 
+                }
+            } 
+        }
         gateoutData.reverse(); 
         renderTable();
     });
 
-    // 🛠️ अपग्रेड किया हुआ रो-बिल्डर इंजन (Dropdown + Live Input Box)
+    // रो-बिल्डर इंजन (Dropdown + Live Input Box)
     function addGoRow(preExistingSerials = "") {
         const body = document.getElementById('gateoutItemsBody');
         const tr = document.createElement('tr');
@@ -210,7 +222,6 @@
         body.appendChild(tr);
     }
 
-    // YES करने पर बॉक्स दिखेगा, NO करने पर छिप जाएगा
     window.toggleSnField = function(select) {
         let tr = select.closest('tr');
         let input = tr.querySelector('.go-serials');
@@ -237,21 +248,24 @@
         let totalIn = 0; let totalOut = 0; let cleanedTarget = cleanStr(targetCode);
         
         stockData.forEach(v => {
-            let items = v.gridItems || [];
+            if(!v) return;
+            let items = safeConvertToArray(v.gridItems);
             if(items.length === 0 && v.modelCode) { items.push({ modelCode: v.modelCode, qty: v.qty || v.receiveQty || 0 }); }
-            items.forEach(item => { if(cleanStr(item.modelCode) === cleanedTarget) { totalIn += parseInt(item.qty || item.receiveQty || 0); } });
+            items.forEach(item => { if(item && cleanStr(item.modelCode) === cleanedTarget) { totalIn += parseInt(item.qty || item.receiveQty || 0); } });
         });
 
         gateoutData.forEach(g => {
-            if(skipFbKey && g.fbKey === skipFbKey) return;
-            let items = g.gridItems || [];
+            if(!g || (skipFbKey && g.fbKey === skipFbKey)) return;
+            let items = safeConvertToArray(g.gridItems);
             items.forEach(item => { 
+                if(!item) return;
                 if(item.pool === 'FRESH' && cleanStr(item.code) === cleanedTarget) { totalOut += parseInt(item.qty || 0); }
                 
-                let mainItemBOM = bomFormulaList.find(b => cleanStr(b.mainCode) === cleanStr(item.code));
+                let mainItemBOM = bomFormulaList.find(b => b && cleanStr(b.mainCode) === cleanStr(item.code));
                 if(mainItemBOM && mainItemBOM.accessories) {
-                    mainItemBOM.accessories.forEach(acc => {
-                        if(cleanStr(acc.code) === cleanedTarget) { totalOut += (parseInt(acc.qty) * parseInt(item.qty || 0)); }
+                    let accs = safeConvertToArray(mainItemBOM.accessories);
+                    accs.forEach(acc => {
+                        if(acc && cleanStr(acc.code) === cleanedTarget) { totalOut += (parseInt(acc.qty) * parseInt(item.qty || 0)); }
                     });
                 }
             });
@@ -261,7 +275,8 @@
 
     document.getElementById('gateoutForm').addEventListener('submit', function(e) {
         e.preventDefault();
-        let items = []; let rows = document.querySelectorAll('#gateoutItemsBody tr'); let deficit = false;
+        let items = []; // 🛡️ लॉक शील्ड: कड़क और शुद्ध जावास्क्रिप्ट ऐरे
+        let rows = document.querySelectorAll('#gateoutItemsBody tr'); let deficit = false;
         const idx = parseInt(document.getElementById('editRowIndex').value);
         const fbKey = document.getElementById('editFirebaseKey').value;
 
@@ -275,7 +290,7 @@
             if(snRequired === 'YES') {
                 serialsVal = row.querySelector('.go-serials').value.trim().toUpperCase();
                 if(!serialsVal || serialsVal === "-") {
-                    alert(`⚠️ Range Text Missing!\n\nYou selected YES for S/N Track on item [${rawCode}], but left the Serial box empty.\nPlease fill the range text (e.g. 2601001 TO 100).`);
+                    alert(`⚠️ Range Text Missing!\n\nYou selected YES for S/N Track on item [${rawCode}], but left the Serial box empty.`);
                     deficit = true; break;
                 }
             }
@@ -287,20 +302,30 @@
                     deficit = true; break; 
                 }
 
-                let targetBOM = bomFormulaList.find(b => cleanStr(b.mainCode) === cleanStr(rawCode));
+                let targetBOM = bomFormulaList.find(b => b && cleanStr(b.mainCode) === cleanStr(rawCode));
                 if(targetBOM && targetBOM.accessories) {
-                    for(let acc of targetBOM.accessories) {
+                    let accs = safeConvertToArray(targetBOM.accessories);
+                    for(let acc of accs) {
+                        if(!acc) continue;
                         let requiredAccQty = parseInt(acc.qty) * qty;
                         let availableAccStock = calculateLiveFreshStock(acc.code, fbKey);
                         if(availableAccStock < requiredAccQty) {
-                            alert(`🚫 BOM Component Deficit!\n\nMain Model [${rawCode}] requires [${requiredAccQty} NOS] of Component [${acc.code}].\nAvailable Component Stock: ${availableAccStock} NOS.`);
+                            alert(`🚫 BOM Component Deficit!\n\nMain Model [${rawCode}] requires [${requiredAccQty} NOS] of Component [${acc.code}].`);
                             deficit = true; break;
                         }
                     }
                 }
                 if(deficit) break;
             }
-            items.push({ pool, code: rawCode, name: row.querySelector('.go-name').value, qty, serials: serialsVal });
+            
+            // ऑब्जेक्ट बनाकर शुद्ध ऐरे में पुश कर रहे हैं
+            items.push({ 
+                pool: String(pool), 
+                code: String(rawCode), 
+                name: String(row.querySelector('.go-name').value), 
+                qty: parseInt(qty), 
+                serials: String(serialsVal) 
+            });
         }
         if(deficit) return;
 
@@ -312,7 +337,7 @@
             deliveryShipping: document.getElementById('goDeliveryShipping').value.trim().toUpperCase(),
             goSendBy: document.getElementById('goSendBy').value.trim().toUpperCase(),
             remarks: document.getElementById('goRemarks').value.trim().toUpperCase(), 
-            gridItems: items
+            gridItems: items // 🛡️ यह हमेशा क्लीन JSON ऐरे के रूप में ही सेव होगा
         };
 
         if(idx === -1) {
@@ -335,11 +360,13 @@
         const limitVal = document.getElementById('liveTableLimitSelect').value;
 
         let filteredList = gateoutData.filter(g => {
+            if(!g) return false;
             const matchVehicle = g.vehicleNo ? g.vehicleNo.toUpperCase().includes(searchStr) : false;
             const matchParty = g.partyName ? g.partyName.toUpperCase().includes(searchStr) : false;
             const matchRemarks = g.remarks ? g.remarks.toUpperCase().includes(searchStr) : false;
-            let itemsList = g.gridItems || [];
+            let itemsList = safeConvertToArray(g.gridItems);
             const matchItems = itemsList.some(item => {
+                if(!item) return false;
                 let sTxt = getSerialsString(item.serials);
                 return (item.code && item.code.toUpperCase().includes(searchStr)) || 
                        (item.name && item.name.toUpperCase().includes(searchStr)) ||
@@ -357,10 +384,13 @@
         if (limitVal !== "ALL") { viewList = filteredList.slice(0, parseInt(limitVal)); }
 
         viewList.forEach((g) => {
+            if(!g) return;
             let origIdx = gateoutData.findIndex(x => x.fbKey === g.fbKey);
             let summaryHtml = "";
             
-            (g.gridItems || []).forEach(item => {
+            let gItems = safeConvertToArray(g.gridItems);
+            gItems.forEach(item => {
+                if(!item) return;
                 summaryHtml += `• [<b>${item.pool}</b>] <code>${item.code}</code> - ${item.name} (<b>${item.qty} NOS</b>)<br>`;
                 
                 let sTxt = getSerialsString(item.serials);
@@ -368,11 +398,12 @@
                     summaryHtml += `<span style="font-size:11px; color:#16a34a; padding-left:10px; font-weight:bold;">🔢 S/N: ${sTxt}</span><br>`;
                 }
 
-                let linkedBOM = bomFormulaList.find(b => cleanStr(b.mainCode) === cleanStr(item.code));
+                let linkedBOM = bomFormulaList.find(b => b && cleanStr(b.mainCode) === cleanStr(item.code));
                 if(linkedBOM && linkedBOM.accessories) {
                     summaryHtml += `<span style="font-size:10px; color:#0284c7; padding-left:10px;">📦 BOM Parts Auto-Deducted:</span><br>`;
-                    linkedBOM.accessories.forEach(acc => {
-                        summaryHtml += `<span style="font-size:10px; color:#64748b; padding-left:15px;">↳ ${acc.code}: ${parseInt(acc.qty)*parseInt(item.qty)} NOS</span><br>`;
+                    let accs = safeConvertToArray(linkedBOM.accessories);
+                    accs.forEach(acc => {
+                        if(acc) summaryHtml += `<span style="font-size:10px; color:#64748b; padding-left:15px;">↳ ${acc.code}: ${parseInt(acc.qty)*parseInt(item.qty)} NOS</span><br>`;
                     });
                 }
             });
@@ -392,6 +423,7 @@
 
     window.editGateoutRow = function(origIdx) {
         const d = gateoutData[origIdx];
+        if(!d) return;
         document.getElementById('editRowIndex').value = origIdx;
         document.getElementById('editFirebaseKey').value = d.fbKey;
         document.getElementById('goDate').value = d.date;
@@ -402,7 +434,9 @@
         document.getElementById('goRemarks').value = d.remarks || ''; 
 
         const body = document.getElementById('gateoutItemsBody'); body.innerHTML = '';
-        (d.gridItems || []).forEach(item => {
+        let dItems = safeConvertToArray(d.gridItems);
+        dItems.forEach(item => {
+            if(!item) return;
             let sTxt = getSerialsString(item.serials);
             let hasSn = sTxt !== "" && sTxt !== "-";
             const tr = document.createElement('tr');
@@ -465,9 +499,12 @@
     }
 
     function triggerGateOutReceipt(g) {
+        if(!g) return;
         const shell = document.getElementById('printSection');
         let rowsHtml = "";
-        (g.gridItems || []).forEach(item => {
+        let gItems = safeConvertToArray(g.gridItems);
+        gItems.forEach(item => {
+            if(!item) return;
             rowsHtml += `<tr>
                 <td style="border:1px solid #000; padding:3px; font-weight:bold;">${item.code}</td>
                 <td style="border:1px solid #000; padding:3px;">${item.name}</td>
@@ -482,14 +519,17 @@
                 </tr>`;
             }
 
-            let printBOM = bomFormulaList.find(b => cleanStr(b.mainCode) === cleanStr(item.code));
+            let printBOM = bomFormulaList.find(b => b && cleanStr(b.mainCode) === cleanStr(item.code));
             if(printBOM && printBOM.accessories) {
-                printBOM.accessories.forEach(acc => {
-                    rowsHtml += `<tr style="color:#555; font-style:italic; background:#fafafa; font-size:9px;">
-                        <td style="border:1px solid #000; padding:2px 2px 2px 15px;">↳ Component: ${acc.code}</td>
-                        <td style="border:1px solid #000; padding:2px;" colspan="2">${acc.name}</td>
-                        <td style="border:1px solid #000; padding:2px; text-align:center;">${parseInt(acc.qty)*parseInt(item.qty)}</td>
-                    </tr>`;
+                let accs = safeConvertToArray(printBOM.accessories);
+                accs.forEach(acc => {
+                    if(acc) {
+                        rowsHtml += `<tr style="color:#555; font-style:italic; background:#fafafa; font-size:9px;">
+                            <td style="border:1px solid #000; padding:2px 2px 2px 15px;">↳ Component: ${acc.code}</td>
+                            <td style="border:1px solid #000; padding:2px;" colspan="2">${acc.name}</td>
+                            <td style="border:1px solid #000; padding:2px; text-align:center;">${parseInt(acc.qty)*parseInt(item.qty)}</td>
+                        </tr>`;
+                    }
                 });
             }
         });
@@ -529,17 +569,23 @@
         
         let targetList = gateoutData;
         if(fromDate && toDate) {
-            targetList = gateoutData.filter(g => g.date >= fromDate && g.date <= toDate);
+            targetList = gateoutData.filter(g => g && g.date >= fromDate && g.date <= toDate);
         }
 
         targetList.forEach(g => {
+            if(!g) return;
             let rems = g.remarks ? g.remarks : "";
-            (g.gridItems || []).forEach(item => {
+            let gItems = safeConvertToArray(g.gridItems);
+            gItems.forEach(item => {
+                if(!item) return;
                 let sns = getSerialsString(item.serials);
-                let excelBOM = bomFormulaList.find(b => cleanStr(b.mainCode) === cleanStr(item.code));
+                let excelBOM = bomFormulaList.find(b => b && cleanStr(b.mainCode) === cleanStr(item.code));
                 if(excelBOM && excelBOM.accessories) {
-                    excelBOM.accessories.forEach(acc => {
-                        csv += `"GVM-GO-${g.voucherNo}","${g.date}","${g.vehicleNo}","${g.partyName}","${g.deliveryShipping || ''}","${g.goSendBy || ''}","${rems}","${item.pool}","${item.code}","${item.name}","${item.qty}","${sns}","${acc.code}","${parseInt(acc.qty)*parseInt(item.qty)}"\n`;
+                    let accs = safeConvertToArray(excelBOM.accessories);
+                    accs.forEach(acc => {
+                        if(acc) {
+                            csv += `"GVM-GO-${g.voucherNo}","${g.date}","${g.vehicleNo}","${g.partyName}","${g.deliveryShipping || ''}","${g.goSendBy || ''}","${rems}","${item.pool}","${item.code}","${item.name}","${item.qty}","${sns}","${acc.code}","${parseInt(acc.qty)*parseInt(item.qty)}"\n`;
+                        }
                     });
                 } else {
                     csv += `"GVM-GO-${g.voucherNo}","${g.date}","${g.vehicleNo}","${g.partyName}","${g.deliveryShipping || ''}","${g.goSendBy || ''}","${rems}","${item.pool}","${item.code}","${item.name}","${item.qty}","${sns}","N/A","0"\n`;
