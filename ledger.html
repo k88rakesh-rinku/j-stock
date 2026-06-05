@@ -54,13 +54,11 @@
         <a href="failure.html" class="tab-link">🛠️ Failure Defect Log</a>
     </div>
 
-    <!-- 🌟 मुख्य दो टैब -->
     <div class="ledger-tabs">
         <button class="ledger-tab-btn active" onclick="switchLedgerTab('po-tab', this)">📊 PO Matrix Ledger</button>
         <button class="ledger-tab-btn" onclick="switchLedgerTab('stock-tab', this)">🏬 General Physical Stock (All Items)</button>
     </div>
 
-    <!-- =================== टैब 1: PO MATRIX LEDGER =================== -->
     <div id="po-tab" class="tab-content active">
         <div class="control-panel">
             <div class="panel-left">
@@ -89,11 +87,9 @@
         </div>
     </div>
 
-    <!-- =================== टैब 2: GENERAL PHYSICAL STOCK =================== -->
     <div id="stock-tab" class="tab-content">
         <div class="control-panel">
             <div class="panel-left">
-                <!-- 🌟 लाइव टाइप करते ही सर्च फिल्टर एक्टिव करने वाला बॉक्स (oninput चालू है) -->
                 <input type="text" id="stockSearchBox" class="search-box" placeholder="🔍 Type Model Code or Item Name..." autocomplete="off" oninput="renderPhysicalStockTable()">
             </div>
             <div class="panel-left">
@@ -146,7 +142,7 @@
     let outwardDispatches = [];
     let bomFormulaList = [];
 
-    // 🛡️ स्पेस को बिना डिलीट किए केवल बड़े अक्षरों में ट्रिम करने का शुद्ध क्लीनर फंक्शन
+    // 🛡️ Space ko bina delete kiye trim aur uppercase karne wala cleaner function
     const cleanStr = (str) => String(str || "").trim().toUpperCase();
 
     function safeConvertToArray(rawVal) {
@@ -188,39 +184,46 @@
         renderPhysicalStockTable();
     }
 
-    // 1. पीओ लेज़र रेंडर टेबल (स्पेस री-स्टोर के साथ परफेक्ट मैचिंग)
+    // 1. PO Ledger Table Engine
     function renderPoLedgerTable() {
         const tbody = document.getElementById('poLedgerItemsBody');
         tbody.innerHTML = '';
         if (catalogFlatList.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:15px; color:#64748b;">No Catalog/PO matrix data found.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:15px; color:#64748b;">No Catalog/PO data found.</td></tr>`;
             return;
         }
 
         const poFilter = document.getElementById('poStatusDropdown').value;
 
+        // 🌟 Naya Bulletproof Inward Receiver Mapper Logic
         let poSummaryMap = {};
         inboundVouchers.forEach(v => {
             if(!v) return;
+            let currentPoNo = v.poNo ? cleanStr(v.poNo) : "";
             let items = safeConvertToArray(v.gridItems);
+            
             if(items.length === 0 && v.modelCode) {
-                items.push({ modelCode: v.modelCode, poNumber: v.poNo, qty: v.qty || v.receiveQty || 0 });
+                items.push({ modelCode: v.modelCode, qty: v.qty || v.receiveQty || 0 });
             }
+            
             items.forEach(item => {
-                if(!item || !item.poNumber || !item.modelCode) return;
-                let key = cleanStr(item.poNumber) + "|||" + cleanStr(item.modelCode);
-                poSummaryMap[key] = (poSummaryMap[key] || 0) + parseInt(item.qty || item.receiveQty || 0);
+                if(!item || !item.modelCode) return;
+                let itemCode = cleanStr(item.modelCode);
+                let key = currentPoNo + "|||" + itemCode;
+                let receivedQty = parseInt(item.qty || item.receiveQty || 0);
+                poSummaryMap[key] = (poSummaryMap[key] || 0) + receivedQty;
             });
         });
 
         let rowsCount = 0;
         catalogFlatList.forEach(c => {
             if(!c || !c.poNumber) return;
-            let key = cleanStr(c.poNumber) + "|||" + cleanStr(c.code);
-            let totalReceived = poSummaryMap[key] || 0;
+            let catalogPoNo = cleanStr(c.poNumber);
+            let catalogCode = cleanStr(c.code);
+            let key = catalogPoNo + "|||" + catalogCode;
             
-            // पुराने डेटाबेस आर्किटेक्चर के अनुसार 'qty' का मिलान
-            let poQty = parseInt(c.qty || c.poQty || 0); 
+            let totalReceived = poSummaryMap[key] || 0;
+            let poQty = parseInt(c.qty || c.poTotalQty || 0); 
             let pendingBalance = poQty - totalReceived;
             if (pendingBalance < 0) pendingBalance = 0;
 
@@ -244,11 +247,11 @@
         });
 
         if(rowsCount === 0) {
-            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:15px; color:#64748b;">No PO records match the selected status filter.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:15px; color:#64748b;">No PO records match the status filter.</td></tr>`;
         }
     }
 
-    // 2. जनरल फिजिकल स्टॉक रेंडर टेबल (स्पेस के साथ लाइव फ़िल्टर)
+    // 2. General Physical Stock Table Engine
     function renderPhysicalStockTable() {
         const tbody = document.getElementById('physicalStockBody');
         tbody.innerHTML = '';
@@ -305,14 +308,13 @@
 
         let allUniqueCodes = Array.from(new Set([...Object.keys(globalInMap), ...Object.keys(globalOutMap)]));
 
-        // लाइव टाइप करते ही फ़िल्टर होने का इंजन
         let filteredCodes = allUniqueCodes.filter(code => {
             let name = itemNamesMap[code] || "UNKNOWN ITEM DESCRIPTION";
             return code.includes(searchStr) || name.includes(searchStr);
         });
 
         if(filteredCodes.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:15px; color:#64748b;">No items found in stock inventory matching search query.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:15px; color:#64748b;">No matching stock items found.</td></tr>`;
             return;
         }
 
@@ -338,18 +340,19 @@
         });
     }
 
-    // 3. पीओ एक्सेल रिपोर्ट डाउनलोड
+    // 3. PO Excel Report Export
     function exportPoLedgerToExcel() {
         let csv = "PO Number,Model Code,Item Name,Total PO Qty,Total Received,Pending Balance,Status\n";
         
         let poSummaryMap = {};
         inboundVouchers.forEach(v => {
             if(!v) return;
+            let currentPoNo = v.poNo ? cleanStr(v.poNo) : "";
             let items = safeConvertToArray(v.gridItems);
-            if(items.length === 0 && v.modelCode) items.push({ modelCode: v.modelCode, poNumber: v.poNo, qty: v.qty || v.receiveQty || 0 });
+            if(items.length === 0 && v.modelCode) items.push({ modelCode: v.modelCode, qty: v.qty || v.receiveQty || 0 });
             items.forEach(item => {
-                if(item && item.poNumber && item.modelCode) {
-                    let key = cleanStr(item.poNumber) + "|||" + cleanStr(item.modelCode);
+                if(item && item.modelCode) {
+                    let key = currentPoNo + "|||" + cleanStr(item.modelCode);
                     poSummaryMap[key] = (poSummaryMap[key] || 0) + parseInt(item.qty || item.receiveQty || 0);
                 }
             });
@@ -359,7 +362,7 @@
             if(!c || !c.poNumber) return;
             let key = cleanStr(c.poNumber) + "|||" + cleanStr(c.code);
             let received = poSummaryMap[key] || 0;
-            let poQty = parseInt(c.qty || c.poQty || 0);
+            let poQty = parseInt(c.qty || c.poTotalQty || 0);
             let bal = poQty - received;
             if(bal < 0) bal = 0;
             let status = bal === 0 ? "COMPLETED" : "ACTIVE";
@@ -369,7 +372,7 @@
         triggerDownloadBlob(csv, "PO_Master_Ledger_Report.csv");
     }
 
-    // 4. जनरल स्टॉक एक्सेल रिपोर्ट डाउनलोड
+    // 4. Physical Stock Excel Export
     function exportPhysicalStockToExcel() {
         let csv = "Model Part Code,Item Description,Total Inward (In),Total Dispatched (Out),Live Available Stock\n";
         
@@ -428,7 +431,6 @@
         document.body.appendChild(link); link.click(); document.body.removeChild(link);
     }
 
-    // ऑटोफ़िल प्रोटेक्शन इंजन
     window.addEventListener('DOMContentLoaded', () => {
         const box = document.getElementById('stockSearchBox');
         if (box) box.value = "";
