@@ -49,13 +49,13 @@
     <div class="table-filter-panel">
         <h3 style="margin:0;">📋 PO Matrix & Physical Inventory Dashboard</h3>
         <div>
-            <select id="poTypeFilter" onchange="safeRenderDashboard()">
+            <select id="poTypeFilter" onchange="renderPOBalanceTable()">
                 <option value="ALL">All Types</option>
                 <option value="PURCHASE">Purchase</option>
                 <option value="SALE">Sale</option>
             </select>
-            <input type="text" id="poSearchBox" placeholder="Search PO/Company/Code..." onkeyup="if(event.key==='Enter') safeRenderDashboard()">
-            <button class="erp-btn" onclick="safeRenderDashboard()">Search</button>
+            <input type="text" id="poSearchBox" placeholder="Search PO/Company/Code..." onkeyup="if(event.key==='Enter') renderPOBalanceTable()">
+            <button class="erp-btn" onclick="renderPOBalanceTable()">Search</button>
         </div>
     </div>
     
@@ -68,7 +68,7 @@
                 </tr>
             </thead>
             <tbody id="poLedgerBody">
-                <tr><td colspan="10" style="text-align:center; padding:15px; color:#0284c7; font-weight:bold;" id="liveSyncStatusLabel">🔄 Connecting & Syncing with Cloud Databases...</td></tr>
+                <tr><td colspan="10" style="text-align:center; padding:15px; color:#0284c7; font-weight:bold;">🔄 Connecting & Syncing with Cloud Databases...</td></tr>
             </tbody>
         </table>
     </div>
@@ -106,8 +106,8 @@
         appId: "1:202991207119:web:2246ffb7b92f9eb0c4adba"
     };
     
-    // डबल इनिशियलाइजेशन क्रैश प्रोटेक्शन
-    if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
+    // शुद्ध इनिशियलाइजेशन (मैचेस योर अदर वर्किंग फाइल्स)
+    firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
 
     const session = JSON.parse(localStorage.getItem('activeSession'));
@@ -118,59 +118,36 @@
     let currentModalRows = []; 
     let allModalRowsBackup = [];
 
-    let freshLoaded = false, gateoutLoaded = false, bomLoaded = false, catalogLoaded = false;
-
-    // 🛡️ सेफ एरे कन्वर्टर: अगर क्लाउड डेटा में null या करप्ट फ़ॉर्मेट हो तो उसे साफ़ करता है
+    // सेफ कन्वर्टर: नल (null) वैल्यूज को बाईपास करने की शील्ड
     function safeConvertToArray(rawVal) {
         if (!rawVal) return [];
         let arr = Array.isArray(rawVal) ? rawVal : Object.values(rawVal);
         return arr.filter(item => item !== null && item !== undefined);
     }
 
-    function verifyAndRenderLedger() {
-        if (freshLoaded && gateoutLoaded && bomLoaded && catalogLoaded) {
-            safeRenderDashboard();
-        } else {
-            let status = "🔄 Syncing Nodes: ";
-            if(!freshLoaded) status += "[Fresh Stock ⏳] ";
-            if(!gateoutLoaded) status += "[Gate Out ⏳] ";
-            if(!bomLoaded) status += "[BOM Master ⏳] ";
-            if(!catalogLoaded) status += "[PO Catalog ⏳] ";
-            document.getElementById('poLedgerBody').innerHTML = `<tr><td colspan="10" style="text-align:center; padding:15px; color:#0284c7; font-weight:bold;">${status}</td></tr>`;
-        }
-    }
-
-    // 🚀 नोड 1: फ्रेश इनवर्ड
-    database.ref('freshStockVouchers').once('value', (snapshot) => {
+    // 🚀 नोड 1: रीयल-टाइम फ्रेश इनवर्ड लिसनर
+    database.ref('freshStockVouchers').on('value', (snapshot) => {
         freshData = safeConvertToArray(snapshot.val());
-        freshLoaded = true;
-        verifyAndRenderLedger();
-    }, (err) => { handleFatalError("Fresh Node Link", err); });
+        renderPOBalanceTable();
+    });
 
-    // 🚀 नोड 2: गेट आउट डिस्पैच
-    database.ref('gateoutStockData').once('value', (snapshot) => {
+    // 🚀 नोड 2: रीयल-टाइम गेट आउट डिस्पैच लिसनर
+    database.ref('gateoutStockData').on('value', (snapshot) => {
         gateoutData = safeConvertToArray(snapshot.val());
-        gateoutLoaded = true;
-        verifyAndRenderLedger();
-    }, (err) => { handleFatalError("Gateout Node Link", err); });
+        renderPOBalanceTable();
+    });
 
-    // 🚀 नोड 3: बीओएम फार्मूला मास्टर
-    database.ref('bomMasterData').once('value', (snapshot) => {
+    // 🚀 नोड 3: रीयल-टाइम बीओएम मास्टर लिसनर
+    database.ref('bomMasterData').on('value', (snapshot) => {
         bomFormulaList = safeConvertToArray(snapshot.val());
-        bomLoaded = true;
-        verifyAndRenderLedger();
-    }, (err) => { handleFatalError("BOM Node Link", err); });
+        renderPOBalanceTable();
+    });
 
-    // 🚀 नोड 4: पीओ मैट्रिक्स कैटलॉग
-    database.ref('systemMasterCatalogFlat').once('value', (snapshot) => {
+    // 🚀 नोड 4: रीयल-टाइम कैटलॉग लिसनर + सेफ्टी बैकअप
+    database.ref('systemMasterCatalogFlat').on('value', (snapshot) => {
         flatCatalogPOList = safeConvertToArray(snapshot.val());
-        catalogLoaded = true;
         checkCatalogFallback();
-        verifyAndRenderLedger();
-    }, (err) => {
-        catalogLoaded = true;
-        checkCatalogFallback();
-        verifyAndRenderLedger();
+        renderPOBalanceTable();
     });
 
     function checkCatalogFallback() {
@@ -186,25 +163,19 @@
         }
     }
 
-    function handleFatalError(nodeName, error) {
-        document.getElementById('poLedgerBody').innerHTML = `<tr><td colspan="10" style="text-align:center; padding:20px; color:#dc2626; font-weight:bold;">❌ Cloud Sync Interrupted [${nodeName}]<br><span style="font-size:12px; font-weight:normal; color:#64748b;">Reason: ${error.message}</span></td></tr>`;
-    }
-
-    // 🛡️ ग्लोबल ट्राई-कैच शील्ड: अगर रेंडरिंग में डेटा मिसमैच से कोई क्रैश होगा तो स्क्रीन पर एरर दिखाएगा
-    function safeRenderDashboard() {
-        try {
-            renderPOBalanceTable();
-        } catch (crashError) {
-            console.error("Dashboard Crash Caught: ", crashError);
-            document.getElementById('poLedgerBody').innerHTML = `<tr><td colspan="10" style="text-align:center; padding:20px; background:#fef2f2; color:#dc2626; font-weight:bold;">🚫 Live Data Processing Exception!<br><span style="font-size:12px; font-weight:normal; color:#475569;">जांचें कि क्या रात की एंट्री में कोड या वैल्यू गलत डली है। एरर विवरण: ${crashError.message}</span></td></tr>`;
-        }
-    }
-
+    // ⚙️ मुख्य रेंडरिंग इंजन (Fast Performance Architecture)
     function renderPOBalanceTable() {
         const poBody = document.getElementById('poLedgerBody');
+        if (!poBody) return;
+        
+        // अगर मुख्य कैटलॉग अभी लोड हो रहा है, तो स्टेट दिखाए
+        if (flatCatalogPOList.length === 0) {
+            poBody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:15px; color:#0284c7; font-weight:bold;">🔄 Fetching Live Cloud Inventory Sync...</td></tr>`;
+            return;
+        }
+
         const search = normalize(document.getElementById('poSearchBox').value);
         const typeFilter = document.getElementById('poTypeFilter').value;
-        poBody.innerHTML = '';
         
         let foundPOs = flatCatalogPOList.filter(x => x && x.hasPO === "YES" && 
             (typeFilter === "ALL" || x.poType === typeFilter) && 
@@ -212,9 +183,11 @@
         );
 
         if(foundPOs.length === 0) {
-            poBody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:15px; color:#dc2626; font-weight:bold;">⚠ No Matching PO Records Found.</td></tr>`;
+            poBody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:15px; color:#dc2626; font-weight:bold;">⚠ No Active PO Matrix Data Found.</td></tr>`;
             return;
         }
+
+        let htmlString = ""; // स्ट्रिंग बफर ताकि स्क्रीन फ्लिकर न करे
 
         foundPOs.forEach(p => {
             if(!p) return;
@@ -227,7 +200,7 @@
                     if (f && f.gridItems) {
                         f.gridItems.forEach(gi => { 
                             if(gi && normalize(gi.modelCode) === pCodeClean && normalize(f.poNo) === pPoNumClean) {
-                                poExecutedQty += parseInt(gi.qty || 0); 
+                                poExecutedQty += parseInt(gi.qty || gi.receiveQty || 0); 
                             }
                         }); 
                     }
@@ -270,7 +243,7 @@
             let poPendingQty = (parseInt(p.poTotalQty) || 0) - poExecutedQty;
             let safeItemName = p.name ? p.name.replace(/'/g, "\\'") : "";
 
-            poBody.innerHTML += `<tr>
+            htmlString += `<tr>
                 <td>${p.poNumber || ''}</td>
                 <td>${p.poType || ''}</td>
                 <td><code>${p.code || ''}</code></td>
@@ -283,6 +256,8 @@
                 <td><button class="btn-quick-view" onclick="showHistory('${p.code}', '${p.poNumber}', '${safeItemName}', ${p.poTotalQty}, ${poExecutedQty}, ${totalOut}, ${currentStockBalance}, ${poPendingQty})">View</button></td>
             </tr>`;
         });
+        
+        poBody.innerHTML = htmlString;
     }
 
     function showHistory(code, poNumber, itemName, poQty, executed, dispatched, balance, pending) {
@@ -338,7 +313,7 @@
     function exportModalToExcel() {
         if(allModalRowsBackup.length <= 0) { alert("No data to export!"); return; }
         let csv = [["Date", "Type", "Reference", "Qty"]].concat(allModalRowsBackup).map(r => r.join(",")).join("\n");
-        let blob = new Blob(["\uFEFF"+csv], {type: "text/csv;charset=utf-8;"});
+        let blob = new Blob(["\uFEFF" + csv], {type: "text/csv;charset=utf-8;"});
         let link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = "History_Transaction_Log.csv"; link.click();
     }
     
