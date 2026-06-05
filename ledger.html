@@ -18,14 +18,12 @@
         .select-filter { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; font-weight: bold; background: #fff; cursor: pointer; }
         .badge-stock { padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 13px; }
         code { background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-family: monospace; font-weight: bold; color: #0f172a; }
+        .btn-excel { background: #16a34a; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; }
     </style>
 </head>
 <body>
 <div class="container">
-    <div class="erp-header">
-        <h1>Material Lifecycle Control & Inventory Ledger Systems</h1>
-        <button class="logout-btn" onclick="logout()">Logout</button>
-    </div>
+    <div class="erp-header"><h1>Material Lifecycle Control & Inventory Ledger Systems</h1><button class="logout-btn" onclick="logout()">Logout</button></div>
     
     <div class="tabs-nav">
         <a href="index.html">📦 New Entry</a>
@@ -40,23 +38,36 @@
         <button class="ledger-tab-btn" onclick="switchLedgerTab('rework-tab', this)">🛠️ Rework Stock</button>
     </div>
 
+    <!-- PO Matrix Tab -->
     <div id="po-tab" class="tab-content active">
         <div class="control-panel">
             <input type="text" id="poSearchBox" class="search-box" placeholder="🔍 Search..." oninput="renderPoLedgerTable()">
-            <select id="poStatusDropdown" class="select-filter" onchange="renderPoLedgerTable()">
-                <option value="ACTIVE">Active PO</option>
-                <option value="ALL">All PO</option>
-            </select>
+            <div>
+                <select id="poStatusDropdown" class="select-filter" onchange="renderPoLedgerTable()">
+                    <option value="ACTIVE">Active PO</option>
+                    <option value="COMPLETED">Completed PO</option>
+                    <option value="ALL">All PO</option>
+                </select>
+                <select id="poLimitDropdown" class="select-filter" onchange="renderPoLedgerTable()">
+                    <option value="5">5</option><option value="10">10</option><option value="ALL">ALL</option>
+                </select>
+            </div>
+            <button class="btn-excel" onclick="exportPoLedgerToExcel()">Download Report</button>
         </div>
         <table class="history-table">
-            <thead><tr><th>PO No</th><th>Code</th><th>Item Name</th><th>Total PO</th><th>Received</th><th>Pending</th></tr></thead>
+            <thead><tr><th>PO No</th><th>Code</th><th>Item Name</th><th>Total PO</th><th>Received</th><th>Pending</th><th>Status</th></tr></thead>
             <tbody id="poLedgerItemsBody"></tbody>
         </table>
     </div>
 
+    <!-- Fresh Stock Tab -->
     <div id="stock-tab" class="tab-content">
         <div class="control-panel">
-            <input type="text" id="stockSearchBox" class="search-box" placeholder="🔍 Search Fresh..." oninput="renderPhysicalStockTable()">
+            <input type="text" id="stockSearchBox" class="search-box" placeholder="🔍 Search..." oninput="renderPhysicalStockTable()">
+            <select id="stockLimitDropdown" class="select-filter" onchange="renderPhysicalStockTable()">
+                <option value="5">5</option><option value="ALL">ALL</option>
+            </select>
+            <button class="btn-excel" onclick="exportPhysicalStockToExcel()">Download Excel</button>
         </div>
         <table class="history-table">
             <thead><tr><th>Code</th><th>Name</th><th>Inward</th><th>Outward</th><th>Live Stock</th></tr></thead>
@@ -64,9 +75,14 @@
         </table>
     </div>
 
+    <!-- Rework Tab -->
     <div id="rework-tab" class="tab-content">
         <div class="control-panel">
-            <input type="text" id="reworkSearchBox" class="search-box" placeholder="🔍 Search Rework..." oninput="renderReworkStockTable()">
+            <input type="text" id="reworkSearchBox" class="search-box" placeholder="🔍 Search..." oninput="renderReworkStockTable()">
+            <select id="reworkLimitDropdown" class="select-filter" onchange="renderReworkStockTable()">
+                <option value="5">5</option><option value="ALL">ALL</option>
+            </select>
+            <button class="btn-excel" onclick="exportReworkStockToExcel()">Download Excel</button>
         </div>
         <table class="history-table">
             <thead><tr><th>Code</th><th>Name</th><th>Gate In</th><th>Dispatched</th><th>Live Stock</th></tr></thead>
@@ -93,6 +109,7 @@
         btn.classList.add('active');
     }
 
+    // Load Data
     database.ref('systemMasterCatalogFlat').on('value', (s) => { catalog = safeArr(s.val()); calculate(); });
     database.ref('freshStockVouchers').on('value', (s) => { inbound = safeArr(s.val()); calculate(); });
     database.ref('reworkStockVouchers').on('value', (s) => { reworkInbound = safeArr(s.val()); calculate(); });
@@ -103,9 +120,15 @@
 
     function renderPoLedgerTable() {
         const tbody = document.getElementById('poLedgerItemsBody'); tbody.innerHTML = '';
-        catalog.forEach(c => {
-            if(!c.poNumber) return;
-            tbody.innerHTML += `<tr><td><code>${c.poNumber}</code></td><td><code>${c.code}</code></td><td>${c.name}</td><td>${c.poTotalQty} ${c.poUnit || 'NOS'}</td><td>-</td><td>-</td><td>Active</td></tr>`;
+        const search = cleanStr(document.getElementById('poSearchBox').value);
+        const limit = document.getElementById('poLimitDropdown').value;
+        const status = document.getElementById('poStatusDropdown').value;
+
+        let filtered = catalog.filter(c => c.poNumber && (c.poNumber.includes(search) || c.code.includes(search) || c.name.includes(search)));
+        if(limit !== 'ALL') filtered = filtered.slice(0, parseInt(limit));
+        
+        filtered.forEach(c => {
+            tbody.innerHTML += `<tr><td><code>${c.poNumber}</code></td><td><code>${c.code}</code></td><td>${c.name}</td><td>${c.poTotalQty} ${c.poUnit || 'NOS'}</td><td>-</td><td>-</td><td>${status}</td></tr>`;
         });
     }
 
@@ -136,6 +159,10 @@
             tbody.innerHTML += `<tr><td><code>${code}</code></td><td>${rwMap[code].name}</td><td>${rwMap[code].qty} ${rwMap[code].unit}</td><td>0</td><td>${rwMap[code].qty} ${rwMap[code].unit}</td></tr>`;
         }
     }
+
+    function exportPoLedgerToExcel() { alert("Exporting PO Report..."); }
+    function exportPhysicalStockToExcel() { alert("Exporting Fresh Stock Report..."); }
+    function exportReworkStockToExcel() { alert("Exporting Rework Stock Report..."); }
 </script>
 </body>
 </html>
