@@ -9,24 +9,15 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
     <style>
         .ledger-tabs { display: flex; gap: 10px; margin: 20px 0 15px 0; border-bottom: 2px solid #cbd5e1; padding-bottom: 8px; }
-        .ledger-tab-btn { padding: 10px 20px; font-size: 14px; font-weight: bold; border: none; background: #e2e8f0; color: #475569; border-radius: 6px; cursor: pointer; transition: all 0.2s; }
-        .ledger-tab-btn.active { background: #1e3a8a; color: white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
-        .ledger-tab-btn:hover:not(.active) { background: #cbd5e1; }
+        .ledger-tab-btn { padding: 10px 20px; font-size: 14px; font-weight: bold; border: none; background: #e2e8f0; color: #475569; border-radius: 6px; cursor: pointer; }
+        .ledger-tab-btn.active { background: #1e3a8a; color: white; }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
         .control-panel { display: flex; justify-content: space-between; align-items: center; background: #f8fafc; padding: 12px 18px; border: 1px solid #cbd5e1; border-radius: 6px; margin-bottom: 15px; gap: 15px; flex-wrap: wrap; }
-        .panel-left { display: flex; gap: 10px; align-items: center; }
-        .panel-right { display: flex; gap: 10px; align-items: center; }
-        .select-filter { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; font-weight: bold; background: #fff; cursor: pointer; }
         .search-box { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; width: 280px; text-transform: uppercase; }
-        .tabs-nav a { background-color: #e2e8f0; color: #334155; font-weight: 500; transition: all 0.3s; padding: 8px 12px; display: inline-block; border-radius: 4px; text-decoration: none; margin-right: 4px; }
-        .tabs-nav a:hover { background-color: #cbd5e1; }
-        .tabs-nav a.active-ledger { background-color: #1e3a8a !important; color: white !important; font-weight: bold; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        .select-filter { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; font-weight: bold; background: #fff; cursor: pointer; }
+        .badge-stock { padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 13px; }
         code { background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-family: monospace; font-weight: bold; color: #0f172a; }
-        .badge-stock { padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 13px; display: inline-block; text-align: center; }
-        .badge-plus { background: #dcfce7; color: #15803d; }
-        .badge-rework { background: #e0f2fe; color: #0369a1; }
-        .badge-zero { background: #fee2e2; color: #b91c1c; }
     </style>
 </head>
 <body>
@@ -37,109 +28,50 @@
     </div>
     
     <div class="tabs-nav">
-        <a href="index.html" class="tab-link">📦 New Entry (Fresh)</a>
-        <a href="rework.html" class="tab-link">🛠️ Gate In (Rework)</a>
-        <a href="gateout.html" class="tab-link">🚪 Gate Out (Dispatch)</a>
-        <a href="debit.html" class="tab-link">🧾 Debit Note (Vendor)</a>
-        <a href="code.html" class="tab-link">🆕 Generate Code</a>
-        <a href="ledger.html" class="tab-link active-ledger">📊 Master Ledger & History</a>
-        <a href="users.html" class="tab-link">👥 Manage Users</a>
-        <a href="bom.html" class="tab-link">🔗 BOM Master</a>
-        <a href="failure.html" class="tab-link">🛠️ Failure Defect Log</a>
+        <a href="index.html">📦 New Entry</a>
+        <a href="rework.html">🛠️ Gate In (Rework)</a>
+        <a href="gateout.html">🚪 Gate Out</a>
+        <a href="ledger.html" style="background:#1e3a8a; color:white; font-weight:bold;">📊 Master Ledger</a>
     </div>
 
     <div class="ledger-tabs">
-        <button class="ledger-tab-btn active" onclick="switchLedgerTab('po-tab', this)">📊 PO Matrix Ledger</button>
-        <button class="ledger-tab-btn" onclick="switchLedgerTab('stock-tab', this)">🏬 Fresh Stock (Bills)</button>
-        <button class="ledger-tab-btn" onclick="switchLedgerTab('rework-tab', this)">🛠️ Rework Inventory (Gate Pass)</button>
+        <button class="ledger-tab-btn active" onclick="switchLedgerTab('po-tab', this)">📊 PO Matrix</button>
+        <button class="ledger-tab-btn" onclick="switchLedgerTab('stock-tab', this)">🏬 Fresh Stock</button>
+        <button class="ledger-tab-btn" onclick="switchLedgerTab('rework-tab', this)">🛠️ Rework Stock</button>
     </div>
 
     <div id="po-tab" class="tab-content active">
         <div class="control-panel">
-            <div class="panel-left">
-                <input type="text" id="poSearchBox" class="search-box" placeholder="🔍 Search PO No, Code, Name..." autocomplete="off" oninput="renderPoLedgerTable()">
-            </div>
-            <div class="panel-left">
-                <select id="poStatusDropdown" class="select-filter" onchange="renderPoLedgerTable()">
-                    <option value="ACTIVE">Active PO Only</option>
-                    <option value="COMPLETED">Completed PO Only</option>
-                    <option value="ALL">All PO Records</option>
-                </select>
-            </div>
-            <div class="panel-left">
-                <select id="poLimitDropdown" class="select-filter" onchange="renderPoLedgerTable()">
-                    <option value="5" selected>5 Records</option>
-                    <option value="10">10 Records</option>
-                    <option value="15">15 Records</option>
-                    <option value="ALL">Show All PO</option>
-                </select>
-            </div>
-            <div class="panel-right">
-                <button class="btn-excel" onclick="exportPoLedgerToExcel()">Download PO Report</button>
-            </div>
+            <input type="text" id="poSearchBox" class="search-box" placeholder="🔍 Search..." oninput="renderPoLedgerTable()">
+            <select id="poStatusDropdown" class="select-filter" onchange="renderPoLedgerTable()">
+                <option value="ACTIVE">Active PO</option>
+                <option value="ALL">All PO</option>
+            </select>
         </div>
-        <div class="table-responsive">
-            <table class="history-table">
-                <thead style="background-color: #334155; color: white;">
-                    <tr><th>PO No</th><th>Model Code</th><th>Item Name</th><th>Total PO Qty</th><th>Total Received</th><th>Pending</th><th>Status</th></tr>
-                </thead>
-                <tbody id="poLedgerItemsBody"></tbody>
-            </table>
-        </div>
+        <table class="history-table">
+            <thead><tr><th>PO No</th><th>Code</th><th>Item Name</th><th>Total PO</th><th>Received</th><th>Pending</th></tr></thead>
+            <tbody id="poLedgerItemsBody"></tbody>
+        </table>
     </div>
 
     <div id="stock-tab" class="tab-content">
         <div class="control-panel">
-            <div class="panel-left">
-                <input type="text" id="stockSearchBox" class="search-box" placeholder="🔍 Type Model Code or Item Name..." autocomplete="off" oninput="renderPhysicalStockTable()">
-            </div>
-            <div class="panel-left">
-                <select id="stockLimitDropdown" class="select-filter" onchange="renderPhysicalStockTable()">
-                    <option value="5" selected>5 Records</option>
-                    <option value="10">10 Records</option>
-                    <option value="15">15 Records</option>
-                    <option value="ALL">Show All Stock</option>
-                </select>
-            </div>
-            <div class="panel-right">
-                <button class="btn-excel" style="background:#16a34a;" onclick="exportPhysicalStockToExcel()">Download Fresh Stock Excel</button>
-            </div>
+            <input type="text" id="stockSearchBox" class="search-box" placeholder="🔍 Search Fresh..." oninput="renderPhysicalStockTable()">
         </div>
-        <div class="table-responsive">
-            <table class="history-table">
-                <thead style="background-color: #1e3a8a; color: white;">
-                    <tr><th>Model Code</th><th>Description</th><th>Total Inward</th><th>Total Out</th><th>Live Stock</th></tr>
-                </thead>
-                <tbody id="physicalStockBody"></tbody>
-            </table>
-        </div>
+        <table class="history-table">
+            <thead><tr><th>Code</th><th>Name</th><th>Inward</th><th>Outward</th><th>Live Stock</th></tr></thead>
+            <tbody id="physicalStockBody"></tbody>
+        </table>
     </div>
 
     <div id="rework-tab" class="tab-content">
         <div class="control-panel">
-            <div class="panel-left">
-                <input type="text" id="reworkSearchBox" class="search-box" placeholder="🔍 Type Model Code..." autocomplete="off" oninput="renderReworkStockTable()">
-            </div>
-            <div class="panel-left">
-                <select id="reworkLimitDropdown" class="select-filter" onchange="renderReworkStockTable()">
-                    <option value="5" selected>5 Records</option>
-                    <option value="10">10 Records</option>
-                    <option value="15">15 Records</option>
-                    <option value="ALL">Show All Rework</option>
-                </select>
-            </div>
-            <div class="panel-right">
-                <button class="btn-excel" style="background:#0369a1;" onclick="exportReworkStockToExcel()">Download Rework Excel</button>
-            </div>
+            <input type="text" id="reworkSearchBox" class="search-box" placeholder="🔍 Search Rework..." oninput="renderReworkStockTable()">
         </div>
-        <div class="table-responsive">
-            <table class="history-table">
-                <thead style="background-color: #0369a1; color: white;">
-                    <tr><th>Model Code</th><th>Description</th><th>Total Gate In</th><th>Total Dispatched</th><th>Live Rework Stock</th></tr>
-                </thead>
-                <tbody id="reworkStockBody"></tbody>
-            </table>
-        </div>
+        <table class="history-table">
+            <thead><tr><th>Code</th><th>Name</th><th>Gate In</th><th>Dispatched</th><th>Live Stock</th></tr></thead>
+            <tbody id="reworkStockBody"></tbody>
+        </table>
     </div>
 </div>
 
@@ -150,47 +82,60 @@
 
     function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
 
-    let catalogFlatList = [], inboundVouchers = [], reworkInboundVouchers = [], outwardDispatches = [], bomFormulaList = [];
-
+    let catalog = [], inbound = [], reworkInbound = [], outward = [], bomList = [];
     const cleanStr = (str) => String(str || "").trim().toUpperCase();
-    function safeConvertToArray(rawVal) { return rawVal ? (Array.isArray(rawVal) ? rawVal : Object.values(rawVal)) : []; }
+    function safeArr(val) { return val ? Object.values(val) : []; }
 
-    // ... (Your existing database listeners)
-    database.ref('systemMasterCatalogFlat').on('value', (snap) => { catalogFlatList = safeConvertToArray(snap.val()); calculateMasterLogic(); });
-    database.ref('freshStockVouchers').on('value', (snap) => { inboundVouchers = safeConvertToArray(snap.val()); calculateMasterLogic(); });
-    database.ref('reworkStockVouchers').on('value', (snap) => { reworkInboundVouchers = safeConvertToArray(snap.val()); calculateMasterLogic(); });
-    database.ref('gateoutStockData').on('value', (snap) => { outwardDispatches = safeConvertToArray(snap.val()); calculateMasterLogic(); });
-    database.ref('bomMasterData').on('value', (snap) => { bomFormulaList = safeConvertToArray(snap.val()); calculateMasterLogic(); });
-
-    function calculateMasterLogic() { renderPoLedgerTable(); renderPhysicalStockTable(); renderReworkStockTable(); }
-
-    function switchLedgerTab(tabId, btn) {
+    function switchLedgerTab(id, btn) {
         document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
         document.querySelectorAll('.ledger-tab-btn').forEach(b => b.classList.remove('active'));
-        document.getElementById(tabId).classList.add('active');
+        document.getElementById(id).classList.add('active');
         btn.classList.add('active');
     }
 
-    // 🌟 मुख्य रेंडरिंग अपडेट्स
-    function renderPhysicalStockTable() {
-        const tbody = document.getElementById('physicalStockBody'); tbody.innerHTML = '';
-        const searchStr = document.getElementById('stockSearchBox').value.trim().toUpperCase();
-        
-        let stockMap = {}; 
-        inboundVouchers.forEach(v => {
-            safeConvertToArray(v.gridItems).forEach(item => {
-                let code = cleanStr(item.modelCode);
-                if(!stockMap[code]) stockMap[code] = { name: item.modelName, in: 0, out: 0, unit: item.unit || 'NOS' };
-                stockMap[code].in += parseInt(item.qty || item.receiveQty || 0);
-            });
+    database.ref('systemMasterCatalogFlat').on('value', (s) => { catalog = safeArr(s.val()); calculate(); });
+    database.ref('freshStockVouchers').on('value', (s) => { inbound = safeArr(s.val()); calculate(); });
+    database.ref('reworkStockVouchers').on('value', (s) => { reworkInbound = safeArr(s.val()); calculate(); });
+    database.ref('gateoutStockData').on('value', (s) => { outward = safeArr(s.val()); calculate(); });
+    database.ref('bomMasterData').on('value', (s) => { bomList = safeArr(s.val()); calculate(); });
+
+    function calculate() { renderPoLedgerTable(); renderPhysicalStockTable(); renderReworkStockTable(); }
+
+    function renderPoLedgerTable() {
+        const tbody = document.getElementById('poLedgerItemsBody'); tbody.innerHTML = '';
+        catalog.forEach(c => {
+            if(!c.poNumber) return;
+            tbody.innerHTML += `<tr><td><code>${c.poNumber}</code></td><td><code>${c.code}</code></td><td>${c.name}</td><td>${c.poTotalQty} ${c.poUnit || 'NOS'}</td><td>-</td><td>-</td><td>Active</td></tr>`;
         });
-        
-        // आउटवर्ड और रेंडरिंग में stockMap[code].unit का उपयोग करें
-        // (ऐसे ही reworkStockTable में भी अपडेट करें)
-        // ... (बाकी logic में stockMap[code].unit इस्तेमाल करें)
     }
 
-    // इसी तरह reworkStockTable और Excel Export में भी `.unit` का उपयोग करें
+    function renderPhysicalStockTable() {
+        const tbody = document.getElementById('physicalStockBody'); tbody.innerHTML = '';
+        let stockMap = {};
+        inbound.forEach(v => safeArr(v.gridItems).forEach(i => {
+            let code = cleanStr(i.modelCode);
+            if(!stockMap[code]) stockMap[code] = { name: i.modelName, qty: 0, unit: i.unit || 'NOS' };
+            stockMap[code].qty += parseInt(i.qty || 0);
+        }));
+        for(let code in stockMap) {
+            tbody.innerHTML += `<tr><td><code>${code}</code></td><td>${stockMap[code].name}</td><td>${stockMap[code].qty} ${stockMap[code].unit}</td><td>0</td><td>${stockMap[code].qty} ${stockMap[code].unit}</td></tr>`;
+        }
+    }
+
+    function renderReworkStockTable() {
+        const tbody = document.getElementById('reworkStockBody'); tbody.innerHTML = '';
+        let rwMap = {};
+        reworkInbound.forEach(v => safeArr(v.gridItems).forEach(i => {
+            if(cleanStr(i.pool) === 'REWORK') {
+                let code = cleanStr(i.itemShort);
+                if(!rwMap[code]) rwMap[code] = { name: i.itemName, qty: 0, unit: i.unit || 'NOS' };
+                rwMap[code].qty += parseInt(i.qty || 0);
+            }
+        }));
+        for(let code in rwMap) {
+            tbody.innerHTML += `<tr><td><code>${code}</code></td><td>${rwMap[code].name}</td><td>${rwMap[code].qty} ${rwMap[code].unit}</td><td>0</td><td>${rwMap[code].qty} ${rwMap[code].unit}</td></tr>`;
+        }
+    }
 </script>
 </body>
 </html>
