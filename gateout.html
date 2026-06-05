@@ -31,6 +31,11 @@
         .secret-modal-btn-confirm { background: #16a34a; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; }
         .secret-modal-btn-cancel { background: #64748b; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; }
 
+        /* ड्रॉपडाउन और बॉक्स को एक लाइन में सेट करने का स्टाइल */
+        .go-doc-group { display: flex; gap: 6px; }
+        .go-doc-group select { width: 40%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-weight: bold; background: white; cursor: pointer; }
+        .go-doc-group input { width: 60%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; text-transform: uppercase; }
+
         @media print {
             body * { visibility: hidden; }
             #printSection, #printSection * { visibility: visible; }
@@ -67,7 +72,18 @@
         <div class="form-grid">
             <div class="form-group"><label>Dispatch Trans Date <span>*</span></label><input type="date" id="goDate" required></div>
             <div class="form-group"><label>Vehicle Transport No <span>*</span></label><input type="text" id="goVehicleNo" required autocomplete="off" style="text-transform:uppercase;"></div>
-            <div class="form-group"><label>Target Party Account <span>*</span></label><input type="text" id="goPartyName" required autocomplete="off" style="text-transform:uppercase;"></div>
+            
+            <div class="form-group">
+                <label>Doc Type & Number <span>*</span></label>
+                <div class="go-doc-group">
+                    <select id="goDocType">
+                        <option value="BILL">BILL</option>
+                        <option value="CHALLAN">CHALLAN</option>
+                    </select>
+                    <input type="text" id="goDocNo" required placeholder="Doc No..." autocomplete="off">
+                </div>
+            </div>
+
             <div class="form-group"><label>Delivery Shipping Location <span>*</span></label><input type="text" id="goDeliveryShipping" required autocomplete="off" style="text-transform:uppercase;"></div>
             <div class="form-group"><label>Send / Dispatched By</label><input type="text" id="goSendBy" autocomplete="off" style="text-transform:uppercase;"></div>
         </div>
@@ -99,7 +115,7 @@
 
     <div class="table-filter-panel">
         <div>
-            <input type="text" id="liveTableSearchBox" class="search-input-box" placeholder="🔍 Search Vehicle, Code, Party, Remarks..." oninput="triggerTableRender()">
+            <input type="text" id="liveTableSearchBox" class="search-input-box" placeholder="🔍 Search Vehicle, Code, Doc No, Remarks..." autocomplete="off" oninput="triggerTableRender()">
         </div>
         <div>
             <label style="font-weight: bold; font-size: 13px; color:#475569;">Show Records:</label>
@@ -115,14 +131,13 @@
     <div class="table-responsive" style="margin-top: 0;">
         <table class="history-table" style="border-top: none;">
             <thead style="background-color: #475569; color: white;">
-                <tr><th>Voucher No</th><th>Date</th><th>Vehicle No</th><th>Party Target</th><th>Items Dispatched Details</th><th>Remarks</th><th>Action Controls</th></tr>
+                <tr><th>Voucher No</th><th>Date</th><th>Vehicle No</th><th>Document Ref</th><th>Items Dispatched Details</th><th>Remarks</th><th>Action Controls</th></tr>
             </thead>
             <tbody id="goHistoryBody"></tbody>
         </table>
     </div>
 </div>
 
-<!-- 🔑 सीक्रेट पासवर्ड डिलीट पॉपअप -->
 <div id="secretPasswordModal" class="secret-modal-overlay">
     <div class="secret-modal-card">
         <h4>🔑 Security Check</h4>
@@ -197,7 +212,6 @@
         renderTable();
     });
 
-    // रो-बिल्डर इंजन (Dropdown + Live Input Box)
     function addGoRow(preExistingSerials = "") {
         const body = document.getElementById('gateoutItemsBody');
         const tr = document.createElement('tr');
@@ -275,7 +289,7 @@
 
     document.getElementById('gateoutForm').addEventListener('submit', function(e) {
         e.preventDefault();
-        let items = []; // 🛡️ लॉक शील्ड: कड़क और शुद्ध जावास्क्रिप्ट ऐरे
+        let items = []; 
         let rows = document.querySelectorAll('#gateoutItemsBody tr'); let deficit = false;
         const idx = parseInt(document.getElementById('editRowIndex').value);
         const fbKey = document.getElementById('editFirebaseKey').value;
@@ -310,305 +324,4 @@
                         let requiredAccQty = parseInt(acc.qty) * qty;
                         let availableAccStock = calculateLiveFreshStock(acc.code, fbKey);
                         if(availableAccStock < requiredAccQty) {
-                            alert(`🚫 BOM Component Deficit!\n\nMain Model [${rawCode}] requires [${requiredAccQty} NOS] of Component [${acc.code}].`);
-                            deficit = true; break;
-                        }
-                    }
-                }
-                if(deficit) break;
-            }
-            
-            // ऑब्जेक्ट बनाकर शुद्ध ऐरे में पुश कर रहे हैं
-            items.push({ 
-                pool: String(pool), 
-                code: String(rawCode), 
-                name: String(row.querySelector('.go-name').value), 
-                qty: parseInt(qty), 
-                serials: String(serialsVal) 
-            });
-        }
-        if(deficit) return;
-
-        const dispatchVoucher = {
-            voucherNo: idx === -1 ? (gateoutData.length + 1) : gateoutData.find(x => x.fbKey === fbKey).voucherNo,
-            date: document.getElementById('goDate').value,
-            vehicleNo: document.getElementById('goVehicleNo').value.trim().toUpperCase(),
-            partyName: document.getElementById('goPartyName').value.trim().toUpperCase(),
-            deliveryShipping: document.getElementById('goDeliveryShipping').value.trim().toUpperCase(),
-            goSendBy: document.getElementById('goSendBy').value.trim().toUpperCase(),
-            remarks: document.getElementById('goRemarks').value.trim().toUpperCase(), 
-            gridItems: items // 🛡️ यह हमेशा क्लीन JSON ऐरे के रूप में ही सेव होगा
-        };
-
-        if(idx === -1) {
-            database.ref('gateoutStockData').push(dispatchVoucher).then(() => { alert("🎉 Gate Out dispatch authorized successfully!"); cancelEditMode(); });
-        } else {
-            database.ref('gateoutStockData/' + fbKey).set(dispatchVoucher).then(() => { alert("🎯 Dispatch entry updated successfully!"); cancelEditMode(); });
-        }
-    });
-
-    function triggerTableRender() { renderTable(); }
-
-    function renderTable() {
-        const b = document.getElementById('goHistoryBody'); b.innerHTML = '';
-        if(gateoutData.length === 0) {
-            b.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:15px; color:#64748b;">No dispatch records found on Cloud.</td></tr>`;
-            return;
-        }
-
-        const searchStr = document.getElementById('liveTableSearchBox').value.trim().toUpperCase();
-        const limitVal = document.getElementById('liveTableLimitSelect').value;
-
-        let filteredList = gateoutData.filter(g => {
-            if(!g) return false;
-            const matchVehicle = g.vehicleNo ? g.vehicleNo.toUpperCase().includes(searchStr) : false;
-            const matchParty = g.partyName ? g.partyName.toUpperCase().includes(searchStr) : false;
-            const matchRemarks = g.remarks ? g.remarks.toUpperCase().includes(searchStr) : false;
-            let itemsList = safeConvertToArray(g.gridItems);
-            const matchItems = itemsList.some(item => {
-                if(!item) return false;
-                let sTxt = getSerialsString(item.serials);
-                return (item.code && item.code.toUpperCase().includes(searchStr)) || 
-                       (item.name && item.name.toUpperCase().includes(searchStr)) ||
-                       (sTxt && sTxt.toUpperCase().includes(searchStr));
-            });
-            return matchVehicle || matchParty || matchRemarks || matchItems;
-        });
-
-        if(filteredList.length === 0) {
-            b.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:15px; color:#64748b;">No matching search records found.</td></tr>`;
-            return;
-        }
-
-        let viewList = filteredList;
-        if (limitVal !== "ALL") { viewList = filteredList.slice(0, parseInt(limitVal)); }
-
-        viewList.forEach((g) => {
-            if(!g) return;
-            let origIdx = gateoutData.findIndex(x => x.fbKey === g.fbKey);
-            let summaryHtml = "";
-            
-            let gItems = safeConvertToArray(g.gridItems);
-            gItems.forEach(item => {
-                if(!item) return;
-                summaryHtml += `• [<b>${item.pool}</b>] <code>${item.code}</code> - ${item.name} (<b>${item.qty} NOS</b>)<br>`;
-                
-                let sTxt = getSerialsString(item.serials);
-                if(sTxt && sTxt !== "-" && sTxt !== "") {
-                    summaryHtml += `<span style="font-size:11px; color:#16a34a; padding-left:10px; font-weight:bold;">🔢 S/N: ${sTxt}</span><br>`;
-                }
-
-                let linkedBOM = bomFormulaList.find(b => b && cleanStr(b.mainCode) === cleanStr(item.code));
-                if(linkedBOM && linkedBOM.accessories) {
-                    summaryHtml += `<span style="font-size:10px; color:#0284c7; padding-left:10px;">📦 BOM Parts Auto-Deducted:</span><br>`;
-                    let accs = safeConvertToArray(linkedBOM.accessories);
-                    accs.forEach(acc => {
-                        if(acc) summaryHtml += `<span style="font-size:10px; color:#64748b; padding-left:15px;">↳ ${acc.code}: ${parseInt(acc.qty)*parseInt(item.qty)} NOS</span><br>`;
-                    });
-                }
-            });
-
-            let displayRemarks = g.remarks ? g.remarks : "-";
-
-            b.innerHTML += `<tr>
-                <td>GVM-GO-${g.voucherNo}</td><td>${g.date}</td><td>${g.vehicleNo}</td><td><b>${g.partyName}</b></td><td style="text-align:left;">${summaryHtml}</td><td>${displayRemarks}</td>
-                <td>
-                    <button type="button" class="btn-print-receipt" onclick='triggerGateOutReceipt(${JSON.stringify(g)})'>🖨️ Print</button>
-                    <button type="button" class="btn-edit-action" onclick="editGateoutRow(${origIdx})">Edit</button>
-                    <button type="button" class="btn-delete-action" onclick="deleteGateoutRow(${origIdx})">Delete</button>
-                </td>
-            </tr>`;
-        });
-    }
-
-    window.editGateoutRow = function(origIdx) {
-        const d = gateoutData[origIdx];
-        if(!d) return;
-        document.getElementById('editRowIndex').value = origIdx;
-        document.getElementById('editFirebaseKey').value = d.fbKey;
-        document.getElementById('goDate').value = d.date;
-        document.getElementById('goVehicleNo').value = d.vehicleNo;
-        document.getElementById('goPartyName').value = d.partyName;
-        document.getElementById('goDeliveryShipping').value = d.deliveryShipping;
-        document.getElementById('goSendBy').value = d.goSendBy || '';
-        document.getElementById('goRemarks').value = d.remarks || ''; 
-
-        const body = document.getElementById('gateoutItemsBody'); body.innerHTML = '';
-        let dItems = safeConvertToArray(d.gridItems);
-        dItems.forEach(item => {
-            if(!item) return;
-            let sTxt = getSerialsString(item.serials);
-            let hasSn = sTxt !== "" && sTxt !== "-";
-            const tr = document.createElement('tr');
-
-            let selectHtml = `<select class="go-sn-required" onchange="toggleSnField(this)" style="padding:6px; border-radius:4px;"><option value="NO" ${!hasSn?'selected':''}>NO</option><option value="YES" ${hasSn?'selected':''}>YES</option></select>`;
-            let inputStyle = hasSn ? "display: inline-block; width: 180px;" : "display: none; width: 180px;";
-
-            tr.innerHTML = `<td><select class="go-pool-type"><option value="FRESH" ${item.pool==='FRESH'?'selected':''}>FRESH</option><option value="REWORK" ${item.pool==='REWORK'?'selected':''}>REWORK</option></select></td>
-                <td><input type="text" required class="go-code" value="${item.code}" oninput="autofillGo(this)" style="text-transform:uppercase;"></td>
-                <td><input type="text" required class="go-name" value="${item.name}"></td>
-                <td><input type="number" min="1" required class="go-qty" value="${item.qty}"></td>
-                <td>
-                    <div style="display:flex; gap:8px; align-items:center; justify-content:center;">
-                        ${selectHtml}
-                        <input type="text" class="go-serials" value="${hasSn ? sTxt : ''}" placeholder="e.g. 2601001 TO 100" style="${inputStyle} text-transform:uppercase; padding:6px; border:1px solid #cbd5e1; border-radius:4px; box-sizing:border-box;">
-                    </div>
-                </td>
-                <td><button type="button" class="btn-row-remove" onclick="this.closest('tr').remove()">×</button></td>`;
-            body.appendChild(tr);
-        });
-
-        document.getElementById('formTitleGateout').innerText = "🛠️ Modify/Edit Gate Out Dispatch Entry";
-        document.getElementById('btnSubmitForm').innerText = "Update & Authorize Dispatch";
-        document.getElementById('btnCancelEdit').style.display = "inline-block";
-        document.getElementById('gateoutForm').scrollIntoView({ behavior: 'smooth' });
-    };
-
-    window.deleteGateoutRow = function(origIdx) {
-        activeDeleteRowIdx = origIdx;
-        document.getElementById('secretModalPasswordField').value = "";
-        document.getElementById('secretPasswordModal').style.display = "flex";
-        document.getElementById('secretModalPasswordField').focus();
-    };
-
-    function closeSecretPasswordModal() { document.getElementById('secretPasswordModal').style.display = "none"; activeDeleteRowIdx = null; }
-
-    function submitSecretDeletePassword() {
-        const pass = document.getElementById('secretModalPasswordField').value;
-        if (pass === "7004") {
-            const fbKey = gateoutData[activeDeleteRowIdx].fbKey;
-            database.ref('gateoutStockData/' + fbKey).remove().then(() => {
-                alert("🗑️ Success: Dispatch record wiped out and stock restored!");
-                closeSecretPasswordModal(); cancelEditMode();
-            });
-        } else {
-            alert("❌ Access Denied: Incorrect Password!");
-            closeSecretPasswordModal();
-        }
-    }
-
-    function cancelEditMode() {
-        document.getElementById('editRowIndex').value = "-1";
-        document.getElementById('editFirebaseKey').value = "";
-        document.getElementById('gateoutForm').reset();
-        document.getElementById('gateoutItemsBody').innerHTML = '';
-        document.getElementById('formTitleGateout').innerText = "🚪 Gate Out (Dispatch) Ledger";
-        document.getElementById('btnSubmitForm').innerText = "Authorize Gate Out (Deduct Stock)";
-        document.getElementById('btnCancelEdit').style.display = "none";
-        applyLiveDateRestrictions(); addGoRow();
-    }
-
-    function triggerGateOutReceipt(g) {
-        if(!g) return;
-        const shell = document.getElementById('printSection');
-        let rowsHtml = "";
-        let gItems = safeConvertToArray(g.gridItems);
-        gItems.forEach(item => {
-            if(!item) return;
-            rowsHtml += `<tr>
-                <td style="border:1px solid #000; padding:3px; font-weight:bold;">${item.code}</td>
-                <td style="border:1px solid #000; padding:3px;">${item.name}</td>
-                <td style="border:1px solid #000; padding:3px; text-align:center; font-weight:bold;">${item.pool}</td>
-                <td style="border:1px solid #000; padding:3px; text-align:center; font-weight:bold;">${item.qty}</td>
-            </tr>`;
-            
-            let sTxt = getSerialsString(item.serials);
-            if(sTxt && sTxt !== "-" && sTxt !== "") {
-                rowsHtml += `<tr style="background:#fcfcfc;">
-                    <td colspan="4" style="border:1px solid #000; padding:3px 3px 3px 12px; font-size:10px; color:#16a34a;"><b>↳ S/N Allocations:</b> ${sTxt}</td>
-                </tr>`;
-            }
-
-            let printBOM = bomFormulaList.find(b => b && cleanStr(b.mainCode) === cleanStr(item.code));
-            if(printBOM && printBOM.accessories) {
-                let accs = safeConvertToArray(printBOM.accessories);
-                accs.forEach(acc => {
-                    if(acc) {
-                        rowsHtml += `<tr style="color:#555; font-style:italic; background:#fafafa; font-size:9px;">
-                            <td style="border:1px solid #000; padding:2px 2px 2px 15px;">↳ Component: ${acc.code}</td>
-                            <td style="border:1px solid #000; padding:2px;" colspan="2">${acc.name}</td>
-                            <td style="border:1px solid #000; padding:2px; text-align:center;">${parseInt(acc.qty)*parseInt(item.qty)}</td>
-                        </tr>`;
-                    }
-                });
-            }
-        });
-
-        let receiptRemarks = g.remarks ? g.remarks : "N/A";
-
-        shell.innerHTML = `
-            <div style="border:1px solid #000; padding:6px; height:100%; box-sizing:border-box; display:flex; flex-direction:column; justify-content:space-between;">
-                <div style="text-align:center; font-weight:bold; font-size:12px; border-bottom:1px solid #000; padding-bottom:2px; text-transform:uppercase;">GVM RAIL PVT LTD - DISPATCH OUTWARD REPORT</div>
-                <table style="width:100%; font-size:11px; margin-top:2px; line-height:1.2;">
-                    <tr><td><b>Voucher No:</b> GVM-GO-${g.voucherNo}</td><td><b>Dispatch Date:</b> ${g.date}</td></tr>
-                    <tr><td><b>Vehicle No:</b> ${g.vehicleNo}</td><td><b>Party Target:</b> ${g.partyName}</td></tr>
-                    <tr><td colspan="2"><b>Location:</b> ${g.deliveryShipping || '-'} | <b>Dispatched By:</b> ${g.goSendBy || 'N/A'}</td></tr>
-                    <tr><td colspan="2"><b>Remarks:</b> ${receiptRemarks}</td></tr>
-                </table>
-                <table style="width:100%; border-collapse:collapse; margin-top:4px; font-size:10px;">
-                    <thead>
-                        <tr style="background:#eee;">
-                            <th style="border:1px solid #000; padding:3px; text-align:left;">Model / BOM Code</th>
-                            <th style="border:1px solid #000; padding:3px; text-align:left;">Description / Specifications</th>
-                            <th style="border:1px solid #000; padding:3px;">Pool</th>
-                            <th style="border:1px solid #000; padding:3px;">Qty</th>
-                        </tr>
-                    </thead>
-                    <tbody>${rowsHtml}</tbody>
-                </table>
-                <div style="text-align:right; font-weight:bold; font-size:9px; margin-top:15px;">Authorized Dispatched Signature</div>
-            </div>`;
-        window.print();
-    }
-
-    function exportGateoutToExcel() {
-        const fromDate = document.getElementById('goFromDate').value;
-        const toDate = document.getElementById('goToDate').value;
-        
-        let csv = "Voucher No,Date,Vehicle No,Party Target,Delivery Location,Dispatched By,Remarks,Pool Type,Model Code,Model Name,Main Qty,Serial Numbers,BOM Component Code,BOM Component Qty\n";
-        
-        let targetList = gateoutData;
-        if(fromDate && toDate) {
-            targetList = gateoutData.filter(g => g && g.date >= fromDate && g.date <= toDate);
-        }
-
-        targetList.forEach(g => {
-            if(!g) return;
-            let rems = g.remarks ? g.remarks : "";
-            let gItems = safeConvertToArray(g.gridItems);
-            gItems.forEach(item => {
-                if(!item) return;
-                let sns = getSerialsString(item.serials);
-                let excelBOM = bomFormulaList.find(b => b && cleanStr(b.mainCode) === cleanStr(item.code));
-                if(excelBOM && excelBOM.accessories) {
-                    let accs = safeConvertToArray(excelBOM.accessories);
-                    accs.forEach(acc => {
-                        if(acc) {
-                            csv += `"GVM-GO-${g.voucherNo}","${g.date}","${g.vehicleNo}","${g.partyName}","${g.deliveryShipping || ''}","${g.goSendBy || ''}","${rems}","${item.pool}","${item.code}","${item.name}","${item.qty}","${sns}","${acc.code}","${parseInt(acc.qty)*parseInt(item.qty)}"\n`;
-                        }
-                    });
-                } else {
-                    csv += `"GVM-GO-${g.voucherNo}","${g.date}","${g.vehicleNo}","${g.partyName}","${g.deliveryShipping || ''}","${g.goSendBy || ''}","${rems}","${item.pool}","${item.code}","${item.name}","${item.qty}","${sns}","N/A","0"\n`;
-                }
-            });
-        });
-
-        let blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
-        let link = document.createElement("a");
-        link.href = URL.createObjectURL(blob); link.setAttribute("download", `Gateout_BOM_Report_${fromDate || 'All'}_to_${toDate || 'All'}.csv`);
-        document.body.appendChild(link); link.click(); document.body.removeChild(link);
-    }
-
-    function applyLiveDateRestrictions() {
-        const todayStr = new Date().toISOString().split('T')[0];
-        document.getElementById('goDate').setAttribute('max', todayStr); 
-        document.getElementById('goDate').value = todayStr; 
-        document.getElementById('goFromDate').value = todayStr; 
-        document.getElementById('goToDate').value = todayStr; 
-    }
-
-    applyLiveDateRestrictions();
-    addGoRow();
-</script>
-</body>
-</html>
+                            alert(`🚫 BOM Component Deficit!\n\nMain Model [${rawCode}] requires [${requiredAccQty} NOS] of Component
