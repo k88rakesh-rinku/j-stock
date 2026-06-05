@@ -54,7 +54,7 @@
         <a href="failure.html" class="tab-link">🛠️ Failure Defect Log</a>
     </div>
 
-    <!-- 🌟 मुख्य दो टैब (PO Ledger और Physical Stock) -->
+    <!-- 🌟 मुख्य दो टैब -->
     <div class="ledger-tabs">
         <button class="ledger-tab-btn active" onclick="switchLedgerTab('po-tab', this)">📊 PO Matrix Ledger</button>
         <button class="ledger-tab-btn" onclick="switchLedgerTab('stock-tab', this)">🏬 General Physical Stock (All Items)</button>
@@ -65,7 +65,6 @@
         <div class="control-panel">
             <div class="panel-left">
                 <label style="font-weight: bold; font-size: 13px; color:#475569;">Filter PO Status:</label>
-                <!-- 🌟 चालू, पूरे और सभी पीओ का ड्रॉपडाउन फ़िल्टर -->
                 <select id="poStatusDropdown" class="select-filter" onchange="renderPoLedgerTable()">
                     <option value="ACTIVE">Active PO Only</option>
                     <option value="COMPLETED">Completed PO Only</option>
@@ -94,12 +93,11 @@
     <div id="stock-tab" class="tab-content">
         <div class="control-panel">
             <div class="panel-left">
-                <!-- 🌟 लाइव सर्च इंजन (oninput लगाते ही टाइप करते ही लिस्ट एक्टिव हो जाएगी) -->
+                <!-- 🌟 लाइव टाइप करते ही सर्च फिल्टर एक्टिव करने वाला बॉक्स (oninput चालू है) -->
                 <input type="text" id="stockSearchBox" class="search-box" placeholder="🔍 Type Model Code or Item Name..." autocomplete="off" oninput="renderPhysicalStockTable()">
             </div>
             <div class="panel-left">
                 <label style="font-weight: bold; font-size: 13px; color:#475569;">Show Records:</label>
-                <!-- 🌟 5, 10, 15, ALL का लिमिट ड्रॉपडाउन -->
                 <select id="stockLimitDropdown" class="select-filter" onchange="renderPhysicalStockTable()">
                     <option value="5">5 Records</option>
                     <option value="10">10 Records</option>
@@ -148,14 +146,14 @@
     let outwardDispatches = [];
     let bomFormulaList = [];
 
-    const cleanStr = (str) => String(str || "").trim().toUpperCase().replace(/\s+/g, '');
+    // 🛡️ स्पेस को बिना डिलीट किए केवल बड़े अक्षरों में ट्रिम करने का शुद्ध क्लीनर फंक्शन
+    const cleanStr = (str) => String(str || "").trim().toUpperCase();
 
     function safeConvertToArray(rawVal) {
         if (!rawVal) return [];
         return Array.isArray(rawVal) ? rawVal : Object.values(rawVal);
     }
 
-    // टैब स्विच इंजन
     function switchLedgerTab(tabId, btn) {
         document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
         document.querySelectorAll('.ledger-tab-btn').forEach(b => b.classList.remove('active'));
@@ -165,7 +163,6 @@
         else { renderPoLedgerTable(); }
     }
 
-    // लाइव फायरबेस डेटा फेचिंग और रियल-टाइम सिंक
     database.ref('systemMasterCatalogFlat').on('value', (snap) => {
         catalogFlatList = safeConvertToArray(snap.val());
         calculateMasterLogic();
@@ -191,7 +188,7 @@
         renderPhysicalStockTable();
     }
 
-    // 1. पीओ लेज़र रेंडर टेबल (पेंडिंग बैलेंस सुधार के साथ)
+    // 1. पीओ लेज़र रेंडर टेबल (स्पेस री-स्टोर के साथ परफेक्ट मैचिंग)
     function renderPoLedgerTable() {
         const tbody = document.getElementById('poLedgerItemsBody');
         tbody.innerHTML = '';
@@ -202,7 +199,6 @@
 
         const poFilter = document.getElementById('poStatusDropdown').value;
 
-        // प्रत्येक पीओ का इनवर्ड कैलकुलेट करना
         let poSummaryMap = {};
         inboundVouchers.forEach(v => {
             if(!v) return;
@@ -212,7 +208,7 @@
             }
             items.forEach(item => {
                 if(!item || !item.poNumber || !item.modelCode) return;
-                let key = cleanStr(item.poNumber) + "_" + cleanStr(item.modelCode);
+                let key = cleanStr(item.poNumber) + "|||" + cleanStr(item.modelCode);
                 poSummaryMap[key] = (poSummaryMap[key] || 0) + parseInt(item.qty || item.receiveQty || 0);
             });
         });
@@ -220,17 +216,16 @@
         let rowsCount = 0;
         catalogFlatList.forEach(c => {
             if(!c || !c.poNumber) return;
-            let key = cleanStr(c.poNumber) + "_" + cleanStr(c.code);
+            let key = cleanStr(c.poNumber) + "|||" + cleanStr(c.code);
             let totalReceived = poSummaryMap[key] || 0;
             
-            // 🌟 यहाँ सुधार किया गया है: आपके पुराने कैटलॉग नोड में कॉलम का नाम 'qty' ही था!
+            // पुराने डेटाबेस आर्किटेक्चर के अनुसार 'qty' का मिलान
             let poQty = parseInt(c.qty || c.poQty || 0); 
             let pendingBalance = poQty - totalReceived;
             if (pendingBalance < 0) pendingBalance = 0;
 
             let isCompleted = pendingBalance === 0;
 
-            // ड्रॉपडाउन फ़िल्टर नियम
             if(poFilter === 'ACTIVE' && isCompleted) return;
             if(poFilter === 'COMPLETED' && !isCompleted) return;
 
@@ -253,7 +248,7 @@
         }
     }
 
-    // 2. जनरल फिजिकल स्टॉक रेंडर टेबल (लाइव टाइपिंग फ़िल्टर और सर्च इंजन)
+    // 2. जनरल फिजिकल स्टॉक रेंडर टेबल (स्पेस के साथ लाइव फ़िल्टर)
     function renderPhysicalStockTable() {
         const tbody = document.getElementById('physicalStockBody');
         tbody.innerHTML = '';
@@ -310,7 +305,7 @@
 
         let allUniqueCodes = Array.from(new Set([...Object.keys(globalInMap), ...Object.keys(globalOutMap)]));
 
-        // 🌟 टाइप करते ही लाइव फ़िल्टर करने का इंजन
+        // लाइव टाइप करते ही फ़िल्टर होने का इंजन
         let filteredCodes = allUniqueCodes.filter(code => {
             let name = itemNamesMap[code] || "UNKNOWN ITEM DESCRIPTION";
             return code.includes(searchStr) || name.includes(searchStr);
@@ -343,7 +338,7 @@
         });
     }
 
-    // 3. पीओ रिपोर्ट एक्सेल डाउनलोड
+    // 3. पीओ एक्सेल रिपोर्ट डाउनलोड
     function exportPoLedgerToExcel() {
         let csv = "PO Number,Model Code,Item Name,Total PO Qty,Total Received,Pending Balance,Status\n";
         
@@ -354,7 +349,7 @@
             if(items.length === 0 && v.modelCode) items.push({ modelCode: v.modelCode, poNumber: v.poNo, qty: v.qty || v.receiveQty || 0 });
             items.forEach(item => {
                 if(item && item.poNumber && item.modelCode) {
-                    let key = cleanStr(item.poNumber) + "_" + cleanStr(item.modelCode);
+                    let key = cleanStr(item.poNumber) + "|||" + cleanStr(item.modelCode);
                     poSummaryMap[key] = (poSummaryMap[key] || 0) + parseInt(item.qty || item.receiveQty || 0);
                 }
             });
@@ -362,7 +357,7 @@
 
         catalogFlatList.forEach(c => {
             if(!c || !c.poNumber) return;
-            let key = cleanStr(c.poNumber) + "_" + cleanStr(c.code);
+            let key = cleanStr(c.poNumber) + "|||" + cleanStr(c.code);
             let received = poSummaryMap[key] || 0;
             let poQty = parseInt(c.qty || c.poQty || 0);
             let bal = poQty - received;
@@ -374,7 +369,7 @@
         triggerDownloadBlob(csv, "PO_Master_Ledger_Report.csv");
     }
 
-    // 4. जनरल स्टॉक एक्सेल डाउनलोड
+    // 4. जनरल स्टॉक एक्सेल रिपोर्ट डाउनलोड
     function exportPhysicalStockToExcel() {
         let csv = "Model Part Code,Item Description,Total Inward (In),Total Dispatched (Out),Live Available Stock\n";
         
