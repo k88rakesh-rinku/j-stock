@@ -106,7 +106,6 @@
         appId: "1:202991207119:web:2246ffb7b92f9eb0c4adba"
     };
     
-    // शुद्ध इनिशियलाइजेशन (मैचेस योर अदर वर्किंग फाइल्स)
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
 
@@ -118,32 +117,29 @@
     let currentModalRows = []; 
     let allModalRowsBackup = [];
 
-    // सेफ कन्वर्टर: नल (null) वैल्यूज को बाईपास करने की शील्ड
+    // 🛡️ यूनिवर्सल कनवर्टर शील्ड: ऑब्जेक्ट और ऐरे दोनों को सुरक्षित ऐरे में बदलता है
     function safeConvertToArray(rawVal) {
         if (!rawVal) return [];
         let arr = Array.isArray(rawVal) ? rawVal : Object.values(rawVal);
         return arr.filter(item => item !== null && item !== undefined);
     }
 
-    // 🚀 नोड 1: रीयल-टाइम फ्रेश इनवर्ड लिसनर
+    // रीयल-टाइम लिसनर्स स्ट्रीम्स
     database.ref('freshStockVouchers').on('value', (snapshot) => {
         freshData = safeConvertToArray(snapshot.val());
         renderPOBalanceTable();
     });
 
-    // 🚀 नोड 2: रीयल-टाइम गेट आउट डिस्पैच लिसनर
     database.ref('gateoutStockData').on('value', (snapshot) => {
         gateoutData = safeConvertToArray(snapshot.val());
         renderPOBalanceTable();
     });
 
-    // 🚀 नोड 3: रीयल-टाइम बीओएम मास्टर लिसनर
     database.ref('bomMasterData').on('value', (snapshot) => {
         bomFormulaList = safeConvertToArray(snapshot.val());
         renderPOBalanceTable();
     });
 
-    // 🚀 नोड 4: रीयल-टाइम कैटलॉग लिसनर + सेफ्टी बैकअप
     database.ref('systemMasterCatalogFlat').on('value', (snapshot) => {
         flatCatalogPOList = safeConvertToArray(snapshot.val());
         checkCatalogFallback();
@@ -163,101 +159,110 @@
         }
     }
 
-    // ⚙️ मुख्य रेंडरिंग इंजन (Fast Performance Architecture)
+    // ⚙️ मुख्य गणना इंजन (Try-Catch क्रैश प्रूफ आर्किटेक्चर)
     function renderPOBalanceTable() {
         const poBody = document.getElementById('poLedgerBody');
         if (!poBody) return;
         
-        // अगर मुख्य कैटलॉग अभी लोड हो रहा है, तो स्टेट दिखाए
         if (flatCatalogPOList.length === 0) {
             poBody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:15px; color:#0284c7; font-weight:bold;">🔄 Fetching Live Cloud Inventory Sync...</td></tr>`;
             return;
         }
 
-        const search = normalize(document.getElementById('poSearchBox').value);
-        const typeFilter = document.getElementById('poTypeFilter').value;
-        
-        let foundPOs = flatCatalogPOList.filter(x => x && x.hasPO === "YES" && 
-            (typeFilter === "ALL" || x.poType === typeFilter) && 
-            (normalize(x.poNumber).includes(search) || normalize(x.company).includes(search) || normalize(x.code).includes(search))
-        );
-
-        if(foundPOs.length === 0) {
-            poBody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:15px; color:#dc2626; font-weight:bold;">⚠ No Active PO Matrix Data Found.</td></tr>`;
-            return;
-        }
-
-        let htmlString = ""; // स्ट्रिंग बफर ताकि स्क्रीन फ्लिकर न करे
-
-        foundPOs.forEach(p => {
-            if(!p) return;
-            let poExecutedQty = 0;
-            let pCodeClean = normalize(p.code);
-            let pPoNumClean = normalize(p.poNumber);
+        try {
+            const search = normalize(document.getElementById('poSearchBox').value);
+            const typeFilter = document.getElementById('poTypeFilter').value;
             
-            if (p.poType === "PURCHASE") {
-                freshData.forEach(f => { 
-                    if (f && f.gridItems) {
-                        f.gridItems.forEach(gi => { 
-                            if(gi && normalize(gi.modelCode) === pCodeClean && normalize(f.poNo) === pPoNumClean) {
-                                poExecutedQty += parseInt(gi.qty || gi.receiveQty || 0); 
-                            }
-                        }); 
-                    }
-                });
-            } else {
-                gateoutData.forEach(g => { 
-                    if(g && g.gridItems) {
-                        g.gridItems.forEach(gi => { 
-                            if(gi && normalize(gi.code) === pCodeClean && normalize(g.poNo || gi.poNumber) === pPoNumClean) {
-                                poExecutedQty += parseInt(gi.qty || 0); 
-                            }
-                        }); 
-                    }
-                });
+            let foundPOs = flatCatalogPOList.filter(x => x && x.hasPO === "YES" && 
+                (typeFilter === "ALL" || x.poType === typeFilter) && 
+                (normalize(x.poNumber).includes(search) || normalize(x.company).includes(search) || normalize(x.code).includes(search))
+            );
+
+            if(foundPOs.length === 0) {
+                poBody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:15px; color:#dc2626; font-weight:bold;">⚠ No Active PO Matrix Data Found.</td></tr>`;
+                return;
             }
 
-            let totalIn = 0;
-            freshData.forEach(v => {
-                if(!v) return;
-                let items = v.gridItems ? [...v.gridItems] : [];
-                if(items.length === 0 && v.modelCode) { items.push({ modelCode: v.modelCode, qty: v.qty || v.receiveQty || 0 }); }
-                items.forEach(item => { if(item && normalize(item.modelCode) === pCodeClean) { totalIn += parseInt(item.qty || item.receiveQty || 0); } });
-            });
+            let htmlString = "";
 
-            let totalOut = 0;
-            gateoutData.forEach(g => {
-                if(!g || !g.gridItems) return;
-                g.gridItems.forEach(item => { 
-                    if(!item) return;
-                    if(item.pool === 'FRESH' && normalize(item.code) === pCodeClean) { totalOut += parseInt(item.qty || 0); }
-                    
-                    let mainItemBOM = bomFormulaList.find(b => b && normalize(b.mainCode) === normalize(item.code));
-                    if(mainItemBOM && mainItemBOM.accessories) {
-                        mainItemBOM.accessories.forEach(acc => { if(acc && normalize(acc.code) === pCodeClean) { totalOut += (parseInt(acc.qty) * parseInt(item.qty || 0)); } });
-                    }
+            foundPOs.forEach(p => {
+                if(!p) return;
+                let poExecutedQty = 0;
+                let pCodeClean = normalize(p.code);
+                let pPoNumClean = normalize(p.poNumber);
+                
+                if (p.poType === "PURCHASE") {
+                    freshData.forEach(f => { 
+                        if (f && f.gridItems) {
+                            let gItems = safeConvertToArray(f.gridItems); // 🛡️ ऑब्जेक्ट-ऐरे क्रैश प्रोटेक्शन
+                            gItems.forEach(gi => { 
+                                if(gi && normalize(gi.modelCode) === pCodeClean && normalize(f.poNo) === pPoNumClean) {
+                                    poExecutedQty += parseInt(gi.qty || gi.receiveQty || 0); 
+                                }
+                            }); 
+                        }
+                    });
+                } else {
+                    gateoutData.forEach(g => { 
+                        if(g && g.gridItems) {
+                            let gItems = safeConvertToArray(g.gridItems); // 🛡️ ऑब्जेक्ट-ऐरे क्रैश प्रोटेक्शन
+                            gItems.forEach(gi => { 
+                                if(gi && normalize(gi.code) === pCodeClean && normalize(g.poNo || gi.poNumber) === pPoNumClean) {
+                                    poExecutedQty += parseInt(gi.qty || 0); 
+                                }
+                            }); 
+                        }
+                    });
+                }
+
+                let totalIn = 0;
+                freshData.forEach(v => {
+                    if(!v) return;
+                    let items = v.gridItems ? safeConvertToArray(v.gridItems) : [];
+                    if(items.length === 0 && v.modelCode) { items.push({ modelCode: v.modelCode, qty: v.qty || v.receiveQty || 0 }); }
+                    items.forEach(item => { if(item && normalize(item.modelCode) === pCodeClean) { totalIn += parseInt(item.qty || item.receiveQty || 0); } });
                 });
+
+                let totalOut = 0;
+                gateoutData.forEach(g => {
+                    if(!g || !g.gridItems) return;
+                    let items = safeConvertToArray(g.gridItems);
+                    items.forEach(item => { 
+                        if(!item) return;
+                        if(item.pool === 'FRESH' && normalize(item.code) === pCodeClean) { totalOut += parseInt(item.qty || 0); }
+                        
+                        let mainItemBOM = bomFormulaList.find(b => b && normalize(b.mainCode) === normalize(item.code));
+                        if(mainItemBOM && mainItemBOM.accessories) {
+                            let accs = safeConvertToArray(mainItemBOM.accessories);
+                            accs.forEach(acc => { if(acc && normalize(acc.code) === pCodeClean) { totalOut += (parseInt(acc.qty) * parseInt(item.qty || 0)); } });
+                        }
+                    });
+                });
+
+                let currentStockBalance = totalIn - totalOut;
+                let poPendingQty = (parseInt(p.poTotalQty) || 0) - poExecutedQty;
+                let safeItemName = p.name ? p.name.replace(/'/g, "\\'") : "";
+
+                htmlString += `<tr>
+                    <td>${p.poNumber || ''}</td>
+                    <td>${p.poType || ''}</td>
+                    <td><code>${p.code || ''}</code></td>
+                    <td>${p.name || ''}</td>
+                    <td><b>${p.poTotalQty || 0}</b></td>
+                    <td>${poExecutedQty}</td>
+                    <td style="color:#dc2626; font-weight:bold;">${totalOut}</td>
+                    <td style="color:#16a34a; font-weight:bold;">${currentStockBalance} NOS</td>
+                    <td>${poPendingQty}</td>
+                    <td><button class="btn-quick-view" onclick="showHistory('${p.code}', '${p.poNumber}', '${safeItemName}', ${p.poTotalQty}, ${poExecutedQty}, ${totalOut}, ${currentStockBalance}, ${poPendingQty})">View</button></td>
+                </tr>`;
             });
+            
+            poBody.innerHTML = htmlString;
 
-            let currentStockBalance = totalIn - totalOut;
-            let poPendingQty = (parseInt(p.poTotalQty) || 0) - poExecutedQty;
-            let safeItemName = p.name ? p.name.replace(/'/g, "\\'") : "";
-
-            htmlString += `<tr>
-                <td>${p.poNumber || ''}</td>
-                <td>${p.poType || ''}</td>
-                <td><code>${p.code || ''}</code></td>
-                <td>${p.name || ''}</td>
-                <td><b>${p.poTotalQty || 0}</b></td>
-                <td>${poExecutedQty}</td>
-                <td style="color:#dc2626; font-weight:bold;">${totalOut}</td>
-                <td style="color:#16a34a; font-weight:bold;">${currentStockBalance} NOS</td>
-                <td>${poPendingQty}</td>
-                <td><button class="btn-quick-view" onclick="showHistory('${p.code}', '${p.poNumber}', '${safeItemName}', ${p.poTotalQty}, ${poExecutedQty}, ${totalOut}, ${currentStockBalance}, ${poPendingQty})">View</button></td>
-            </tr>`;
-        });
-        
-        poBody.innerHTML = htmlString;
+        } catch (e) {
+            console.error("Dashboard Rendering Interrupted: ", e);
+            poBody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:25px; background:#fff1f2; color:#b91c1c; font-weight:bold;">🚫 Live Data Stream Processing Exception!<br><span style="font-size:12px; font-weight:normal; color:#475569;">रात की किसी एंट्री के कारण फॉल्ट आया था। कोड सुरक्षा कवच ने इसे बाईपास कर दिया है। एरर विवरण: ${e.message}</span></td></tr>`;
+        }
     }
 
     function showHistory(code, poNumber, itemName, poQty, executed, dispatched, balance, pending) {
@@ -283,21 +288,27 @@
         let searchCode = normalize(code);
 
         freshData.forEach(f => { 
-            if(f && f.gridItems) f.gridItems.forEach(gi => { 
-                if(gi && normalize(gi.modelCode) === searchCode) { 
-                    body.innerHTML += `<tr><td>${f.gateInDate || ''}</td><td>FRESH INWARD</td><td>${f.billNo || ''}</td><td>${gi.qty || 0} NOS</td></tr>`; 
-                    allModalRowsBackup.push([f.gateInDate, "FRESH INWARD", f.billNo, gi.qty]); 
-                }
-            }); 
+            if(f && f.gridItems) {
+                let gItems = safeConvertToArray(f.gridItems);
+                gItems.forEach(gi => { 
+                    if(gi && normalize(gi.modelCode) === searchCode) { 
+                        body.innerHTML += `<tr><td>${f.gateInDate || ''}</td><td>FRESH INWARD</td><td>${f.billNo || ''}</td><td>${gi.qty || 0} NOS</td></tr>`; 
+                        allModalRowsBackup.push([f.gateInDate, "FRESH INWARD", f.billNo, gi.qty]); 
+                    }
+                }); 
+            }
         });
         
         gateoutData.forEach(g => { 
-            if(g && g.gridItems) g.gridItems.forEach(gi => { 
-                if(gi && normalize(gi.code) === searchCode) { 
-                    body.innerHTML += `<tr><td>${g.date || ''}</td><td>DISPATCH OUT</td><td>GVM-GO-${g.voucherNo || ''}</td><td>-${gi.qty || 0} NOS</td></tr>`; 
-                    allModalRowsBackup.push([g.date, "DISPATCH OUT", `GVM-GO-${g.voucherNo}`, -gi.qty]); 
-                }
-            }); 
+            if(g && g.gridItems) {
+                let gItems = safeConvertToArray(g.gridItems);
+                gItems.forEach(gi => { 
+                    if(gi && normalize(gi.code) === searchCode) { 
+                        body.innerHTML += `<tr><td>${g.date || ''}</td><td>DISPATCH OUT</td><td>GVM-GO-${g.voucherNo || ''}</td><td>-${gi.qty || 0} NOS</td></tr>`; 
+                        allModalRowsBackup.push([g.date, "DISPATCH OUT", `GVM-GO-${g.voucherNo}`, -gi.qty]); 
+                    }
+                }); 
+            }
         });
         
         filterModalRows();
