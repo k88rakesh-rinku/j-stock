@@ -73,6 +73,9 @@
         .secret-modal-btn-confirm { background: #dc2626; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; }
         .secret-modal-btn-cancel { background: #64748b; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; }
 
+        /* 🌟 यूनिट ड्रॉपडाउन की कस्टम सुंदर सीएसएस */
+        .grid-unit-select { padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; background: white; font-weight: bold; cursor: pointer; }
+
         @media print {
             body * { visibility: hidden; }
             #printSection, #printSection * { visibility: visible; }
@@ -144,32 +147,38 @@
         </div>
 
         <div class="grid-input-card">
-            <!-- 🛠️ एकदम साफ और प्रीमियम प्रोफेशनल हेडिंग -->
             <h4 style="margin: 0 0 12px 0; color: #1e3a8a; border-bottom: 1px solid #cbd5e1; padding-bottom: 5px;">📋 Material Inward Row Grid Section:</h4>
             <div style="display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap;">
-                <div style="flex: 1; min-width: 150px;">
+                <div style="flex: 1; min-width: 140px;">
                     <label style="font-size:12px; font-weight:bold;">Model Code</label>
                     <input type="text" id="gridModelCode" placeholder="Code (e.g. GP0018, OWN)" oninput="autoFillGridItemName(this)" style="padding:8px; width:100%; box-sizing:border-box; text-transform:uppercase;">
                 </div>
-                <div style="flex: 2; min-width: 200px;">
+                <div style="flex: 2; min-width: 180px;">
                     <label style="font-size:12px; font-weight:bold;">Model Description / Name</label>
                     <input type="text" id="gridModelName" placeholder="Item Name" style="padding:8px; width:100%; box-sizing:border-box;">
                 </div>
-                <div style="flex: 1; min-width: 100px;">
+                <div style="flex: 1; min-width: 90px;">
                     <label style="font-size:12px; font-weight:bold;">Bill Qty</label>
-                    <!-- 🛠️ placeholder से e.g. 4000 हटाकर एकदम क्लीन किया भाई -->
                     <input type="text" id="gridBillQty" placeholder="Enter Qty" style="padding:8px; width:100%; box-sizing:border-box;">
                 </div>
-                <div style="flex: 1; min-width: 100px;">
+                <div style="flex: 1; min-width: 90px;">
                     <label style="font-size:12px; font-weight:bold;">Receive Qty</label>
                     <input type="text" id="gridRecQty" placeholder="Enter Qty" style="padding:8px; width:100%; box-sizing:border-box;">
+                </div>
+                <div style="min-width: 90px;">
+                    <label style="font-size:12px; font-weight:bold;">Unit</label>
+                    <select id="gridUnit" class="grid-unit-select" style="width: 100%;">
+                        <option value="NOS">NOS</option>
+                        <option value="MTR">MTR</option>
+                        <option value="SET">SET</option>
+                    </select>
                 </div>
                 <button type="button" onclick="addItemToGridList()" style="background:#64748b; color:white; border:none; padding:9px 15px; font-weight:bold; border-radius:4px; cursor:pointer;">+ Add Row</button>
             </div>
 
             <table class="inner-table">
                 <thead>
-                    <tr><th>Model Code</th><th>Description</th><th>Bill Qty</th><th>Receive Qty</th><th>Remove</th></tr>
+                    <tr><th>Model Code</th><th>Description</th><th>Bill Qty</th><th>Receive Qty</th><th>Unit Type</th><th>Remove</th></tr>
                 </thead>
                 <tbody id="gridItemsBody"></tbody>
             </table>
@@ -187,12 +196,12 @@
 
     <div class="table-filter-panel">
         <div>
-            <input type="text" id="liveTableSearchBox" class="search-input-box" placeholder="🔍 Search Bill No, Code or Item Name..." oninput="triggerTableRender()">
+            <input type="text" id="liveTableSearchBox" class="search-input-box" placeholder="🔍 Search Bill No, Code or Item Name..." autocomplete="off" oninput="triggerTableRender()">
         </div>
         <div>
             <label style="font-weight: bold; font-size: 13px; color:#475569;">Show Records:</label>
             <select id="liveTableLimitSelect" class="limit-dropdown-select" onchange="triggerTableRender()">
-                <option value="5">5 Bills (Default)</option>
+                <option value="5" selected>5 Bills (Default)</option>
                 <option value="10">10 Bills</option>
                 <option value="15">15 Bills</option>
                 <option value="ALL">Show All Bills</option>
@@ -229,7 +238,6 @@
 <div id="printSection"></div>
 
 <script>
-    /* 📑 लाइव क्लाउड फायरबेस क्रेडेंशियल कॉन्फ़िगरेशन सेटअप */
     const firebaseConfig = {
         apiKey: "AIzaSyCAOXbPwuFR3wh1QSLBXWsodupKWoRYmqs",
         authDomain: "gvm-stock-control.firebaseapp.com",
@@ -242,7 +250,6 @@
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
 
-    /* 📑 एक्टिव यूजर सत्र सुरक्षा ट्रैकिंग सुरक्षा चक्र */
     const session = JSON.parse(localStorage.getItem('activeSession'));
     if(!session) { window.location.href = 'login.html'; }
     function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
@@ -254,7 +261,6 @@
     let lastActiveFocusedInputId = "companyName";
     let activeDeleteRowIdx = null; 
 
-    /* 📑 फायरबेस 'systemMasterCatalogFlat' फ़ोल्डर से लाइव PO डेटाबेस रीयल-टाइम सिंक */
     database.ref('systemMasterCatalogFlat').on('value', (snapshot) => {
         flatPOList = [];
         const data = snapshot.val();
@@ -265,7 +271,6 @@
         }
     });
 
-    /* 📑 फायरबेस इनवर्ड वाउचर रीयल-टाइम डेटा लोड और सिंक करना */
     database.ref('freshStockVouchers').on('value', (snapshot) => {
         stockData = [];
         const data = snapshot.val();
@@ -278,7 +283,6 @@
         renderTable();
     });
 
-    /* 📑 क्वांटिटी ख़त्म होने पर PO को हाइड करने का लाइव कैलकुलेशन इंजन */
     function updatePODropdownOptions(filteredPOs, currentEditingPONo = null) {
         const selectBox = document.getElementById('poNo');
         selectBox.innerHTML = '';
@@ -286,7 +290,7 @@
         let validPOs = filteredPOs.filter(p => {
             let poNum = p.poNumber.trim().toUpperCase();
             let pCode = p.code.trim().toUpperCase();
-            let totalOrdered = parseInt(p.poTotalQty || 0);
+            let totalOrdered = parseInt(p.qty || p.poTotalQty || 0);
             
             if(currentEditingPONo && poNum === currentEditingPONo.trim().toUpperCase()) {
                 return true;
@@ -319,11 +323,10 @@
         });
     }
 
-    /* 📑 कंपनी नाम से जुड़े सारे PURCHASE POं को लोड करने का इंजन */
     function fetchPurchasePOOptions() {
         const compName = document.getElementById('companyName').value.trim().toUpperCase();
         if(!compName) { 
-            document.getElementById('poNo').innerHTML = '<option value="">-- TYPE COMPANY OR CODE FIRST --</option>'; 
+            document.getElementById('poNo').innerHTML = '<option value="">-- PO NUMBER --</option>'; 
             return; 
         }
         
@@ -331,7 +334,6 @@
         updatePODropdownOptions(matches);
     }
 
-    /* 📑 MODEL CODE डालते ही एक्टिव PURCHASE PO ढूंढने का लाइव इंजन */
     function autoFillGridItemName(input) {
         let code = input.value.trim().toUpperCase(); 
         let foundName = ""; let foundCompany = "";
@@ -354,15 +356,14 @@
         }
     }
 
-    /* 🛠️ मटेरियल आइटम रो ग्रिड सेव इंजन (एडिट मोड में भी 3रो या ज़्यादा आइटम जोड़ने का फ़िक्स गियर) */
     function addItemToGridList() {
         const code = document.getElementById('gridModelCode').value.trim().toUpperCase();
         const name = document.getElementById('gridModelName').value.trim();
         
         let valBill = document.getElementById('gridBillQty').value;
         let valRec = document.getElementById('gridRecQty').value;
+        const unit = document.getElementById('gridUnit').value;
         
-        // 🧠 बुलेटप्रूफ कनवर्टर: चाहे ऑब्जेक्ट हो या स्ट्रिंग, पूरी तरह शुद्ध संख्या खींचेगा
         let strBill = valBill ? valBill.toString().replace(/[^0-9]/g, '') : "";
         let strRec = valRec ? valRec.toString().replace(/[^0-9]/g, '') : "";
         
@@ -372,29 +373,29 @@
         if(!code || !name || isNaN(bQty) || isNaN(rQty)) { alert("Please enter valid Model Details and Quantities!"); return; }
         if(bQty !== rQty) { alert("Error: Bill Qty and Receive Qty must match!"); return; }
 
-        tempGridItems.push({ modelCode: code, modelName: name, qty: bQty, receiveQty: rQty });
+        // 🌟 यूनिट को कतार पैकेट ऑब्जेक्ट में जोड़ रहे हैं
+        tempGridItems.push({ modelCode: code, modelName: name, qty: bQty, receiveQty: rQty, unit: unit });
         renderTempGrid();
         document.getElementById('gridModelCode').value = '';
         document.getElementById('gridModelName').value = '';
         document.getElementById('gridBillQty').value = '';
         document.getElementById('gridRecQty').value = '';
+        document.getElementById('gridUnit').value = 'NOS';
         
         lastActiveFocusedInputId = 'gridModelCode';
         document.getElementById('gridModelCode').focus();
     }
 
-    /* 📑 ग्रिड कतार से अस्थाई रो डिलीट करने की तकनीक */
     function removeTempRow(index) { tempGridItems.splice(index, 1); renderTempGrid(); }
 
-    /* 📑 अस्थाई ग्रिड लिस्ट को एचटीएमएल टेबल में लाइव रेंडर करने का ढांचा */
     function renderTempGrid() {
         const tbody = document.getElementById('gridItemsBody'); tbody.innerHTML = '';
         tempGridItems.forEach((item, index) => {
-            tbody.innerHTML += `<tr><td><code>${item.modelCode}</code></td><td>${item.modelName}</td><td><b>${item.qty}</b></td><td>${item.receiveQty}</td><td><button type="button" class="btn-remove-row" onclick="removeTempRow(${index})">X</button></td></tr>`;
+            let uText = item.unit ? item.unit : "NOS";
+            tbody.innerHTML += `<tr><td><code>${item.modelCode}</code></td><td>${item.modelName}</td><td><b>${item.qty}</b></td><td>${item.receiveQty}</td><td><span style="color:#0284c7; font-weight:bold;">${uText}</span></td><td><button type="button" class="btn-remove-row" onclick="removeTempRow(${index})">X</button></td></tr>`;
         });
     }
 
-    /* 📑 फॉर्म FINAL सबमिशन इंजन (डबल-लेयर डुप्लीकेट रोकने के नियम और एडिट लाइव अपडेट फिक्स के साथ) */
     document.getElementById('stockForm').addEventListener('submit', function(e) {
         e.preventDefault();
 
@@ -405,28 +406,26 @@
         const currentGateInNo = document.getElementById('gateInNo').value.trim().toUpperCase();
         const currentBillDate = document.getElementById('billDate').value;
 
-        // १. अगर ग्रिड खाली है और इनपुट डिब्बों में नया माल लिखा हुआ है तो उसे साफ करके ग्रिड लिस्ट में पुश करो
         const code = document.getElementById('gridModelCode').value.trim().toUpperCase();
         if (code) {
             const name = document.getElementById('gridModelName').value.trim();
             let valBill = document.getElementById('gridBillQty').value || "";
             let valRec = document.getElementById('gridRecQty').value || "";
+            const unit = document.getElementById('gridUnit').value;
             let bQty = parseInt(valBill.toString().replace(/[^0-9]/g, ''));
             let rQty = parseInt(valRec.toString().replace(/[^0-9]/g, ''));
 
             if(code && name && !isNaN(bQty) && !isNaN(rQty)) {
                 if(bQty !== rQty) { alert("Error: Bill Qty and Receive Qty must match!"); return; }
-                tempGridItems.push({ modelCode: code, modelName: name, qty: bQty, receiveQty: rQty });
+                tempGridItems.push({ modelCode: code, modelName: name, qty: bQty, receiveQty: rQty, unit: unit });
             }
         }
 
-        // २. सुरक्षा चक्र जांच
         if(tempGridItems.length === 0) {
             alert("Please enter at least one item with valid quantities!");
             return;
         }
 
-        // ३. केवल नए एंट्री मोड में ही डुप्लीकेट वाउचर का सुरक्षा चक्र चलेगा, एडिट मोड में बाईपास होगा
         if (idx === -1) {
             let matchingVouchers = stockData.filter(v => v.billNo === currentBillNo && v.gateInNo === currentGateInNo);
 
@@ -448,7 +447,6 @@
 
         let originalCreator = (idx !== -1 && stockData[idx]) ? (stockData[idx].createdBy || "k88rakesh") : session.userId;
 
-        // मास्टर डेटा वाउचर पैकेट
         const masterVoucher = {
             companyName: document.getElementById('companyName').value.trim().toUpperCase(), 
             poNo: document.getElementById('poNo').value.trim().toUpperCase(),
@@ -475,7 +473,6 @@
         renderTable();
     }
 
-    /* 📑 सेव्ड क्लाउड रिकॉर्ड्स को मुख्य इतिहास ग्रिड में लाइव रेंडर करने का सिस्टम */
     function renderTable() {
         const body = document.getElementById('tableBody'); body.innerHTML = '';
         document.getElementById('lowStockAlert').style.display = 'none';
@@ -517,13 +514,14 @@
             let itemsList = i.gridItems || [];
             
             if (itemsList.length === 0 && i.modelCode) {
-                itemsList.push({ modelCode: i.modelCode, modelName: i.modelName, qty: i.qty || i.receiveQty || 0 });
+                itemsList.push({ modelCode: i.modelCode, modelName: i.modelName, qty: i.qty || i.receiveQty || 0, unit: i.unit || 'NOS' });
             }
 
             itemsList.forEach(item => {
                 let currentQty = parseInt(item.qty || item.receiveQty || 0);
-                itemsHtml += `• <code>${item.modelCode || i.modelCode}</code> - ${item.modelName || i.modelName} (<b>${currentQty} NOS</b>)<br>`;
-                if(currentQty < 5) document.getElementById('lowStockAlert').style.display = 'block';
+                let currentUnit = item.unit ? item.unit : "NOS";
+                itemsHtml += `• <code>${item.modelCode || i.modelCode}</code> - ${item.modelName || i.modelName} (<b>${currentQty} ${currentUnit}</b>)<br>`;
+                if(currentQty < 5 && currentUnit === 'NOS') document.getElementById('lowStockAlert').style.display = 'block';
             });
 
             let adminBadgeHtml = "";
@@ -544,7 +542,6 @@
         });
     }
 
-    /* 📑 पुराने इनवार्ड वाउचर को वापस फॉर्म के अंदर एडिट मोड में लोड करने का ढांचा */
     function editFreshRow(idx) {
         const d = stockData[idx]; 
         document.getElementById('editRowIndex').value = idx;
@@ -568,7 +565,7 @@
         document.getElementById('gateInDate').value = d.gateInDate; 
         document.getElementById('gateInNo').value = d.gateInNo;
 
-        tempGridItems = d.gridItems ? [...d.gridItems] : [{ modelCode: d.modelCode, modelName: d.modelName, qty: d.qty, receiveQty: d.receiveQty }];
+        tempGridItems = d.gridItems ? [...d.gridItems] : [{ modelCode: d.modelCode, modelName: d.modelName, qty: d.qty, receiveQty: d.receiveQty, unit: d.unit || 'NOS' }];
         renderTempGrid();
 
         document.getElementById('btnSubmitForm').innerText = "Update Entire Material Inward Bill";
@@ -576,12 +573,11 @@
         document.getElementById('stockForm').scrollIntoView({ behavior: 'smooth' });
     }
 
-    /* 📑 एडिट विज़ार्ड को रद्द कर फ़ॉर्म को दोबारा डिफ़ॉल्ट री-सेट करने का लॉजिक */
     function cancelEditMode() {
         document.getElementById('editRowIndex').value = "-1"; 
         document.getElementById('editFirebaseKey').value = ""; 
         document.getElementById('stockForm').reset(); 
-        document.getElementById('poNo').innerHTML = '<option value="">-- TYPE COMPANY OR CODE FIRST --</option>';
+        document.getElementById('poNo').innerHTML = '<option value="">-- PO NUMBER --</option>';
         tempGridItems = []; 
         renderTempGrid();
         document.getElementById('btnSubmitForm').innerText = "Final Save Inward Voucher"; 
@@ -590,7 +586,6 @@
         lastActiveFocusedInputId = "companyName";
     }
 
-    /* 🛠️ प्रॉमप्ट डिब्बे को हटाकर सीक्रेट पासवर्ड स्टार पॉपअप बॉक्स खोलने का गियर */
     function deleteFreshRow(idx) {
         activeDeleteRowIdx = idx;
         document.getElementById('secretModalPasswordField').value = "";
@@ -603,7 +598,6 @@
         activeDeleteRowIdx = null;
     }
 
-    /* 🛠️ सीक्रेट पासवर्ड (7004) का स्टार लॉक्ड वेरिफिकेशन... */
     function submitSecretDeletePassword() {
         const pass = document.getElementById('secretModalPasswordField').value;
         if (pass === "7004") {
@@ -619,17 +613,18 @@
         }
     }
 
-    /* 📑 1/4 A4 पर्ची प्रिंटिंग थर्मल रेंडरिंग इंजन */
     function triggerGateInReceipt(i) {
         const shell = document.getElementById('printSection');
-        let itemsList = i.gridItems || [{ modelCode: i.modelCode, modelName: i.modelName, qty: i.qty, receiveQty: i.receiveQty }];
+        let itemsList = i.gridItems || [{ modelCode: i.modelCode, modelName: i.modelName, qty: i.qty, receiveQty: i.receiveQty, unit: i.unit || 'NOS' }];
         let rowsHtml = "";
         itemsList.forEach(item => {
+            let uText = item.unit ? item.unit : "NOS";
             rowsHtml += `<tr>
                 <td style="border:1px solid #000; padding:3px;">${item.modelCode}</td>
                 <td style="border:1px solid #000; padding:3px;">${item.modelName}</td>
                 <td style="border:1px solid #000; padding:3px; text-align:center; font-weight:bold;">${item.qty}</td>
                 <td style="border:1px solid #000; padding:3px; text-align:center; font-weight:bold;">${item.receiveQty}</td>
+                <td style="border:1px solid #000; padding:3px; text-align:center;">${uText}</td>
             </tr>`;
         });
 
@@ -658,6 +653,7 @@
                             <th style="border:1px solid #000; padding:3px; text-align:left;">Description</th>
                             <th style="border:1px solid #000; padding:3px;">Bill Qty</th>
                             <th style="border:1px solid #000; padding:3px;">Receive Qty</th>
+                            <th style="border:1px solid #000; padding:3px;">Unit</th>
                         </tr>
                     </thead>
                     <tbody>${rowsHtml}</tbody>
@@ -667,7 +663,6 @@
         window.print();
     }
 
-    /* 📑 तारीखों पर प्रतिबंध लगाने और डिफ़ॉल्ट कैलेंडर... */
     function applyLiveDateRestrictions() {
         const todayStr = new Date().toISOString().split('T')[0];
         document.getElementById('billDate').setAttribute('max', todayStr); document.getElementById('gateInDate').setAttribute('max', todayStr);
@@ -675,13 +670,13 @@
         document.getElementById('freshFromDate').value = todayStr; document.getElementById('freshToDate').value = todayStr;
     }
     
-    /* 📑 कतार-बाय-कतार स्प्लिट (Clean Column) एक्सेल एक्सपोर्ट इंजन */
     function exportFreshToExcel() {
-        let csv = "Company,Bill No,PO No,Bill Date,Gate-In Date,Gate-In No,Model Code,Model Name,Bill Qty,Receive Qty\n";
+        let csv = "Company,Bill No,PO No,Bill Date,Gate-In Date,Gate-In No,Model Code,Model Name,Bill Qty,Receive Qty,Unit Type\n";
         stockData.forEach(i => {
-            let itemsList = i.gridItems || [{ modelCode: i.modelCode, modelName: i.modelName, qty: i.qty, receiveQty: i.receiveQty }];
+            let itemsList = i.gridItems || [{ modelCode: i.modelCode, modelName: i.modelName, qty: i.qty, receiveQty: i.receiveQty, unit: i.unit || 'NOS' }];
             itemsList.forEach(item => {
-                csv += `"${i.companyName}","${i.billNo}","${i.poNo}","${i.billDate}","${i.gateInDate}","${i.gateInNo}","${item.modelCode}","${item.modelName}","${item.qty}","${item.receiveQty}"\n`;
+                let uText = item.unit ? item.unit : "NOS";
+                csv += `"${i.companyName}","${i.billNo}","${i.poNo}","${i.billDate}","${i.gateInDate}","${i.gateInNo}","${item.modelCode}","${item.modelName}","${item.qty}","${item.receiveQty}","${uText}"\n`;
             });
         });
         let blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
@@ -690,7 +685,6 @@
         document.body.appendChild(link); link.click(); document.body.removeChild(link);
     }
 
-    /* 🛠️ पूरे फॉर्म के इनपुट बॉक्स पर कर्सर मेमोरी ट्रैकिंग इंजन सेट किया है */
     function trackInputFocusMemory() {
         document.querySelectorAll('form input, form select').forEach(field => {
             field.addEventListener('focus', function() {
@@ -702,7 +696,6 @@
         });
     }
 
-    /* 🛠️ विंडो विजिबिलिटी और पेज शो ट्रिगर (बुलेटप्रूफ रिफोकस गियर) */
     function applyBulletproofRefocusEngine() {
         document.addEventListener('click', function(e) {
             if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'SELECT' && e.target.tagName !== 'BUTTON' && !e.target.closest('.secret-modal-card')) {
@@ -717,7 +710,6 @@
         window.addEventListener('focus', function() { refocusLastElement(); });
         window.addEventListener('pageshow', function() { refocusLastElement(); });
 
-        /* 🔥 महा-इंजन: जब यूजर बाहर से आकर सीधे टैब पर Ctrl+V दबाएगा */
         document.addEventListener('paste', function(e) {
             if (lastActiveFocusedInputId) {
                 const targetEl = document.getElementById(lastActiveFocusedInputId);
@@ -754,6 +746,12 @@
             }
         }
     }
+
+    // सेफ्टी लॉक: पेज लोड होते ही इतिहास सर्च बार का पुराना कचरा साफ़ रखना
+    window.addEventListener('DOMContentLoaded', () => {
+        const box = document.getElementById('liveTableSearchBox');
+        if (box) box.value = "";
+    });
 
     applyLiveDateRestrictions();
     trackInputFocusMemory();
