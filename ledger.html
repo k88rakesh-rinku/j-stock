@@ -2,33 +2,47 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Master Ledger - GVM Rail</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Master Ledger & Stock Control</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
     <style>
-        .erp-btn { padding: 6px 12px; border: 1px solid #ccc; background: #f8fafc; cursor: pointer; border-radius: 4px; font-size: 13px; font-weight: bold; }
-        .erp-btn:hover { background: #e2e8f0; }
-        .table-filter-panel { display: flex; justify-content: space-between; align-items: center; background: #f1f5f9; padding: 15px; border-radius: 6px; margin: 15px 0; gap: 10px; }
-        .btn-quick-view { background: #0284c7; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; }
-        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); }
-        .modal-content { background: #fff; margin: 2% auto; padding: 20px; width: 85%; border-radius: 8px; max-height: 90vh; overflow-y: auto; }
-        
-        .modal-summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 20px; text-align: left; }
-        .summary-card-box { padding: 10px; border-radius: 4px; font-size: 12px; line-height: 1.4; box-sizing: border-box; }
+        /* टैब नेविगेशन स्टाइल */
+        .ledger-tabs { display: flex; gap: 10px; margin: 20px 0 15px 0; border-bottom: 2px solid #cbd5e1; padding-bottom: 8px; }
+        .ledger-tab-btn { padding: 10px 20px; font-size: 14px; font-weight: bold; border: none; background: #e2e8f0; color: #475569; border-radius: 6px; cursor: pointer; transition: all 0.2s; }
+        .ledger-tab-btn.active { background: #1e3a8a; color: white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        .ledger-tab-btn:hover:not(.active) { background: #cbd5e1; }
 
-        @media print {
-            body * { visibility: hidden; }
-            #historyModal, #historyModal * { visibility: visible; }
-            #historyModal { position: absolute; left: 0; top: 0; width: 100%; background: none; }
-            .action-btns { display: none !important; }
-            .modal-summary-grid { display: grid !important; grid-template-columns: repeat(4, 1fr) !important; gap: 10px !important; margin-bottom: 20px !important; }
-        }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* फ़िल्टर और सर्च बार पैनल */
+        .control-panel { display: flex; justify-content: space-between; align-items: center; background: #f8fafc; padding: 12px 18px; border: 1px solid #cbd5e1; border-radius: 6px; margin-bottom: 15px; gap: 15px; flex-wrap: wrap; }
+        .panel-left { display: flex; gap: 10px; align-items: center; }
+        .panel-right { display: flex; gap: 10px; align-items: center; }
+
+        .select-filter { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; font-weight: bold; background: #fff; cursor: pointer; }
+        .search-box { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; width: 260px; text-transform: uppercase; }
+        .btn-search-trigger { background: #0f172a; color: white; border: none; padding: 8px 16px; border-radius: 4px; font-weight: bold; cursor: pointer; }
+        .btn-search-trigger:hover { background: #1e293b; }
+
+        .tabs-nav a { background-color: #e2e8f0; color: #334155; font-weight: 500; transition: all 0.3s; padding: 8px 12px; display: inline-block; border-radius: 4px; text-decoration: none; margin-right: 4px; }
+        .tabs-nav a:hover { background-color: #cbd5e1; }
+        .tabs-nav a.active-ledger { background-color: #1e3a8a !important; color: white !important; font-weight: bold; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+
+        code { background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-family: monospace; font-weight: bold; color: #0f172a; }
+        .badge-stock { padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 13px; }
+        .badge-plus { background: #dcfce7; color: #15803d; }
+        .badge-zero { background: #fee2e2; color: #b91c1c; }
     </style>
 </head>
 <body>
 <div class="container">
-    <div class="erp-header"><h1>📊 Master Ledger & History</h1><button class="logout-btn" onclick="logout()">Logout</button></div>
+    <div class="erp-header">
+        <h1>Material Lifecycle Control & Inventory Ledger Systems</h1>
+        <button class="logout-btn" onclick="logout()">Logout</button>
+    </div>
     
     <div class="tabs-nav">
         <a href="index.html" class="tab-link">📦 New Entry (Fresh)</a>
@@ -36,66 +50,86 @@
         <a href="gateout.html" class="tab-link">🚪 Gate Out (Dispatch)</a>
         <a href="debit.html" class="tab-link">🧾 Debit Note (Vendor)</a>
         <a href="code.html" class="tab-link">🆕 Generate Code</a>
-        <a href="ledger.html" class="tab-link active-ledger" style="background-color: #1e3a8a; color: white;">📊 Master Ledger & History</a>
+        <a href="ledger.html" class="tab-link active-ledger">📊 Master Ledger & History</a>
         <a href="users.html" class="tab-link">👥 Manage Users</a>
         <a href="bom.html" class="tab-link">🔗 BOM Master</a>
         <a href="failure.html" class="tab-link">🛠️ Failure Defect Log</a>
     </div>
 
-    <div style="margin-top: 15px;">
-        <button class="erp-btn" style="background-color: #dc2626; color: white; border: none; padding: 8px 16px; font-size: 14px;" onclick="window.location.href='index.html'">⬅️ Back to Main Menu</button>
+    <!-- 🌟 मुख्य दो टैब (PO Ledger और Physical Stock) -->
+    <div class="ledger-tabs">
+        <button class="ledger-tab-btn active" onclick="switchLedgerTab('po-tab', this)">📊 PO Matrix Ledger</button>
+        <button class="ledger-tab-btn" onclick="switchLedgerTab('stock-tab', this)">🏬 General Physical Stock (All Items)</button>
     </div>
-    
-    <div class="table-filter-panel">
-        <h3 style="margin:0;">📋 PO Matrix & Physical Inventory Dashboard</h3>
-        <div>
-            <select id="poTypeFilter" onchange="renderPOBalanceTable()">
-                <option value="ALL">All Types</option>
-                <option value="PURCHASE">Purchase</option>
-                <option value="SALE">Sale</option>
-            </select>
-            <input type="text" id="poSearchBox" placeholder="Search PO/Company/Code..." onkeyup="if(event.key==='Enter') renderPOBalanceTable()">
-            <button class="erp-btn" onclick="renderPOBalanceTable()">Search</button>
-        </div>
-    </div>
-    
-    <div class="table-responsive">
-        <table class="history-table" style="border: 2px solid #1e3a8a;">
-            <thead style="background-color: #1e3a8a; color: white;">
-                <tr>
-                    <th>PO Number</th><th>Type</th><th>Code</th><th>Item</th><th>Ordered</th>
-                    <th>PO Executed</th><th>Total Dispatched</th><th>Current Stock Balance</th><th>PO Pending</th><th>Action</th>
-                </tr>
-            </thead>
-            <tbody id="poLedgerBody">
-                <tr><td colspan="10" style="text-align:center; padding:15px; color:#0284c7; font-weight:bold;">🔄 Connecting & Syncing with Cloud Databases...</td></tr>
-            </tbody>
-        </table>
-    </div>
-</div>
 
-<div id="historyModal" class="modal">
-    <div class="modal-content">
-        <div class="action-btns" style="display: flex; gap: 10px; margin-bottom: 15px; align-items: center;">
-            <h2 id="modalTitle" style="margin:0; flex-grow:1; color:#1e3a8a;">History Log</h2>
-            <input type="text" id="modalSearchBox" placeholder="🔍 Search Date/Ref..." style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;" oninput="filterModalRows()">
-            <button class="erp-btn" onclick="exportModalToExcel()">📥 Excel</button>
-            <button class="erp-btn" onclick="window.print()">🖨️ Print Master Log</button>
-            <button class="erp-btn" style="background:#dc2626; color:white;" onclick="closeModal()">❌ Close</button>
+    <!-- =================== टैब 1: PO MATRIX LEDGER =================== -->
+    <div id="po-tab" class="tab-content active">
+        <div class="control-panel">
+            <div class="panel-left">
+                <label style="font-weight: bold; font-size: 13px; color:#475569;">Filter PO Status:</label>
+                <!-- 🌟 चालू, पूरे और सभी पीओ का ड्रॉपडाउन फ़िल्टर -->
+                <select id="poStatusDropdown" class="select-filter" onchange="renderPoLedgerTable()">
+                    <option value="ACTIVE">Active PO Only</option>
+                    <option value="COMPLETED">Completed PO Only</option>
+                    <option value="ALL">All PO Records</option>
+                </select>
+            </div>
+            <div class="panel-right">
+                <button class="btn-excel" onclick="exportPoLedgerToExcel()">Download PO Report</button>
+            </div>
         </div>
 
-        <div id="modalSummaryBox" class="modal-summary-grid"></div>
+        <div class="table-responsive">
+            <table class="history-table">
+                <thead style="background-color: #334155; color: white;">
+                    <tr>
+                        <th>PO No</th><th>Model Code</th><th>Item Name</th><th>Total PO Qty</th>
+                        <th>Total Received</th><th>Pending Balance</th><th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="poLedgerItemsBody"></tbody>
+            </table>
+        </div>
+    </div>
 
-        <table class="history-table" style="width:100%; border: 1px solid #cbd5e1;">
-            <thead style="background:#475569; color:white;"><tr><th>Transaction Date</th><th>Stock Pool Link</th><th>Voucher Reference No</th><th>Transaction Qty</th></tr></thead>
-            <tbody id="modalBody"></tbody>
-        </table>
+    <!-- =================== टैब 2: GENERAL PHYSICAL STOCK =================== -->
+    <div id="stock-tab" class="tab-content">
+        <div class="control-panel">
+            <div class="panel-left">
+                <!-- 🌟 सर्च बॉक्स बिना ऑटोफ़िल पंगे के (autocomplete="off") -->
+                <input type="text" id="stockSearchBox" class="search-box" placeholder="🔍 Search Model Code or Item Name..." autocomplete="off">
+                <button type="button" class="btn-search-trigger" onclick="renderPhysicalStockTable()">Search</button>
+            </div>
+            <div class="panel-left">
+                <label style="font-weight: bold; font-size: 13px; color:#475569;">Show Records:</label>
+                <!-- 🌟 5, 10, 15, ALL का लिमिट ड्रॉपडाउन -->
+                <select id="stockLimitDropdown" class="select-filter" onchange="renderPhysicalStockTable()">
+                    <option value="5">5 Records</option>
+                    <option value="10">10 Records</option>
+                    <option value="15">15 Records</option>
+                    <option value="ALL" selected>Show All Stock</option>
+                </select>
+            </div>
+            <div class="panel-right">
+                <button class="btn-excel" style="background:#16a34a;" onclick="exportPhysicalStockToExcel()">Download Stock Excel</button>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="history-table">
+                <thead style="background-color: #1e3a8a; color: white;">
+                    <tr>
+                        <th>Model Part Code</th><th>Description / Item Name</th>
+                        <th>Total Inward (In)</th><th>Total Dispatched (Out)</th><th>Live Available Stock</th>
+                    </tr>
+                </thead>
+                <tbody id="physicalStockBody"></tbody>
+            </table>
+        </div>
     </div>
 </div>
 
 <script>
-    const normalize = (str) => String(str || "").trim().toUpperCase().replace(/\s+/g, '');
-
     const firebaseConfig = {
         apiKey: "AIzaSyCAOXbPwuFR3wh1QSLBXWsodupKWoRYmqs",
         authDomain: "gvm-stock-control.firebaseapp.com",
@@ -105,7 +139,6 @@
         messagingSenderId: "202991207119",
         appId: "1:202991207119:web:2246ffb7b92f9eb0c4adba"
     };
-    
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
 
@@ -113,222 +146,304 @@
     if(!session) { window.location.href = 'login.html'; }
     function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
 
-    let freshData = [], gateoutData = [], flatCatalogPOList = [], bomFormulaList = [];
-    let currentModalRows = []; 
-    let allModalRowsBackup = [];
+    let catalogFlatList = [];
+    let inboundVouchers = [];
+    let outwardDispatches = [];
+    let bomFormulaList = [];
 
-    // 🛡️ यूनिवर्सल कनवर्टर शील्ड: ऑब्जेक्ट और ऐरे दोनों को सुरक्षित ऐरे में बदलता है
+    const cleanStr = (str) => String(str || "").trim().toUpperCase().replace(/\s+/g, '');
+
     function safeConvertToArray(rawVal) {
         if (!rawVal) return [];
-        let arr = Array.isArray(rawVal) ? rawVal : Object.values(rawVal);
-        return arr.filter(item => item !== null && item !== undefined);
+        return Array.isArray(rawVal) ? rawVal : Object.values(rawVal);
     }
 
-    // रीयल-टाइम लिसनर्स स्ट्रीम्स
-    database.ref('freshStockVouchers').on('value', (snapshot) => {
-        freshData = safeConvertToArray(snapshot.val());
-        renderPOBalanceTable();
-    });
-
-    database.ref('gateoutStockData').on('value', (snapshot) => {
-        gateoutData = safeConvertToArray(snapshot.val());
-        renderPOBalanceTable();
-    });
-
-    database.ref('bomMasterData').on('value', (snapshot) => {
-        bomFormulaList = safeConvertToArray(snapshot.val());
-        renderPOBalanceTable();
-    });
-
-    database.ref('systemMasterCatalogFlat').on('value', (snapshot) => {
-        flatCatalogPOList = safeConvertToArray(snapshot.val());
-        checkCatalogFallback();
-        renderPOBalanceTable();
-    });
-
-    function checkCatalogFallback() {
-        if(flatCatalogPOList.length === 0) {
-            let localMaster = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
-            let parsedFlat = [];
-            for(let cat in localMaster) {
-                if(localMaster[cat] && Array.isArray(localMaster[cat])) {
-                    localMaster[cat].forEach(item => { if(item && item.hasPO === "YES") parsedFlat.push(item); });
-                }
-            }
-            flatCatalogPOList = parsedFlat;
-        }
+    // टैब स्विच इंजन
+    function switchLedgerTab(tabId, btn) {
+        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.ledger-tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(tabId).classList.add('active');
+        btn.classList.add('active');
+        if(tabId === 'stock-tab') { renderPhysicalStockTable(); }
+        else { renderPoLedgerTable(); }
     }
 
-    // ⚙️ मुख्य गणना इंजन (Try-Catch क्रैश प्रूफ आर्किटेक्चर)
-    function renderPOBalanceTable() {
-        const poBody = document.getElementById('poLedgerBody');
-        if (!poBody) return;
-        
-        if (flatCatalogPOList.length === 0) {
-            poBody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:15px; color:#0284c7; font-weight:bold;">🔄 Fetching Live Cloud Inventory Sync...</td></tr>`;
+    // लाइव फायरबेस डेटा फेचिंग और रियल-टाइम सिंक
+    database.ref('systemMasterCatalogFlat').on('value', (snap) => {
+        catalogFlatList = safeConvertToArray(snap.val());
+        calculateMasterLogic();
+    });
+
+    database.ref('freshStockVouchers').on('value', (snap) => {
+        inboundVouchers = safeConvertToArray(snap.val());
+        calculateMasterLogic();
+    });
+
+    database.ref('gateoutStockData').on('value', (snap) => {
+        outwardDispatches = safeConvertToArray(snap.val());
+        calculateMasterLogic();
+    });
+
+    database.ref('bomMasterData').on('value', (snap) => {
+        bomFormulaList = safeConvertToArray(snap.val());
+        calculateMasterLogic();
+    });
+
+    function calculateMasterLogic() {
+        renderPoLedgerTable();
+        renderPhysicalStockTable();
+    }
+
+    // 1. पीओ लेज़र रेंडर टेबल (Active / Completed / All फ़िल्टर के साथ)
+    function renderPoLedgerTable() {
+        const tbody = document.getElementById('poLedgerItemsBody');
+        tbody.innerHTML = '';
+        if (catalogFlatList.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:15px; color:#64748b;">No Catalog/PO matrix data found.</td></tr>`;
             return;
         }
 
-        try {
-            const search = normalize(document.getElementById('poSearchBox').value);
-            const typeFilter = document.getElementById('poTypeFilter').value;
-            
-            let foundPOs = flatCatalogPOList.filter(x => x && x.hasPO === "YES" && 
-                (typeFilter === "ALL" || x.poType === typeFilter) && 
-                (normalize(x.poNumber).includes(search) || normalize(x.company).includes(search) || normalize(x.code).includes(search))
-            );
+        const poFilter = document.getElementById('poStatusDropdown').value;
 
-            if(foundPOs.length === 0) {
-                poBody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:15px; color:#dc2626; font-weight:bold;">⚠ No Active PO Matrix Data Found.</td></tr>`;
-                return;
+        // प्रत्येक पीओ का इनवर्ड कैलकुलेट करना
+        let poSummaryMap = {};
+        inboundVouchers.forEach(v => {
+            if(!v) return;
+            let items = safeConvertToArray(v.gridItems);
+            if(items.length === 0 && v.modelCode) {
+                items.push({ modelCode: v.modelCode, poNumber: v.poNo, qty: v.qty || v.receiveQty || 0 });
             }
-
-            let htmlString = "";
-
-            foundPOs.forEach(p => {
-                if(!p) return;
-                let poExecutedQty = 0;
-                let pCodeClean = normalize(p.code);
-                let pPoNumClean = normalize(p.poNumber);
-                
-                if (p.poType === "PURCHASE") {
-                    freshData.forEach(f => { 
-                        if (f && f.gridItems) {
-                            let gItems = safeConvertToArray(f.gridItems); // 🛡️ ऑब्जेक्ट-ऐरे क्रैश प्रोटेक्शन
-                            gItems.forEach(gi => { 
-                                if(gi && normalize(gi.modelCode) === pCodeClean && normalize(f.poNo) === pPoNumClean) {
-                                    poExecutedQty += parseInt(gi.qty || gi.receiveQty || 0); 
-                                }
-                            }); 
-                        }
-                    });
-                } else {
-                    gateoutData.forEach(g => { 
-                        if(g && g.gridItems) {
-                            let gItems = safeConvertToArray(g.gridItems); // 🛡️ ऑब्जेक्ट-ऐरे क्रैश प्रोटेक्शन
-                            gItems.forEach(gi => { 
-                                if(gi && normalize(gi.code) === pCodeClean && normalize(g.poNo || gi.poNumber) === pPoNumClean) {
-                                    poExecutedQty += parseInt(gi.qty || 0); 
-                                }
-                            }); 
-                        }
-                    });
-                }
-
-                let totalIn = 0;
-                freshData.forEach(v => {
-                    if(!v) return;
-                    let items = v.gridItems ? safeConvertToArray(v.gridItems) : [];
-                    if(items.length === 0 && v.modelCode) { items.push({ modelCode: v.modelCode, qty: v.qty || v.receiveQty || 0 }); }
-                    items.forEach(item => { if(item && normalize(item.modelCode) === pCodeClean) { totalIn += parseInt(item.qty || item.receiveQty || 0); } });
-                });
-
-                let totalOut = 0;
-                gateoutData.forEach(g => {
-                    if(!g || !g.gridItems) return;
-                    let items = safeConvertToArray(g.gridItems);
-                    items.forEach(item => { 
-                        if(!item) return;
-                        if(item.pool === 'FRESH' && normalize(item.code) === pCodeClean) { totalOut += parseInt(item.qty || 0); }
-                        
-                        let mainItemBOM = bomFormulaList.find(b => b && normalize(b.mainCode) === normalize(item.code));
-                        if(mainItemBOM && mainItemBOM.accessories) {
-                            let accs = safeConvertToArray(mainItemBOM.accessories);
-                            accs.forEach(acc => { if(acc && normalize(acc.code) === pCodeClean) { totalOut += (parseInt(acc.qty) * parseInt(item.qty || 0)); } });
-                        }
-                    });
-                });
-
-                let currentStockBalance = totalIn - totalOut;
-                let poPendingQty = (parseInt(p.poTotalQty) || 0) - poExecutedQty;
-                let safeItemName = p.name ? p.name.replace(/'/g, "\\'") : "";
-
-                htmlString += `<tr>
-                    <td>${p.poNumber || ''}</td>
-                    <td>${p.poType || ''}</td>
-                    <td><code>${p.code || ''}</code></td>
-                    <td>${p.name || ''}</td>
-                    <td><b>${p.poTotalQty || 0}</b></td>
-                    <td>${poExecutedQty}</td>
-                    <td style="color:#dc2626; font-weight:bold;">${totalOut}</td>
-                    <td style="color:#16a34a; font-weight:bold;">${currentStockBalance} NOS</td>
-                    <td>${poPendingQty}</td>
-                    <td><button class="btn-quick-view" onclick="showHistory('${p.code}', '${p.poNumber}', '${safeItemName}', ${p.poTotalQty}, ${poExecutedQty}, ${totalOut}, ${currentStockBalance}, ${poPendingQty})">View</button></td>
-                </tr>`;
+            items.forEach(item => {
+                if(!item || !item.poNumber || !item.modelCode) return;
+                let key = cleanStr(item.poNumber) + "_" + cleanStr(item.modelCode);
+                poSummaryMap[key] = (poSummaryMap[key] || 0) + parseInt(item.qty || item.receiveQty || 0);
             });
-            
-            poBody.innerHTML = htmlString;
+        });
 
-        } catch (e) {
-            console.error("Dashboard Rendering Interrupted: ", e);
-            poBody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:25px; background:#fff1f2; color:#b91c1c; font-weight:bold;">🚫 Live Data Stream Processing Exception!<br><span style="font-size:12px; font-weight:normal; color:#475569;">रात की किसी एंट्री के कारण फॉल्ट आया था। कोड सुरक्षा कवच ने इसे बाईपास कर दिया है। एरर विवरण: ${e.message}</span></td></tr>`;
+        let rowsCount = 0;
+        catalogFlatList.forEach(c => {
+            if(!c || !c.poNumber) return;
+            let key = cleanStr(c.poNumber) + "_" + cleanStr(c.code);
+            let totalReceived = poSummaryMap[key] || 0;
+            let poQty = parseInt(c.poQty || 0);
+            let pendingBalance = poQty - totalReceived;
+            if (pendingBalance < 0) pendingBalance = 0;
+
+            let isCompleted = pendingBalance === 0;
+
+            // ड्रॉपडाउन फ़िल्टर नियम लागू करना
+            if(poFilter === 'ACTIVE' && isCompleted) return;
+            if(poFilter === 'COMPLETED' && !isCompleted) return;
+
+            rowsCount++;
+            let statusBadge = isCompleted ? `<span style="color:#16a34a; font-weight:bold;">✅ Completed</span>` : `<span style="color:#ea580c; font-weight:bold;">⏳ Active</span>`;
+
+            tbody.innerHTML += `<tr>
+                <td><code>${c.poNumber}</code></td>
+                <td><code>${c.code}</code></td>
+                <td style="text-align:left;">${c.name}</td>
+                <td><b>${poQty}</b></td>
+                <td style="color:#0284c7; font-weight:bold;">${totalReceived}</td>
+                <td style="color:${pendingBalance > 0 ? '#dc2626':'#16a34a'}; font-weight:bold;">${pendingBalance}</td>
+                <td>${statusBadge}</td>
+            </tr>`;
+        });
+
+        if(rowsCount === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:15px; color:#64748b;">No PO records match the selected status filter.</td></tr>`;
         }
     }
 
-    function showHistory(code, poNumber, itemName, poQty, executed, dispatched, balance, pending) {
-        document.getElementById('historyModal').style.display = 'block';
-        document.getElementById('modalTitle').innerText = "Inventory Log Profile: " + code;
-        
-        const summaryBox = document.getElementById('modalSummaryBox');
-        summaryBox.innerHTML = `
-            <div class="summary-card-box" style="background:#e0f2fe; border:1px solid #bae6fd; grid-column: span 2;"><b>Item Specs:</b><br>${itemName}</div>
-            <div class="summary-card-box" style="background:#f1f5f9; border:1px solid #cbd5e1;"><b>PO Number:</b><br><code>${poNumber}</code></div>
-            <div class="summary-card-box" style="background:#f1f5f9; border:1px solid #cbd5e1;"><b>Ordered Qty:</b><br><b>${poQty} NOS</b></div>
-            <div class="summary-card-box" style="background:#f1f5f9; border:1px solid #cbd5e1;"><b>PO Executed:</b><br>${executed} NOS</div>
-            <div class="summary-card-box" style="background:#fee2e2; border:1px solid #fca5a5; color:#b91c1c;"><b>Total Dispatched:</b><br><b>${dispatched} NOS</b></div>
-            <div class="summary-card-box" style="background:#dcfce7; border:1px solid #86efac; color:#16a34a;"><b>Stock Balance:</b><br><b>${balance} NOS</b></div>
-            <div class="summary-card-box" style="background:#fef9c3; border:1px solid #fef08a;"><b>PO Pending:</b><br><b>${pending} NOS</b></div>
-        `;
+    // 2. जनरल फिजिकल स्टॉक रेंडर टेबल (PO + डायरेक्ट नॉन-PO सभी का लाइव बैलेंस)
+    function renderPhysicalStockTable() {
+        const tbody = document.getElementById('physicalStockBody');
+        tbody.innerHTML = '';
 
-        const body = document.getElementById('modalBody');
-        body.innerHTML = '';
-        currentModalRows = [['Date', 'Type', 'Ref', 'Qty']];
-        allModalRowsBackup = [];
+        const searchStr = document.getElementById('stockSearchBox').value.trim().toUpperCase();
+        const limitVal = document.getElementById('stockLimitDropdown').value;
 
-        let searchCode = normalize(code);
+        // स्टेप ए: सभी इनवर्ड वाउचरों से टोटल इनवर्ड (In) कैलकुलेट करना
+        let globalInMap = {};
+        let itemNamesMap = {};
 
-        freshData.forEach(f => { 
-            if(f && f.gridItems) {
-                let gItems = safeConvertToArray(f.gridItems);
-                gItems.forEach(gi => { 
-                    if(gi && normalize(gi.modelCode) === searchCode) { 
-                        body.innerHTML += `<tr><td>${f.gateInDate || ''}</td><td>FRESH INWARD</td><td>${f.billNo || ''}</td><td>${gi.qty || 0} NOS</td></tr>`; 
-                        allModalRowsBackup.push([f.gateInDate, "FRESH INWARD", f.billNo, gi.qty]); 
-                    }
-                }); 
+        inboundVouchers.forEach(v => {
+            if(!v) return;
+            let items = safeConvertToArray(v.gridItems);
+            if(items.length === 0 && v.modelCode) {
+                items.push({ modelCode: v.modelCode, modelName: v.modelName || '', qty: v.qty || v.receiveQty || 0 });
             }
+            items.forEach(item => {
+                if(!item || !item.modelCode) return;
+                let code = cleanStr(item.modelCode);
+                globalInMap[code] = (globalInMap[code] || 0) + parseInt(item.qty || item.receiveQty || 0);
+                if(item.modelName) itemNamesMap[code] = String(item.modelName).toUpperCase();
+            });
         });
-        
-        gateoutData.forEach(g => { 
-            if(g && g.gridItems) {
-                let gItems = safeConvertToArray(g.gridItems);
-                gItems.forEach(gi => { 
-                    if(gi && normalize(gi.code) === searchCode) { 
-                        body.innerHTML += `<tr><td>${g.date || ''}</td><td>DISPATCH OUT</td><td>GVM-GO-${g.voucherNo || ''}</td><td>-${gi.qty || 0} NOS</td></tr>`; 
-                        allModalRowsBackup.push([g.date, "DISPATCH OUT", `GVM-GO-${g.voucherNo}`, -gi.qty]); 
-                    }
-                }); 
-            }
+
+        // स्टेप बी: गेटआउट से टोटल डिस्पैच (Out) कैलकुलेट करना + BOM एक्सेसरीज ऑटो-कैलकुलेशन
+        let globalOutMap = {};
+        outwardDispatches.forEach(g => {
+            if(!g) return;
+            let items = safeConvertToArray(g.gridItems);
+            items.forEach(item => {
+                if(!item || !item.code) return;
+                let mainCode = cleanStr(item.code);
+                let mainQty = parseInt(item.qty || 0);
+
+                if(item.pool === 'FRESH') {
+                    globalOutMap[mainCode] = (globalOutMap[mainCode] || 0) + mainQty;
+                }
+
+                // बीओएम ऑटो-लिंक फॉर्मूला चेक करना
+                let targetBOM = bomFormulaList.find(b => b && cleanStr(b.mainCode) === mainCode);
+                if(targetBOM && targetBOM.accessories) {
+                    let accs = safeConvertToArray(targetBOM.accessories);
+                    accs.forEach(acc => {
+                        if(!acc || !acc.code) return;
+                        let accCode = cleanStr(acc.code);
+                        let totalAccDeduct = parseInt(acc.qty || 0) * mainQty;
+                        globalOutMap[accCode] = (globalOutMap[accCode] || 0) + totalAccDeduct;
+                    });
+                }
+            });
         });
-        
-        filterModalRows();
+
+        // कैटलॉग से नामों का मिलान सुनिश्चित करना
+        catalogFlatList.forEach(c => {
+            if(c && c.code) { itemNamesMap[cleanStr(c.code)] = String(c.name).toUpperCase(); }
+        });
+
+        // अनूठे कोड्स की मास्टर लिस्ट तैयार करना
+        let allUniqueCodes = Array.from(new Set([...Object.keys(globalInMap), ...Object.keys(globalOutMap)]));
+
+        // सर्च बॉक्स फ़िल्टर लगाना
+        let filteredCodes = allUniqueCodes.filter(code => {
+            let name = itemNamesMap[code] || "UNKNOWN ITEM DESCRIPTION";
+            return code.includes(searchStr) || name.includes(searchStr);
+        });
+
+        if(filteredCodes.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:15px; color:#64748b;">No items found in stock inventory matching search query.</td></tr>`;
+            return;
+        }
+
+        // लिमिट ड्रॉपडाउन सेट करना
+        let viewCodes = filteredCodes;
+        if(limitVal !== 'ALL') { viewCodes = filteredCodes.slice(0, parseInt(limitVal)); }
+
+        viewCodes.forEach(code => {
+            let totalIn = globalInMap[code] || 0;
+            let totalOut = globalOutMap[code] || 0;
+            let liveStock = totalIn - totalOut;
+            if(liveStock < 0) liveStock = 0;
+
+            let desc = itemNamesMap[code] || "DIRECT FRESH ENTERED ITEM (NO PO)";
+            let stockBadge = liveStock > 0 ? `<span class="badge-stock badge-plus">${liveStock} NOS</span>` : `<span class="badge-stock badge-zero">0 NOS</span>`;
+
+            tbody.innerHTML += `<tr>
+                <td><code>${code}</code></td>
+                <td style="text-align:left; font-weight:500;">${desc}</td>
+                <td style="color:#16a34a; font-weight:bold;">${totalIn}</td>
+                <td style="color:#ea580c; font-weight:bold;">${totalOut}</td>
+                <td>${stockBadge}</td>
+            </tr>`;
+        });
     }
 
-    function filterModalRows() {
-        const query = normalize(document.getElementById('modalSearchBox').value);
-        const body = document.getElementById('modalBody');
-        body.innerHTML = '';
-        allModalRowsBackup.forEach(r => { if(normalize(r.join(" ")).includes(query)) { body.innerHTML += `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]} NOS</td></tr>`; } });
+    // 3. पीओ रिपोर्ट डाउनलोड (Excel Export)
+    function exportPoLedgerToExcel() {
+        let csv = "PO Number,Model Code,Item Name,Total PO Qty,Total Received,Pending Balance,Status\n";
+        
+        let poSummaryMap = {};
+        inboundVouchers.forEach(v => {
+            if(!v) return;
+            let items = safeConvertToArray(v.gridItems);
+            if(items.length === 0 && v.modelCode) items.push({ modelCode: v.modelCode, poNumber: v.poNo, qty: v.qty || v.receiveQty || 0 });
+            items.forEach(item => {
+                if(item && item.poNumber && item.modelCode) {
+                    let key = cleanStr(item.poNumber) + "_" + cleanStr(item.modelCode);
+                    poSummaryMap[key] = (poSummaryMap[key] || 0) + parseInt(item.qty || item.receiveQty || 0);
+                }
+            });
+        });
+
+        catalogFlatList.forEach(c => {
+            if(!c || !c.poNumber) return;
+            let key = cleanStr(c.poNumber) + "_" + cleanStr(c.code);
+            let received = poSummaryMap[key] || 0;
+            let bal = parseInt(c.poQty || 0) - received;
+            if(bal < 0) bal = 0;
+            let status = bal === 0 ? "COMPLETED" : "ACTIVE";
+            csv += `"${c.poNumber}","${c.code}","${c.name}","${c.poQty}","${received}","${bal}","${status}"\n`;
+        });
+
+        triggerDownloadBlob(csv, "PO_Master_Ledger_Report.csv");
     }
 
-    function exportModalToExcel() {
-        if(allModalRowsBackup.length <= 0) { alert("No data to export!"); return; }
-        let csv = [["Date", "Type", "Reference", "Qty"]].concat(allModalRowsBackup).map(r => r.join(",")).join("\n");
-        let blob = new Blob(["\uFEFF" + csv], {type: "text/csv;charset=utf-8;"});
-        let link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = "History_Transaction_Log.csv"; link.click();
+    // 4. पूरे फिजिकल स्टॉक की एक्सेल डाउनलोड (Excel Export Engine)
+    function exportPhysicalStockToExcel() {
+        let csv = "Model Part Code,Item Description,Total Inward (In),Total Dispatched (Out),Live Available Stock\n";
+        
+        let globalInMap = {}; let itemNamesMap = {};
+        inboundVouchers.forEach(v => {
+            if(!v) return;
+            let items = safeConvertToArray(v.gridItems);
+            if(items.length === 0 && v.modelCode) items.push({ modelCode: v.modelCode, modelName: v.modelName || '', qty: v.qty || v.receiveQty || 0 });
+            items.forEach(item => {
+                if(item && item.modelCode) {
+                    let code = cleanStr(item.modelCode);
+                    globalInMap[code] = (globalInMap[code] || 0) + parseInt(item.qty || item.receiveQty || 0);
+                    if(item.modelName) itemNamesMap[code] = String(item.modelName).toUpperCase();
+                }
+            });
+        });
+
+        let globalOutMap = {};
+        outwardDispatches.forEach(g => {
+            if(!g) return;
+            let items = safeConvertToArray(g.gridItems);
+            items.forEach(item => {
+                if(!item || !item.code) return;
+                let mainCode = cleanStr(item.code); let mainQty = parseInt(item.qty || 0);
+                if(item.pool === 'FRESH') globalOutMap[mainCode] = (globalOutMap[mainCode] || 0) + mainQty;
+                
+                let targetBOM = bomFormulaList.find(b => b && cleanStr(b.mainCode) === mainCode);
+                if(targetBOM && targetBOM.accessories) {
+                    safeConvertToArray(targetBOM.accessories).forEach(acc => {
+                        if(acc && acc.code) {
+                            let accCode = cleanStr(acc.code);
+                            globalOutMap[accCode] = (globalOutMap[accCode] || 0) + (parseInt(acc.qty || 0) * mainQty);
+                        }
+                    });
+                }
+            });
+        });
+
+        catalogFlatList.forEach(c => { if(c && c.code) itemNamesMap[cleanStr(c.code)] = String(c.name).toUpperCase(); });
+        let allCodes = Array.from(new Set([...Object.keys(globalInMap), ...Object.keys(globalOutMap)]));
+
+        allCodes.forEach(code => {
+            let tin = globalInMap[code] || 0; let tout = globalOutMap[code] || 0; let live = tin - tout;
+            if(live < 0) live = 0;
+            let desc = itemNamesMap[code] || "DIRECT FRESH ENTERED ITEM (NO PO)";
+            csv += `"${code}","${desc}","${tin}","${tout}","${live}"\n`;
+        });
+
+        triggerDownloadBlob(csv, "Physical_Inventory_Stock_Report.csv");
     }
-    
-    function closeModal() { document.getElementById('historyModal').style.display = 'none'; }
+
+    function triggerDownloadBlob(csvContent, filename) {
+        let blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+        let link = document.createElement("a");
+        link.href = URL.createObjectURL(blob); link.setAttribute("download", filename);
+        document.body.appendChild(link); link.click(); document.body.removeChild(link);
+    }
+
+    // ऑटोफ़िल प्रोटेक्शन लॉक रूल
+    window.addEventListener('DOMContentLoaded', () => {
+        const box = document.getElementById('stockSearchBox');
+        if (box) box.value = "";
+    });
 </script>
 </body>
 </html>
