@@ -3,89 +3,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fresh Entry - Pro Control System (Live Cloud)</title>
+    <title>Gate Out Dispatch - Control System</title>
     <link rel="stylesheet" href="style.css">
-    
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
-
     <style>
-        .grid-input-card { background: #f8fafc; border: 1px solid #cbd5e1; padding: 15px; border-radius: 6px; margin-bottom: 20px; }
-        .inner-table { width: 100%; border-collapse: collapse; margin-top: 10px; background: #fff; }
-        .inner-table th { background: #64748b; color: white; padding: 6px; font-size: 12px; }
-        .inner-table td { padding: 6px; border: 1px solid #e2e8f0; font-size: 12px; }
-        .btn-remove-row { background: #ef4444; color:white; border:none; padding: 2px 6px; border-radius:3px; cursor:pointer; }
-        .btn-edit-action { background-color: #0284c7; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
-        .btn-delete-action { background-color: #dc2626; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; }
+        .btn-edit-action { background-color: #0284c7; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
+        .btn-edit-action:hover { background-color: #0369a1; }
+        .btn-delete-action { background-color: #dc2626; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
+        .btn-delete-action:hover { background-color: #b91c1c; }
+        .btn-print-receipt { background-color: #007bff; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
+        .btn-print-receipt:hover { background-color: #0056b3; }
         
-        .table-filter-panel {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: #f1f5f9;
-            padding: 10px 15px;
-            border-radius: 6px 6px 0 0;
-            border: 1px solid #cbd5e1;
-            border-bottom: none;
-            margin-top: 25px;
-            gap: 15px;
-            flex-wrap: wrap;
-        }
-        .search-input-box {
-            padding: 8px 12px;
-            border: 1px solid #cbd5e1;
-            border-radius: 4px;
-            font-size: 13px;
-            width: 280px;
-            text-transform: uppercase;
-        }
-        .limit-dropdown-select {
-            padding: 7px 10px;
-            border: 1px solid #cbd5e1;
-            border-radius: 4px;
-            font-size: 13px;
-            cursor: pointer;
-            background: #fff;
-            font-weight: bold;
-        }
+        .tabs-nav a { background-color: #e2e8f0; color: #334155; font-weight: 500; transition: all 0.3s; padding: 8px 12px; display: inline-block; border-radius: 4px; text-decoration: none; margin-right: 4px; }
+        .tabs-nav a:hover { background-color: #cbd5e1; }
+        .tabs-nav a.active-gateout { background-color: #1e3a8a !important; color: white !important; font-weight: bold; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
 
-        .po-dropdown-select {
-            padding: 10px;
-            border: 1px solid #0284c7;
-            border-radius: 4px;
-            font-size: 14px;
-            background: #f0f9ff;
-            font-weight: bold;
-            color: #1e3a8a;
-            cursor: pointer;
-            width: 100%;
-            box-sizing: border-box;
-        }
+        .table-filter-panel { display: flex; justify-content: space-between; align-items: center; background: #f1f5f9; padding: 10px 15px; border-radius: 6px 6px 0 0; border: 1px solid #cbd5e1; border-bottom: none; margin-top: 25px; gap: 15px; flex-wrap: wrap; }
+        .search-input-box { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; width: 280px; text-transform: uppercase; }
+        .limit-dropdown-select { padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; cursor: pointer; background: #fff; font-weight: bold; }
 
         .secret-modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 9999; }
-        .secret-modal-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); text-align: center; width: 320px; }
-        .secret-modal-card h4 { margin: 0 0 12px 0; color: #dc2626; }
+        .secret-modal-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); text-align: center; width: 360px; }
+        .secret-modal-card h4 { margin: 0 0 12px 0; color: #1e3a8a; }
         .secret-modal-input { width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #cbd5e1; border-radius: 4px; text-align: center; font-size: 16px; box-sizing: border-box; }
         .secret-modal-btn-group { display: flex; gap: 10px; justify-content: center; }
-        .secret-modal-btn-confirm { background: #dc2626; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .secret-modal-btn-confirm { background: #16a34a; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; }
         .secret-modal-btn-cancel { background: #64748b; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; }
+
+        /* ड्रॉपडाउन और बॉक्स को एक सुंदर लाइन में रखने का स्टाइल */
+        .go-doc-group { display: flex; gap: 6px; }
+        .go-doc-group select { width: 40%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-weight: bold; background: white; cursor: pointer; }
+        .go-doc-group input { width: 60%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; text-transform: uppercase; }
 
         @media print {
             body * { visibility: hidden; }
             #printSection, #printSection * { visibility: visible; }
-            #printSection {
-                position: absolute;
-                left: 0; top: 0;
-                width: 210mm;
-                height: 74.25mm;
-                box-sizing: border-box;
-                padding: 4mm 6mm;
-                margin: 0;
-                background: #fff;
-                font-family: monospace;
-                font-size: 11px;
-                line-height: 1.3;
-            }
+            #printSection { position: absolute; left: 0; top: 0; width: 210mm; padding: 4mm 6mm; background: #fff; font-family: monospace; font-size: 11px; }
             @page { size: A4 portrait; margin: 0; }
         }
     </style>
@@ -93,96 +47,77 @@
 <body>
 <div class="container">
     <div class="erp-header">
-        <h1>Material Lifecycle Control & Inventory Ledger Systems <span style="font-size:12px; color:#4ade80;">● CLOUD LIVE</span></h1>
+        <h1>Material Lifecycle Control & Inventory Ledger Systems</h1>
         <button class="logout-btn" onclick="logout()">Logout</button>
     </div>
     
-   <div class="tabs-nav">
-        <a href="index.html" class="tab-link" style="background-color: #1e3a8a; color: white; font-weight: bold;">📦 New Entry (Fresh)</a>
+    <div class="tabs-nav">
+        <a href="index.html" class="tab-link">📦 New Entry (Fresh)</a>
         <a href="rework.html" class="tab-link">🛠️ Gate In (Rework)</a>
-        <a href="gateout.html" class="tab-link">🚪 Gate Out (Dispatch)</a>
+        <a href="gateout.html" class="tab-link active-gateout">🚪 Gate Out (Dispatch)</a>
         <a href="debit.html" class="tab-link">🧾 Debit Note (Vendor)</a>
         <a href="code.html" class="tab-link">🆕 Generate Code</a>
         <a href="ledger.html" class="tab-link">📊 Master Ledger & History</a>
         <a href="users.html" class="tab-link">👥 Manage Users</a>
-       <a href="bom.html" class="tab-link">🔗 BOM Master</a>
-       <a href="failure.html" class="tab-link">🛠️ Failure Defect Log</a>
+        <a href="bom.html" class="tab-link">🔗 BOM Master</a>
+        <a href="failure.html" class="tab-link">🛠️ Failure Defect Log</a>
     </div>
 
-    <div id="lowStockAlert" class="low-stock-badge" style="display:none;">⚠️ Warning: Some Items are running low in Stock! Check Master Ledger.</div>
+    <h3 id="formTitleGateout" style="color:var(--primary); margin: 15px 0 10px 0;">🚪 Gate Out (Dispatch) Ledger</h3>
 
-    <h3 id="formTitleIndex" style="color:var(--primary); margin: 0 0 10px 10px;">📦 Fresh Material Inward Controller</h3>
-
-    <form id="stockForm">
+    <form id="gateoutForm">
         <input type="hidden" id="editRowIndex" value="-1">
         <input type="hidden" id="editFirebaseKey" value="">
 
-        <div class="form-grid" style="margin-bottom: 15px;">
-            <div class="form-grid" style="display: contents;">
-                <div class="form-group">
-                    <label>Company Name <span>*</span></label>
-                    <input type="text" id="companyName" placeholder="e.g. SIEMENS, VINYAS, OWN" required autocomplete="off" style="text-transform:uppercase;" oninput="fetchPurchasePOOptions()">
-                </div>
-
-                <div class="form-group">
-                    <label>PO Number (Select Order) <span>*</span></label>
-                    <select id="poNo" class="po-dropdown-select" required>
-                        <option value="">-- TYPE COMPANY OR CODE FIRST --</option>
+        <div class="form-grid">
+            <div class="form-group"><label>Dispatch Trans Date <span>*</span></label><input type="date" id="goDate" required></div>
+            <div class="form-group"><label>Vehicle Transport No <span>*</span></label><input type="text" id="goVehicleNo" required autocomplete="off" style="text-transform:uppercase;"></div>
+            
+            <!-- 🌟 ड्रॉपडाउन और इनपुट बॉक्स दोनों यहाँ लगा दिए गए हैं -->
+            <div class="form-group">
+                <label>Doc Type & Number <span>*</span></label>
+                <div class="go-doc-group">
+                    <select id="goDocType">
+                        <option value="BILL">BILL</option>
+                        <option value="CHALLAN">CHALLAN</option>
                     </select>
+                    <input type="text" id="goDocNo" required placeholder="Doc No..." autocomplete="off">
                 </div>
             </div>
-
-            <div class="form-group"><label>Bill / Invoice No.</label><input type="text" id="billNo" required autocomplete="off" style="text-transform:uppercase;"></div>
-            <div class="form-grid-inner" style="display: contents;">
-                <div class="form-group"><label>Bill Date</label><input type="date" id="billDate" required></div>
-                <div class="form-group"><label>Gate-In Date</label><input type="date" id="gateInDate" required></div>
-            </div>
-            <div class="form-group"><label>Gate-In No.</label><input type="text" id="gateInNo" required autocomplete="off" style="text-transform:uppercase;"></div>
+            
+            <div class="form-group"><label>Delivery Shipping Location <span>*</span></label><input type="text" id="goDeliveryShipping" required autocomplete="off" style="text-transform:uppercase;"></div>
+            <div class="form-group"><label>Send / Dispatched By</label><input type="text" id="goSendBy" autocomplete="off" style="text-transform:uppercase;"></div>
         </div>
 
-        <div class="grid-input-card">
-            <h4 style="margin: 0 0 12px 0; color: #1e3a8a; border-bottom: 1px solid #cbd5e1; padding-bottom: 5px;">📋 Material Inward Row Grid Section:</h4>
-            <div style="display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap;">
-                <div style="flex: 1; min-width: 150px;">
-                    <label style="font-size:12px; font-weight:bold;">Model Code</label>
-                    <input type="text" id="gridModelCode" placeholder="Code (e.g. GP0018, OWN)" oninput="autoFillGridItemName(this)" style="padding:8px; width:100%; box-sizing:border-box; text-transform:uppercase;">
-                </div>
-                <div style="flex: 2; min-width: 200px;">
-                    <label style="font-size:12px; font-weight:bold;">Model Description / Name</label>
-                    <input type="text" id="gridModelName" placeholder="Item Name" style="padding:8px; width:100%; box-sizing:border-box;">
-                </div>
-                <div style="flex: 1; min-width: 100px;">
-                    <label style="font-size:12px; font-weight:bold;">Bill Qty</label>
-                    <input type="text" id="gridBillQty" placeholder="Enter Qty" style="padding:8px; width:100%; box-sizing:border-box;">
-                </div>
-                <div style="flex: 1; min-width: 100px;">
-                    <label style="font-size:12px; font-weight:bold;">Receive Qty</label>
-                    <input type="text" id="gridRecQty" placeholder="Enter Qty" style="padding:8px; width:100%; box-sizing:border-box;">
-                </div>
-                <button type="button" onclick="addItemToGridList()" style="background:#64748b; color:white; border:none; padding:9px 15px; font-weight:bold; border-radius:4px; cursor:pointer;">+ Add Row</button>
-            </div>
-
-            <table class="inner-table">
-                <thead>
-                    <tr><th>Model Code</th><th>Description</th><th>Bill Qty</th><th>Receive Qty</th><th>Remove</th></tr>
+        <div style="overflow-x:auto; margin-top: 15px;">
+            <table class="grid-table">
+                <thead style="background-color: var(--secondary); color: white;">
+                    <tr><th>Stock Pool Type</th><th>Model Part Code 🔍</th><th>Item Name</th><th>Qty</th><th>S/N Track & Range Text</th><th>Action</th></tr>
                 </thead>
-                <tbody id="gridItemsBody"></tbody>
+                <tbody id="gateoutItemsBody"></tbody>
             </table>
         </div>
-        
-        <button type="submit" id="btnSubmitForm" class="btn-submit fresh-btn" style="width: 100%;">Final Save Inward Voucher</button>
-        <button type="button" id="btnCancelEdit" class="btn-submit" style="background-color:#64748b; display:none; margin-top:10px; width:100%;" onclick="cancelEditMode()">Cancel Update</button>
+        <button type="button" class="btn-row-add" onclick="addGoRow()">+</button>
+
+        <div class="form-group" style="margin-top: 15px;">
+            <label style="font-weight: bold;">Remarks / Transaction Notes</label>
+            <input type="text" id="goRemarks" placeholder="Enter any specific remarks or notes here..." autocomplete="off" style="text-transform:uppercase; padding: 10px; width: 100%; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 4px;">
+        </div>
+
+        <button type="submit" id="btnSubmitForm" class="btn-submit gateout-btn" style="margin-top:15px; width: 100%;">Authorize Gate Out (Deduct Stock)</button>
+        <button type="button" id="btnCancelEdit" class="btn-submit" style="background-color:#64748b; display:none; margin-top:10px; width: 100%;" onclick="cancelEditMode()">Cancel Update</button>
     </form>
 
     <div class="date-export-panel" style="margin-top: 30px;">
-        <label>From:</label> <input type="date" id="freshFromDate">
-        <label>To:</label> <input type="date" id="freshToDate">
-        <button class="btn-excel" onclick="exportFreshToExcel()">Download Excel</button>
+        <label>From:</label> <input type="date" id="goFromDate">
+        <label>To:</label> <input type="date" id="goToDate">
+        <button class="btn-excel" onclick="exportGateoutToExcel()">Download Excel</button>
     </div>
 
     <div class="table-filter-panel">
         <div>
-            <input type="text" id="liveTableSearchBox" class="search-input-box" placeholder="🔍 Search Bill No, Code or Item Name..." autocomplete="off" oninput="triggerTableRender()">
+            <!-- 🛡️ K88RAKESH को रोकने के लिए कड़क autocomplete="off" फ़िल्टर -->
+            <input type="text" id="liveTableSearchBox" class="search-input-box" placeholder="🔍 Search Vehicle, Code, Party, Remarks..." autocomplete="off" oninput="triggerTableRender()">
         </div>
         <div>
             <label style="font-weight: bold; font-size: 13px; color:#475569;">Show Records:</label>
@@ -197,25 +132,22 @@
 
     <div class="table-responsive" style="margin-top: 0;">
         <table class="history-table" style="border-top: none;">
-            <thead style="background-color: #007bff; color: white;">
-                <tr>
-                    <th>Company</th><th>Bill / PO Info</th><th>Dates</th><th>Gate-In No</th><th>Items Inwarded Details</th><th>Action</th>
-                </tr>
+            <thead style="background-color: #475569; color: white;">
+                <tr><th>Voucher No</th><th>Date</th><th>Vehicle No</th><th>Party / Doc Ref</th><th>Items Dispatched Details</th><th>Remarks</th><th>Action Controls</th></tr>
             </thead>
-            <tbody id="tableBody">
-                <tr><td colspan="6" style="text-align:center; padding:15px; color:#64748b;">Loading Live Cloud Records...</td></tr>
-            </tbody>
+            <tbody id="goHistoryBody"></tbody>
         </table>
     </div>
 </div>
 
+<!-- 🔑 सीक्रेट密码 पॉपअप -->
 <div id="secretPasswordModal" class="secret-modal-overlay">
     <div class="secret-modal-card">
         <h4>🔑 Security Check</h4>
-        <p style="font-size: 12px; color: #64748b; margin-bottom: 10px;">Enter Secret Password to Delete this Cloud Record:</p>
+        <p style="font-size: 12px; color: #64748b; margin-bottom: 10px;">Enter Secret Password to Delete this Dispatch Record:</p>
         <input type="password" id="secretModalPasswordField" class="secret-modal-input" placeholder="••••" autocomplete="off">
         <div class="secret-modal-btn-group">
-            <button type="button" class="secret-modal-btn-confirm" onclick="submitSecretDeletePassword()">Wipe Record</button>
+            <button type="button" class="secret-modal-btn-confirm" style="background:#dc2626;" onclick="submitSecretDeletePassword()">Wipe Record</button>
             <button type="button" class="secret-modal-btn-cancel" onclick="closeSecretPasswordModal()">Cancel</button>
         </div>
     </div>
@@ -240,488 +172,490 @@
     if(!session) { window.location.href = 'login.html'; }
     function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
 
-    let stockData = [];
+    let stockData = []; 
+    let gateoutData = [];
+    let bomFormulaList = []; 
     let masterCatalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
-    let flatPOList = []; 
-    let tempGridItems = [];
-    let lastActiveFocusedInputId = "companyName";
     let activeDeleteRowIdx = null; 
 
-    const cleanStr = (str) => String(str || "").trim().toUpperCase();
+    const cleanStr = (str) => String(str || "").trim().toUpperCase().replace(/\s+/g, '');
 
-    database.ref('systemMasterCatalogFlat').on('value', (snapshot) => {
-        flatPOList = [];
-        const data = snapshot.val();
-        if(data) {
-            for(let key in data) {
-                flatPOList.push(data[key]);
-            }
-        }
+    function safeConvertToArray(rawVal) {
+        if (!rawVal) return [];
+        let arr = Array.isArray(rawVal) ? rawVal : Object.values(rawVal);
+        return arr.filter(item => item !== null && item !== undefined);
+    }
+
+    const getSerialsString = (serialsField) => {
+        if (!serialsField) return "";
+        if (Array.isArray(serialsField)) return serialsField.join(', ');
+        return String(serialsField);
+    };
+
+    database.ref('bomMasterData').on('value', (snapshot) => {
+        bomFormulaList = safeConvertToArray(snapshot.val());
     });
 
     database.ref('freshStockVouchers').on('value', (snapshot) => {
-        stockData = [];
-        const data = snapshot.val();
-        if(data) {
-            for(let key in data) {
-                stockData.push({ fbKey: key, ...data[key] });
-            }
-        }
-        stockData.reverse();
+        stockData = safeConvertToArray(snapshot.val());
         renderTable();
     });
 
-    function updatePODropdownOptions(filteredPOs, currentEditingPONo = null) {
-        const selectBox = document.getElementById('poNo');
-        selectBox.innerHTML = '';
+    database.ref('gateoutStockData').on('value', (snapshot) => {
+        gateoutData = [];
+        const data = snapshot.val();
+        if(data) { 
+            for(let key in data) { 
+                if(data[key] !== null) {
+                    gateoutData.push({ fbKey: key, ...data[key] }); 
+                }
+            } 
+        }
+        gateoutData.reverse(); 
+        renderTable();
+    });
 
-        let validPOs = filteredPOs.filter(p => {
-            let poNum = p.poNumber.trim().toUpperCase();
-            let pCode = p.code.trim().toUpperCase();
-            
-            // 🌟 लाइव कैटलॉग मैचिंग सुधार: 'poTotalQty' की जगह डेटाबेस कॉलम 'qty' ट्रैक होगा
-            let totalOrdered = parseInt(p.qty || p.poTotalQty || 0);
-            
-            if(currentEditingPONo && poNum === currentEditingPONo.trim().toUpperCase()) {
-                return true;
-            }
+    function addGoRow(preExistingSerials = "") {
+        const body = document.getElementById('gateoutItemsBody');
+        const tr = document.createElement('tr');
+        
+        let serialText = getSerialsString(preExistingSerials);
+        let hasSn = serialText !== "" && serialText !== "-";
 
-            let totalReceivedAlready = 0;
-            stockData.forEach(f => {
-                if (f.poNo && f.poNo.trim().toUpperCase() === poNum) {
-                    if (f.gridItems) {
-                        f.gridItems.forEach(gi => {
-                            if ((gi.modelCode || "").trim().toUpperCase() === pCode) {
-                                totalReceivedAlready += parseInt(gi.qty || gi.receiveQty || 0);
-                            }
-                        });
-                    }
+        let selectHtml = `<select class="go-sn-required" onchange="toggleSnField(this)" style="padding:6px; border-radius:4px;"><option value="NO" ${!hasSn?'selected':''}>NO</option><option value="YES" ${hasSn?'selected':''}>YES</option></select>`;
+        let inputStyle = hasSn ? "display: inline-block; width: 180px;" : "display: none; width: 180px;";
+
+        tr.innerHTML = `<td><select class="go-pool-type"><option value="FRESH">FRESH</option><option value="REWORK">REWORK</option></select></td>
+            <td><input type="text" required class="go-code" oninput="autofillGo(this)" style="text-transform:uppercase;"></td>
+            <td><input type="text" required class="go-name"></td>
+            <td><input type="number" min="1" required class="go-qty"></td>
+            <td>
+                <div style="display:flex; gap:8px; align-items:center; justify-content:center;">
+                    ${selectHtml}
+                    <input type="text" class="go-serials" value="${hasSn ? serialText : ''}" placeholder="e.g. 2601001 TO 100" style="${inputStyle} text-transform:uppercase; padding:6px; border:1px solid #cbd5e1; border-radius:4px; box-sizing:border-box;">
+                </div>
+            </td>
+            <td><button type="button" class="btn-row-remove" onclick="this.closest('tr').remove()">×</button></td>`;
+        body.appendChild(tr);
+    }
+
+    window.toggleSnField = function(select) {
+        let tr = select.closest('tr');
+        let input = tr.querySelector('.go-serials');
+        if(select.value === 'YES') {
+            input.style.display = 'inline-block';
+            input.focus();
+        } else {
+            input.style.display = 'none';
+            input.value = '';
+        }
+    }
+
+    function autofillGo(input) {
+        let code = cleanStr(input.value);
+        let foundName = "";
+        for(let key in masterCatalog) {
+            const m = masterCatalog[key].find(i => cleanStr(i.code) === code);
+            if(m) foundName = m.name;
+        }
+        input.closest('tr').querySelector('.go-name').value = foundName;
+    }
+
+    function calculateLiveFreshStock(targetCode, skipFbKey = "") {
+        let totalIn = 0; let totalOut = 0; let cleanedTarget = cleanStr(targetCode);
+        
+        stockData.forEach(v => {
+            if(!v) return;
+            let items = safeConvertToArray(v.gridItems);
+            if(items.length === 0 && v.modelCode) { items.push({ modelCode: v.modelCode, qty: v.qty || v.receiveQty || 0 }); }
+            items.forEach(item => { if(item && cleanStr(item.modelCode) === cleanedTarget) { totalIn += parseInt(item.qty || item.receiveQty || 0); } });
+        });
+
+        gateoutData.forEach(g => {
+            if(!g || (skipFbKey && g.fbKey === skipFbKey)) return;
+            let items = safeConvertToArray(g.gridItems);
+            items.forEach(item => { 
+                if(!item) return;
+                if(item.pool === 'FRESH' && cleanStr(item.code) === cleanedTarget) { totalOut += parseInt(item.qty || 0); }
+                
+                let mainItemBOM = bomFormulaList.find(b => b && cleanStr(b.mainCode) === cleanStr(item.code));
+                if(mainItemBOM && mainItemBOM.accessories) {
+                    let accs = safeConvertToArray(mainItemBOM.accessories);
+                    accs.forEach(acc => {
+                        if(acc && cleanStr(acc.code) === cleanedTarget) { totalOut += (parseInt(acc.qty) * parseInt(item.qty || 0)); }
+                    });
                 }
             });
-
-            return totalReceivedAlready < totalOrdered;
         });
-
-        if(validPOs.length === 0) {
-            selectBox.innerHTML = '<option value="NO PO LINKED">NO PO LINKED / ALL QUANTITY EXECUTED</option>';
-            return;
-        }
-
-        let uniquePOs = [...new Set(validPOs.map(x => x.poNumber.trim().toUpperCase()))];
-        uniquePOs.forEach(po => {
-            selectBox.innerHTML += `<option value="${po}">${po}</option>`;
-        });
+        return (totalIn - totalOut);
     }
 
-    function fetchPurchasePOOptions() {
-        const compName = document.getElementById('companyName').value.trim().toUpperCase();
-        if(!compName) { 
-            document.getElementById('poNo').innerHTML = '<option value="">-- TYPE COMPANY OR CODE FIRST --</option>'; 
-            return; 
-        }
-        
-        let matches = flatPOList.filter(x => x.company === compName && x.hasPO === "YES" && x.poType === "PURCHASE");
-        updatePODropdownOptions(matches);
-    }
-
-    function autoFillGridItemName(input) {
-        let code = input.value.trim().toUpperCase(); 
-        let foundName = ""; let foundCompany = "";
-        for(let company in masterCatalog) {
-            const match = masterCatalog[company].find(x => x.code.trim().toUpperCase() === code);
-            if(match) { foundName = match.name; foundCompany = company; }
-        }
-        if(foundName) {
-            document.getElementById('gridModelName').value = foundName;
-            if(!document.getElementById('companyName').value) { 
-                document.getElementById('companyName').value = foundCompany.toUpperCase(); 
-            }
-        }
-        
-        if(code) {
-            let matches = flatPOList.filter(x => x.code === code && x.hasPO === "YES" && x.poType === "PURCHASE");
-            if(matches.length > 0) {
-                updatePODropdownOptions(matches);
-            }
-        }
-    }
-
-    function addItemToGridList() {
-        const code = document.getElementById('gridModelCode').value.trim().toUpperCase();
-        const name = document.getElementById('gridModelName').value.trim();
-        
-        let valBill = document.getElementById('gridBillQty').value;
-        let valRec = document.getElementById('gridRecQty').value;
-        
-        let strBill = valBill ? valBill.toString().replace(/[^0-9]/g, '') : "";
-        let strRec = valRec ? valRec.toString().replace(/[^0-9]/g, '') : "";
-        
-        let bQty = parseInt(strBill);
-        let rQty = parseInt(strRec);
-
-        if(!code || !name || isNaN(bQty) || isNaN(rQty)) { alert("Please enter valid Model Details and Quantities!"); return; }
-        if(bQty !== rQty) { alert("Error: Bill Qty and Receive Qty must match!"); return; }
-
-        tempGridItems.push({ modelCode: code, modelName: name, qty: bQty, receiveQty: rQty });
-        renderTempGrid();
-        document.getElementById('gridModelCode').value = '';
-        document.getElementById('gridModelName').value = '';
-        document.getElementById('gridBillQty').value = '';
-        document.getElementById('gridRecQty').value = '';
-        
-        lastActiveFocusedInputId = 'gridModelCode';
-        document.getElementById('gridModelCode').focus();
-    }
-
-    function removeTempRow(index) { tempGridItems.splice(index, 1); renderTempGrid(); }
-
-    function renderTempGrid() {
-        const tbody = document.getElementById('gridItemsBody'); tbody.innerHTML = '';
-        tempGridItems.forEach((item, index) => {
-            tbody.innerHTML += `<tr><td><code>${item.modelCode}</code></td><td>${item.modelName}</td><td><b>${item.qty}</b></td><td>${item.receiveQty}</td><td><button type="button" class="btn-remove-row" onclick="removeTempRow(${index})">X</button></td></tr>`;
-        });
-    }
-
-    document.getElementById('stockForm').addEventListener('submit', function(e) {
+    document.getElementById('gateoutForm').addEventListener('submit', function(e) {
         e.preventDefault();
-
+        let items = []; 
+        let rows = document.querySelectorAll('#gateoutItemsBody tr'); let deficit = false;
         const idx = parseInt(document.getElementById('editRowIndex').value);
         const fbKey = document.getElementById('editFirebaseKey').value;
 
-        const currentBillNo = document.getElementById('billNo').value.trim().toUpperCase();
-        const currentGateInNo = document.getElementById('gateInNo').value.trim().toUpperCase();
-        const currentBillDate = document.getElementById('billDate').value;
-
-        const code = document.getElementById('gridModelCode').value.trim().toUpperCase();
-        if (code) {
-            const name = document.getElementById('gridModelName').value.trim();
-            let valBill = document.getElementById('gridBillQty').value || "";
-            let valRec = document.getElementById('gridRecQty').value || "";
-            let bQty = parseInt(valBill.toString().replace(/[^0-9]/g, ''));
-            let rQty = parseInt(valRec.toString().replace(/[^0-9]/g, ''));
-
-            if(code && name && !isNaN(bQty) && !isNaN(rQty)) {
-                if(bQty !== rQty) { alert("Error: Bill Qty and Receive Qty must match!"); return; }
-                tempGridItems.push({ modelCode: code, modelName: name, qty: bQty, receiveQty: rQty });
-            }
-        }
-
-        if(tempGridItems.length === 0) {
-            alert("Please enter at least one item with valid quantities!");
-            return;
-        }
-
-        if (idx === -1) {
-            let matchingVouchers = stockData.filter(v => v.billNo === currentBillNo && v.gateInNo === currentGateInNo);
-
-            if (matchingVouchers.length > 0) {
-                let hasSameModel = matchingVouchers.some(v => {
-                    let items = v.gridItems || [];
-                    return items.some(item => tempGridItems.some(t => t.modelCode === item.modelCode.toUpperCase()));
-                });
-
-                if (hasSameModel) {
-                    alert(`🚨 ERROR: Duplicate Entry Blocked!\n\nThis Bill No. [ ${currentBillNo} ] with Gate-In No. [ ${currentGateInNo} ] already has this Model Code registered on Cloud!`);
-                    return;
-                } else {
-                    let confirmSave = confirm(`⚠️ ALERT: Bill Found!\n\nThis Bill No. [ ${currentBillNo} ] & Gate-In No. [ ${currentGateInNo} ] is already entered in system with another item!\n\nDo you want to add this new model to this existing bill?`);
-                    if (!confirmSave) { return; }
+        for(let row of rows) {
+            const pool = row.querySelector('.go-pool-type').value;
+            const rawCode = row.querySelector('.go-code').value.trim().toUpperCase();
+            const qty = parseInt(row.querySelector('.go-qty').value) || 0;
+            const snRequired = row.querySelector('.go-sn-required').value;
+            
+            let serialsVal = "-";
+            if(snRequired === 'YES') {
+                serialsVal = row.querySelector('.go-serials').value.trim().toUpperCase();
+                if(!serialsVal || serialsVal === "-") {
+                    alert(`⚠️ Range Text Missing!\n\nYou selected YES for S/N Track on item [${rawCode}], but left the Serial box empty.`);
+                    deficit = true; break;
                 }
             }
+
+            if(pool === 'FRESH') {
+                let availableStock = calculateLiveFreshStock(rawCode, fbKey);
+                if(availableStock < qty) { 
+                    alert(`🚫 Deficit in Fresh Pool for Main Item: ${rawCode}\n\nAvailable: ${availableStock} NOS\nRequested: ${qty} NOS`); 
+                    deficit = true; break; 
+                }
+
+                let targetBOM = bomFormulaList.find(b => b && cleanStr(b.mainCode) === cleanStr(rawCode));
+                if(targetBOM && targetBOM.accessories) {
+                    let accs = safeConvertToArray(targetBOM.accessories);
+                    for(let acc of accs) {
+                        if(!acc) continue;
+                        let requiredAccQty = parseInt(acc.qty) * qty;
+                        let availableAccStock = calculateLiveFreshStock(acc.code, fbKey);
+                        if(availableAccStock < requiredAccQty) {
+                            alert(`🚫 BOM Component Deficit!\n\nMain Model [${rawCode}] requires [${requiredAccQty} NOS] of Component [${acc.code}].`);
+                            deficit = true; break;
+                        }
+                    }
+                }
+                if(deficit) break;
+            }
+            
+            items.push({ 
+                pool: String(pool), 
+                code: String(rawCode), 
+                name: String(row.querySelector('.go-name').value), 
+                qty: parseInt(qty), 
+                serials: String(serialsVal) 
+            });
         }
+        if(deficit) return;
 
-        let originalCreator = (idx !== -1 && stockData[idx]) ? (stockData[idx].createdBy || "k88rakesh") : session.userId;
+        // 🌟 दोनों नए बॉक्स की वैल्यू को पुराने सिंगल ऑब्जेक्ट 'partyName' की तरह सिंक कर रहे हैं ताकि पिछला ढांचा सुरक्षित रहे
+        const docTypeVal = document.getElementById('goDocType').value;
+        const docNoVal = document.getElementById('goDocNo').value.trim().toUpperCase();
 
-        const masterVoucher = {
-            companyName: document.getElementById('companyName').value.trim().toUpperCase(), 
-            poNo: document.getElementById('poNo').value.trim().toUpperCase(),
-            billNo: currentBillNo, 
-            billDate: currentBillDate,
-            gateInDate: document.getElementById('gateInDate').value, 
-            gateInNo: currentGateInNo,
-            gridItems: [...tempGridItems],
-            createdBy: originalCreator
+        const dispatchVoucher = {
+            voucherNo: idx === -1 ? (gateoutData.length + 1) : gateoutData.find(x => x.fbKey === fbKey).voucherNo,
+            date: document.getElementById('goDate').value,
+            vehicleNo: document.getElementById('goVehicleNo').value.trim().toUpperCase(),
+            
+            docType: docTypeVal,
+            docNo: docNoVal,
+            partyName: docTypeVal + " - " + docNoVal, // 🛡️ कड़क सुरक्षा लॉक शील्ड
+            
+            deliveryShipping: document.getElementById('goDeliveryShipping').value.trim().toUpperCase(),
+            goSendBy: document.getElementById('goSendBy').value.trim().toUpperCase(),
+            remarks: document.getElementById('goRemarks').value.trim().toUpperCase(), 
+            gridItems: items 
         };
 
         if(idx === -1) {
-            database.ref('freshStockVouchers').push(masterVoucher);
-            alert("🎉 Material Inward Entry Saved to Cloud!");
+            database.ref('gateoutStockData').push(dispatchVoucher).then(() => { alert("🎉 Gate Out dispatch authorized successfully!"); cancelEditMode(); });
         } else {
-            database.ref('freshStockVouchers/' + fbKey).set(masterVoucher);
-            alert("🎯 Entry Voucher Updated on Cloud!");
+            database.ref('gateoutStockData/' + fbKey).set(dispatchVoucher).then(() => { alert("🎯 Dispatch entry updated successfully!"); cancelEditMode(); });
         }
-
-        cancelEditMode(); 
     });
 
-    function renderTable() {
-        const body = document.getElementById('tableBody'); body.innerHTML = '';
-        document.getElementById('lowStockAlert').style.display = 'none';
+    function triggerTableRender() { renderTable(); }
 
-        if(stockData.length === 0) {
-            body.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:15px; color:#64748b;">No records found on Cloud.</td></tr>`;
+    function renderTable() {
+        const b = document.getElementById('goHistoryBody'); b.innerHTML = '';
+        if(gateoutData.length === 0) {
+            b.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:15px; color:#64748b;">No dispatch records found on Cloud.</td></tr>`;
             return;
         }
 
         const searchStr = document.getElementById('liveTableSearchBox').value.trim().toUpperCase();
         const limitVal = document.getElementById('liveTableLimitSelect').value;
 
-        let filteredList = stockData.filter(i => {
-            const matchBill = i.billNo ? i.billNo.toUpperCase().includes(searchStr) : false;
-            let itemsList = i.gridItems || [{ modelCode: i.modelCode, modelName: i.modelName }];
+        let filteredList = gateoutData.filter(g => {
+            if(!g) return false;
+            const matchVehicle = g.vehicleNo ? g.vehicleNo.toUpperCase().includes(searchStr) : false;
+            const matchParty = g.partyName ? g.partyName.toUpperCase().includes(searchStr) : false;
+            const matchRemarks = g.remarks ? g.remarks.toUpperCase().includes(searchStr) : false;
+            let itemsList = safeConvertToArray(g.gridItems);
             const matchItems = itemsList.some(item => {
-                const matchCode = item.modelCode ? item.modelCode.toUpperCase().includes(searchStr) : false;
-                const matchName = item.modelName ? item.modelName.toUpperCase().includes(searchStr) : false;
-                return matchCode || matchName;
+                if(!item) return false;
+                let sTxt = getSerialsString(item.serials);
+                return (item.code && item.code.toUpperCase().includes(searchStr)) || 
+                       (item.name && item.name.toUpperCase().includes(searchStr)) ||
+                       (sTxt && sTxt.toUpperCase().includes(searchStr));
             });
-            return matchBill || matchItems;
+            return matchVehicle || matchParty || matchRemarks || matchItems;
         });
 
         if(filteredList.length === 0) {
-            body.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:15px; color:#64748b;">No matching search records found.</td></tr>`;
+            b.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:15px; color:#64748b;">No matching search records found.</td></tr>`;
             return;
         }
 
         let viewList = filteredList;
-        if (limitVal !== "ALL") {
-            const maxRows = parseInt(limitVal);
-            viewList = filteredList.slice(0, maxRows);
-        }
+        if (limitVal !== "ALL") { viewList = filteredList.slice(0, parseInt(limitVal)); }
 
-        viewList.forEach((i) => {
-            let origIdx = stockData.findIndex(x => x.fbKey === i.fbKey);
-
-            let itemsHtml = "";
-            let itemsList = i.gridItems || [];
+        viewList.forEach((g) => {
+            if(!g) return;
+            let origIdx = gateoutData.findIndex(x => x.fbKey === g.fbKey);
+            let summaryHtml = "";
             
-            if (itemsList.length === 0 && i.modelCode) {
-                itemsList.push({ modelCode: i.modelCode, modelName: i.modelName, qty: i.qty || i.receiveQty || 0 });
-            }
+            let gItems = safeConvertToArray(g.gridItems);
+            gItems.forEach(item => {
+                if(!item) return;
+                summaryHtml += `• [<b>${item.pool}</b>] <code>${item.code}</code> - ${item.name} (<b>${item.qty} NOS</b>)<br>`;
+                
+                let sTxt = getSerialsString(item.serials);
+                if(sTxt && sTxt !== "-" && sTxt !== "") {
+                    summaryHtml += `<span style="font-size:11px; color:#16a34a; padding-left:10px; font-weight:bold;">🔢 S/N: ${sTxt}</span><br>`;
+                }
 
-            itemsList.forEach(item => {
-                let currentQty = parseInt(item.qty || item.receiveQty || 0);
-                itemsHtml += `• <code>${item.modelCode || i.modelCode}</code> - ${item.modelName || i.modelName} (<b>${currentQty} NOS</b>)<br>`;
-                if(currentQty < 5) document.getElementById('lowStockAlert').style.display = 'block';
+                // 🌟 आपका पसंदीदा BOM Auto-Deducted समरी मोड 100% वापस लाइव है!
+                let linkedBOM = bomFormulaList.find(b => b && cleanStr(b.mainCode) === cleanStr(item.code));
+                if(linkedBOM && linkedBOM.accessories) {
+                    summaryHtml += `<span style="font-size:10px; color:#0284c7; padding-left:10px;">📦 BOM Parts Auto-Deducted:</span><br>`;
+                    let accs = safeConvertToArray(linkedBOM.accessories);
+                    accs.forEach(acc => {
+                        if(acc) summaryHtml += `<span style="font-size:10px; color:#64748b; padding-left:15px;">↳ ${acc.code}: ${parseInt(acc.qty)*parseInt(item.qty)} NOS</span><br>`;
+                    });
+                }
             });
 
-            let bgHtml = "";
-            if (session.userId === "k88rakesh") {
-                let creator = i.createdBy ? i.createdBy : "System";
-                bgHtml = `<div style="margin-bottom:5px;"><span style="font-size:10px; color:#16a34a; background:#f0fdf4; padding:2px 6px; border-radius:3px; border:1px solid #bbf7d0; font-weight:bold;">👤 User: ${creator}</span></div>`;
-            }
+            let displayRemarks = g.remarks ? g.remarks : "-";
+            let docDisplayLabel = g.partyName ? `<b>${g.partyName}</b>` : "-";
 
-            body.innerHTML += `<tr>
-                <td><b>${i.companyName}</b></td><td>Bill: ${i.billNo}<br>PO: ${i.poNo}</td><td>Bill: ${i.billDate}<br>Gate-In: ${i.gateInDate}</td><td>${i.gateInNo}</td><td style="text-align:left;">${itemsHtml}</td>
+            b.innerHTML += `<tr>
+                <td>GVM-GO-${g.voucherNo}</td><td>${g.date}</td><td>${g.vehicleNo}</td><td>${docDisplayLabel}</td><td style="text-align:left;">${summaryHtml}</td><td>${displayRemarks}</td>
                 <td>
-                    ${bgHtml}
-                    <button type="button" class="btn-print-receipt" onclick='triggerGateInReceipt(${JSON.stringify(i)})'>🖨️ Print</button>
-                    <button type="button" class="btn-edit-action" onclick="editFreshRow(${origIdx})">Edit</button>
-                    <button type="button" class="btn-delete-action" onclick="deleteFreshRow(${origIdx})">Delete</button>
+                    <button type="button" class="btn-print-receipt" onclick='triggerGateOutReceipt(${JSON.stringify(g)})'>🖨️ Print</button>
+                    <button type="button" class="btn-edit-action" onclick="editGateoutRow(${origIdx})">Edit</button>
+                    <button type="button" class="btn-delete-action" onclick="deleteGateoutRow(${origIdx})">Delete</button>
                 </td>
             </tr>`;
         });
     }
 
-    function editFreshRow(idx) {
-        const d = stockData[idx]; 
-        document.getElementById('editRowIndex').value = idx;
+    window.editGateoutRow = function(origIdx) {
+        const d = gateoutData[origIdx];
+        if(!d) return;
+        document.getElementById('editRowIndex').value = origIdx;
         document.getElementById('editFirebaseKey').value = d.fbKey;
-
-        document.getElementById('companyName').value = d.companyName; 
+        document.getElementById('goDate').value = d.date;
+        document.getElementById('goVehicleNo').value = d.vehicleNo;
         
-        let matches = flatPOList.filter(x => x.company === d.companyName.toUpperCase() && x.hasPO === "YES" && x.poType === "PURCHASE");
-        
-        if(d.gridItems && d.gridItems.length > 0) {
-            let firstCode = d.gridItems[0].modelCode;
-            let itemMatches = flatPOList.filter(x => x.code === firstCode && x.hasPO === "YES" && x.poType === "PURCHASE");
-            if(itemMatches.length > 0) { matches = itemMatches; }
+        // एडिट करते समय पुराने पार्टी नेम को स्प्लिट करके बॉक्स में लोड करना
+        if (d.docType && d.docNo) {
+            document.getElementById('goDocType').value = d.docType;
+            document.getElementById('goDocNo').value = d.docNo;
+        } else if (d.partyName && d.partyName.includes(" - ")) {
+            let parts = d.partyName.split(" - ");
+            document.getElementById('goDocType').value = parts[0];
+            document.getElementById('goDocNo').value = parts[1];
+        } else {
+            document.getElementById('goDocType').value = "BILL";
+            document.getElementById('goDocNo').value = d.partyName || "";
         }
+        
+        document.getElementById('goDeliveryShipping').value = d.deliveryShipping;
+        document.getElementById('goSendBy').value = d.goSendBy || '';
+        document.getElementById('goRemarks').value = d.remarks || ''; 
 
-        updatePODropdownOptions(matches, d.poNo);
-        document.getElementById('poNo').value = d.poNo;
+        const body = document.getElementById('gateoutItemsBody'); body.innerHTML = '';
+        let dItems = safeConvertToArray(d.gridItems);
+        dItems.forEach(item => {
+            if(!item) return;
+            let sTxt = getSerialsString(item.serials);
+            let hasSn = sTxt !== "" && sTxt !== "-";
+            const tr = document.createElement('tr');
 
-        document.getElementById('billNo').value = d.billNo;
-        document.getElementById('billDate').value = d.billDate; 
-        document.getElementById('gateInDate').value = d.gateInDate; 
-        document.getElementById('gateInNo').value = d.gateInNo;
+            let selectHtml = `<select class="go-sn-required" onchange="toggleSnField(this)" style="padding:6px; border-radius:4px;"><option value="NO" ${!hasSn?'selected':''}>NO</option><option value="YES" ${hasSn?'selected':''}>YES</option></select>`;
+            let inputStyle = hasSn ? "display: inline-block; width: 180px;" : "display: none; width: 180px;";
 
-        tempGridItems = d.gridItems ? [...d.gridItems] : [{ modelCode: d.modelCode, modelName: d.modelName, qty: d.qty, receiveQty: d.receiveQty }];
-        renderTempGrid();
+            tr.innerHTML = `<td><select class="go-pool-type"><option value="FRESH" ${item.pool==='FRESH'?'selected':''}>FRESH</option><option value="REWORK" ${item.pool==='REWORK'?'selected':''}>REWORK</option></select></td>
+                <td><input type="text" required class="go-code" value="${item.code}" oninput="autofillGo(this)" style="text-transform:uppercase;"></td>
+                <td><input type="text" required class="go-name" value="${item.name}"></td>
+                <td><input type="number" min="1" required class="go-qty" value="${item.qty}"></td>
+                <td>
+                    <div style="display:flex; gap:8px; align-items:center; justify-content:center;">
+                        ${selectHtml}
+                        <input type="text" class="go-serials" value="${hasSn ? sTxt : ''}" placeholder="e.g. 2601001 TO 100" style="${inputStyle} text-transform:uppercase; padding:6px; border:1px solid #cbd5e1; border-radius:4px; box-sizing:border-box;">
+                    </div>
+                </td>
+                <td><button type="button" class="btn-row-remove" onclick="this.closest('tr').remove()">×</button></td>`;
+            body.appendChild(tr);
+        });
 
-        document.getElementById('btnSubmitForm').innerText = "Update Entire Material Inward Bill";
+        document.getElementById('formTitleGateout').innerText = "🛠️ Modify/Edit Gate Out Dispatch Entry";
+        document.getElementById('btnSubmitForm').innerText = "Update & Authorize Dispatch";
         document.getElementById('btnCancelEdit').style.display = "inline-block";
-        document.getElementById('stockForm').scrollIntoView({ behavior: 'smooth' });
-    }
+        document.getElementById('gateoutForm').scrollIntoView({ behavior: 'smooth' });
+    };
 
-    function cancelEditMode() {
-        document.getElementById('editRowIndex').value = "-1"; 
-        document.getElementById('editFirebaseKey').value = ""; 
-        document.getElementById('stockForm').reset(); 
-        document.getElementById('poNo').innerHTML = '<option value="">-- TYPE COMPANY OR CODE FIRST --</option>';
-        tempGridItems = []; 
-        renderTempGrid();
-        document.getElementById('btnSubmitForm').innerText = "Final Save Inward Voucher"; 
-        document.getElementById('btnCancelEdit').style.display = "none";
-        applyLiveDateRestrictions();
-        lastActiveFocusedInputId = "companyName";
-    }
-
-    function deleteFreshRow(idx) {
-        activeDeleteRowIdx = idx;
+    window.deleteGateoutRow = function(origIdx) {
+        activeDeleteRowIdx = origIdx;
         document.getElementById('secretModalPasswordField').value = "";
         document.getElementById('secretPasswordModal').style.display = "flex";
         document.getElementById('secretModalPasswordField').focus();
-    }
+    };
 
-    function closeSecretPasswordModal() {
-        document.getElementById('secretPasswordModal').style.display = "none";
-        activeDeleteRowIdx = null;
-    }
+    function closeSecretPasswordModal() { document.getElementById('secretPasswordModal').style.display = "none"; activeDeleteRowIdx = null; }
 
     function submitSecretDeletePassword() {
         const pass = document.getElementById('secretModalPasswordField').value;
         if (pass === "7004") {
-            const fbKey = stockData[activeDeleteRowIdx].fbKey;
-            database.ref('freshStockVouchers/' + fbKey).remove().then(() => {
-                alert("🗑️ Success: Cloud Record completely wiped out.");
-                closeSecretPasswordModal();
-                cancelEditMode(); 
+            const fbKey = gateoutData[activeDeleteRowIdx].fbKey;
+            database.ref('gateoutStockData/' + fbKey).remove().then(() => {
+                alert("🗑️ Success: Dispatch record wiped out and stock restored!");
+                closeSecretPasswordModal(); cancelEditMode();
             });
         } else {
-            alert("❌ Access Denied: Incorrect Password! Record is safe.");
+            alert("❌ Access Denied: Incorrect Password!");
             closeSecretPasswordModal();
         }
     }
 
-    function triggerGateInReceipt(i) {
+    function cancelEditMode() {
+        document.getElementById('editRowIndex').value = "-1";
+        document.getElementById('editFirebaseKey').value = "";
+        document.getElementById('gateoutForm').reset();
+        document.getElementById('gateoutItemsBody').innerHTML = '';
+        document.getElementById('formTitleGateout').innerText = "🚪 Gate Out (Dispatch) Ledger";
+        document.getElementById('btnSubmitForm').innerText = "Authorize Gate Out (Deduct Stock)";
+        document.getElementById('btnCancelEdit').style.display = "none";
+        applyLiveDateRestrictions(); addGoRow();
+        document.getElementById('liveTableSearchBox').value = "";
+    }
+
+    function triggerGateOutReceipt(g) {
+        if(!g) return;
         const shell = document.getElementById('printSection');
-        let itemsList = i.gridItems || [{ modelCode: i.modelCode, modelName: i.modelName, qty: i.qty, receiveQty: i.receiveQty }];
         let rowsHtml = "";
-        itemsList.forEach(item => {
+        let gItems = safeConvertToArray(g.gridItems);
+        gItems.forEach(item => {
+            if(!item) return;
             rowsHtml += `<tr>
-                <td style="border:1px solid #000; padding:3px;">${item.modelCode}</td>
-                <td style="border:1px solid #000; padding:3px;">${item.modelName}</td>
+                <td style="border:1px solid #000; padding:3px; font-weight:bold;">${item.code}</td>
+                <td style="border:1px solid #000; padding:3px;">${item.name}</td>
+                <td style="border:1px solid #000; padding:3px; text-align:center; font-weight:bold;">${item.pool}</td>
                 <td style="border:1px solid #000; padding:3px; text-align:center; font-weight:bold;">${item.qty}</td>
-                <td style="border:1px solid #000; padding:3px; text-align:center; font-weight:bold;">${item.receiveQty}</td>
             </tr>`;
+            
+            let sTxt = getSerialsString(item.serials);
+            if(sTxt && sTxt !== "-" && sTxt !== "") {
+                rowsHtml += `<tr style="background:#fcfcfc;">
+                    <td colspan="4" style="border:1px solid #000; padding:3px 3px 3px 12px; font-size:10px; color:#16a34a;"><b>↳ S/N Allocations:</b> ${sTxt}</td>
+                </tr>`;
+            }
+
+            let printBOM = bomFormulaList.find(b => b && cleanStr(b.mainCode) === cleanStr(item.code));
+            if(printBOM && printBOM.accessories) {
+                let accs = safeConvertToArray(printBOM.accessories);
+                accs.forEach(acc => {
+                    if(acc) {
+                        rowsHtml += `<tr style="color:#555; font-style:italic; background:#fafafa; font-size:9px;">
+                            <td style="border:1px solid #000; padding:2px 2px 2px 15px;">↳ Component: ${acc.code}</td>
+                            <td style="border:1px solid #000; padding:2px;" colspan="2">${acc.name}</td>
+                            <td style="border:1px solid #000; padding:2px; text-align:center;">${parseInt(acc.qty)*parseInt(item.qty)}</td>
+                        </tr>`;
+                    }
+                });
+            }
         });
+
+        let receiptRemarks = g.remarks ? g.remarks : "N/A";
 
         shell.innerHTML = `
             <div style="border:1px solid #000; padding:6px; height:100%; box-sizing:border-box; display:flex; flex-direction:column; justify-content:space-between;">
-                <div style="text-align:center; font-weight:bold; font-size:12px; border-bottom:1px solid #000; padding-bottom:2px; text-transform:uppercase;">GVM RAIL PVT LTD - MATERIAL INWARD</div>
+                <div style="text-align:center; font-weight:bold; font-size:12px; border-bottom:1px solid #000; padding-bottom:2px; text-transform:uppercase;">GVM RAIL PVT LTD - DISPATCH OUTWARD REPORT</div>
                 <table style="width:100%; font-size:11px; margin-top:2px; line-height:1.2;">
-                    <tr><td><b>Gate In Date:</b> ${i.gateInDate}</td><td><b>Gate In No:</b> ${i.gateInNo}</td></tr>
-                    <tr><td><b>Bill No:</b> ${i.billNo}</td><td><b>Company Name:</b> ${i.companyName}</td></tr>
-                    <tr><td colspan="2"><b>PO No:</b> ${i.poNo || 'N/A'} | <b>Bill Date:</b> ${i.billDate}</td></tr>
+                    <tr><td><b>Voucher No:</b> GVM-GO-${g.voucherNo}</td><td><b>Dispatch Date:</b> ${g.date}</td></tr>
+                    <tr><td><b>Vehicle No:</b> ${g.vehicleNo}</td><td><b>Document Ref:</b> ${g.partyName || '-'}</td></tr>
+                    <tr><td colspan="2"><b>Location:</b> ${g.deliveryShipping || '-'} | <b>Dispatched By:</b> ${g.goSendBy || 'N/A'}</td></tr>
+                    <tr><td colspan="2"><b>Remarks:</b> ${receiptRemarks}</td></tr>
                 </table>
                 <table style="width:100%; border-collapse:collapse; margin-top:4px; font-size:10px;">
                     <thead>
                         <tr style="background:#eee;">
-                            <th style="border:1px solid #000; padding:3px; text-align:left;">Model Code</th>
-                            <th style="border:1px solid #000; padding:3px; text-align:left;">Description</th>
-                            <th style="border:1px solid #000; padding:3px;">Bill Qty</th>
-                            <th style="border:1px solid #000; padding:3px;">Receive Qty</th>
+                            <th style="border:1px solid #000; padding:3px; text-align:left;">Model / BOM Code</th>
+                            <th style="border:1px solid #000; padding:3px; text-align:left;">Description / Specifications</th>
+                            <th style="border:1px solid #000; padding:3px;">Pool</th>
+                            <th style="border:1px solid #000; padding:3px;">Qty</th>
                         </tr>
                     </thead>
                     <tbody>${rowsHtml}</tbody>
                 </table>
-                <div style="text-align:right; font-weight:bold; font-size:9px; margin-top:2px;">Authorized Store Signature</div>
+                <div style="text-align:right; font-weight:bold; font-size:9px; margin-top:15px;">Authorized Dispatched Signature</div>
             </div>`;
         window.print();
     }
 
-    function applyLiveDateRestrictions() {
-        const todayStr = new Date().toISOString().split('T')[0];
-        document.getElementById('billDate').setAttribute('max', todayStr); document.getElementById('gateInDate').setAttribute('max', todayStr);
-        document.getElementById('billDate').value = todayStr; document.getElementById('gateInDate').value = todayStr;
-        document.getElementById('freshFromDate').value = todayStr; document.getElementById('freshToDate').value = todayStr;
-    }
-    
-    function exportFreshToExcel() {
-        let csv = "Company,Bill No,PO No,Bill Date,Gate-In Date,Gate-In No,Model Code,Model Name,Bill Qty,Receive Qty\n";
-        stockData.forEach(i => {
-            let itemsList = i.gridItems || [{ modelCode: i.modelCode, modelName: i.modelName, qty: i.qty, receiveQty: i.receiveQty }];
-            itemsList.forEach(item => {
-                csv += `"${i.companyName}","${i.billNo}","${i.poNo}","${i.billDate}","${i.gateInDate}","${i.gateInNo}","${item.modelCode}","${item.modelName}","${item.qty}","${item.receiveQty}"\n`;
+    function exportGateoutToExcel() {
+        const fromDate = document.getElementById('goFromDate').value;
+        const toDate = document.getElementById('goToDate').value;
+        
+        let csv = "Voucher No,Date,Vehicle No,Document Target Reference,Delivery Location,Dispatched By,Remarks,Pool Type,Model Code,Model Name,Main Qty,Serial Numbers,BOM Component Code,BOM Component Qty\n";
+        
+        let targetList = gateoutData;
+        if(fromDate && toDate) {
+            targetList = gateoutData.filter(g => g && g.date >= fromDate && g.date <= toDate);
+        }
+
+        targetList.forEach(g => {
+            if(!g) return;
+            let rems = g.remarks ? g.remarks : "";
+            let pName = g.partyName ? g.partyName : "";
+
+            let gItems = safeConvertToArray(g.gridItems);
+            gItems.forEach(item => {
+                if(!item) return;
+                let sns = getSerialsString(item.serials);
+                let excelBOM = bomFormulaList.find(b => b && cleanStr(b.mainCode) === cleanStr(item.code));
+                if(excelBOM && excelBOM.accessories) {
+                    let accs = safeConvertToArray(excelBOM.accessories);
+                    accs.forEach(acc => {
+                        if(acc) {
+                            csv += `"GVM-GO-${g.voucherNo}","${g.date}","${g.vehicleNo}","${pName}","${g.deliveryShipping || ''}","${g.goSendBy || ''}","${rems}","${item.pool}","${item.code}","${item.name}","${item.qty}","${sns}","${acc.code}","${parseInt(acc.qty)*parseInt(item.qty)}"\n`;
+                        }
+                    });
+                } else {
+                    csv += `"GVM-GO-${g.voucherNo}","${g.date}","${g.vehicleNo}","${pName}","${g.deliveryShipping || ''}","${g.goSendBy || ''}","${rems}","${item.pool}","${item.code}","${item.name}","${item.qty}","${sns}","N/A","0"\n`;
+                }
             });
         });
+
         let blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
         let link = document.createElement("a");
-        link.href = URL.createObjectURL(blob); link.setAttribute("download", "Fresh_Inward_Ledger_Clean.csv");
+        link.href = URL.createObjectURL(blob); link.setAttribute("download", `Gateout_BOM_Report_${fromDate || 'All'}_to_${toDate || 'All'}.csv`);
         document.body.appendChild(link); link.click(); document.body.removeChild(link);
     }
 
-    function trackInputFocusMemory() {
-        document.querySelectorAll('form input, form select').forEach(field => {
-            field.addEventListener('focus', function() {
-                if (this.id) { lastActiveFocusedInputId = this.id; }
-            });
-            field.addEventListener('mousedown', function() {
-                if (this.id) { lastActiveFocusedInputId = this.id; }
-            });
-        });
+    function applyLiveDateRestrictions() {
+        const todayStr = new Date().toISOString().split('T')[0];
+        document.getElementById('goDate').setAttribute('max', todayStr); 
+        document.getElementById('goDate').value = todayStr; 
+        document.getElementById('goFromDate').value = todayStr; 
+        document.getElementById('goToDate').value = todayStr; 
     }
 
-    function applyBulletproofRefocusEngine() {
-        document.addEventListener('click', function(e) {
-            if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'SELECT' && e.target.tagName !== 'BUTTON' && !e.target.closest('.secret-modal-card')) {
-                refocusLastElement();
-            }
-        });
-
-        document.addEventListener('visibilitychange', function() {
-            if (document.visibilityState === 'visible') { refocusLastElement(); }
-        });
-
-        window.addEventListener('focus', function() { refocusLastElement(); });
-        window.addEventListener('pageshow', function() { refocusLastElement(); });
-
-        document.addEventListener('paste', function(e) {
-            if (lastActiveFocusedInputId) {
-                const targetEl = document.getElementById(lastActiveFocusedInputId);
-                if (targetEl) {
-                    if (document.activeElement !== targetEl) {
-                        targetEl.focus();
-                    }
-                    
-                    setTimeout(() => {
-                        let text = targetEl.value;
-                        if (text.length > 0 && text.length % 2 === 0 && text.substring(0, text.length/2) === text.substring(text.length/2)) {
-                            targetEl.value = text.substring(0, text.length/2);
-                        }
-                    }, 10);
-                }
-            }
-        });
-    }
-
-    function refocusLastElement() {
-        if(document.getElementById('secretPasswordModal').style.display === "flex") return;
-        
-        if (lastActiveFocusedInputId) {
-            const targetEl = document.getElementById(lastActiveFocusedInputId);
-            if (targetEl && document.activeElement !== targetEl) {
-                setTimeout(() => { 
-                    targetEl.focus(); 
-                    if (targetEl.tagName === 'INPUT' && (targetEl.type === 'text' || targetEl.type === 'number')) {
-                        const val = targetEl.value;
-                        targetEl.value = '';
-                        targetEl.value = val;
-                    }
-                }, 30);
-            }
-        }
-    }
-
-    // 🛡️ सेफ्टी लॉक: पेज लोड होते ही इतिहास सर्च बार का पुराना कचरा साफ़ रखना
     window.addEventListener('DOMContentLoaded', () => {
         const box = document.getElementById('liveTableSearchBox');
-        if (box) box.value = "";
+        if (box) { box.value = ""; }
     });
 
     applyLiveDateRestrictions();
-    trackInputFocusMemory();
-    applyBulletproofRefocusEngine();
+    addGoRow();
 </script>
 </body>
 </html>
