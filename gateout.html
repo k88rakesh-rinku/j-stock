@@ -31,6 +31,11 @@
         .secret-modal-btn-confirm { background: #16a34a; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; }
         .secret-modal-btn-cancel { background: #64748b; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; }
 
+        /* ड्रॉपडाउन और बॉक्स को एक सुंदर लाइन में रखने का स्टाइल */
+        .go-doc-group { display: flex; gap: 6px; }
+        .go-doc-group select { width: 40%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-weight: bold; background: white; cursor: pointer; }
+        .go-doc-group input { width: 60%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; text-transform: uppercase; }
+
         @media print {
             body * { visibility: hidden; }
             #printSection, #printSection * { visibility: visible; }
@@ -68,8 +73,17 @@
             <div class="form-group"><label>Dispatch Trans Date <span>*</span></label><input type="date" id="goDate" required></div>
             <div class="form-group"><label>Vehicle Transport No <span>*</span></label><input type="text" id="goVehicleNo" required autocomplete="off" style="text-transform:uppercase;"></div>
             
-            <!-- 🛠️ पुराना वाला ओरिजिनल इनपुट बॉक्स वापस आ गया है -->
-            <div class="form-group"><label>Target Party Account <span>*</span></label><input type="text" id="goPartyName" required autocomplete="off" style="text-transform:uppercase;"></div>
+            <!-- 🌟 ड्रॉपडाउन और इनपुट बॉक्स दोनों यहाँ लगा दिए गए हैं -->
+            <div class="form-group">
+                <label>Doc Type & Number <span>*</span></label>
+                <div class="go-doc-group">
+                    <select id="goDocType">
+                        <option value="BILL">BILL</option>
+                        <option value="CHALLAN">CHALLAN</option>
+                    </select>
+                    <input type="text" id="goDocNo" required placeholder="Doc No..." autocomplete="off">
+                </div>
+            </div>
             
             <div class="form-group"><label>Delivery Shipping Location <span>*</span></label><input type="text" id="goDeliveryShipping" required autocomplete="off" style="text-transform:uppercase;"></div>
             <div class="form-group"><label>Send / Dispatched By</label><input type="text" id="goSendBy" autocomplete="off" style="text-transform:uppercase;"></div>
@@ -119,15 +133,14 @@
     <div class="table-responsive" style="margin-top: 0;">
         <table class="history-table" style="border-top: none;">
             <thead style="background-color: #475569; color: white;">
-                <!-- 🛠️ कॉलम का नाम वापस "Party Target" कर दिया है -->
-                <tr><th>Voucher No</th><th>Date</th><th>Vehicle No</th><th>Party Target</th><th>Items Dispatched Details</th><th>Remarks</th><th>Action Controls</th></tr>
+                <tr><th>Voucher No</th><th>Date</th><th>Vehicle No</th><th>Party / Doc Ref</th><th>Items Dispatched Details</th><th>Remarks</th><th>Action Controls</th></tr>
             </thead>
             <tbody id="goHistoryBody"></tbody>
         </table>
     </div>
 </div>
 
-<!-- 🔑 सीक्रेट पासवर्ड डिलीट पॉपअप -->
+<!-- 🔑 सीक्रेट密码 पॉपअप -->
 <div id="secretPasswordModal" class="secret-modal-overlay">
     <div class="secret-modal-card">
         <h4>🔑 Security Check</h4>
@@ -332,11 +345,19 @@
         }
         if(deficit) return;
 
+        // 🌟 दोनों नए बॉक्स की वैल्यू को पुराने सिंगल ऑब्जेक्ट 'partyName' की तरह सिंक कर रहे हैं ताकि पिछला ढांचा सुरक्षित रहे
+        const docTypeVal = document.getElementById('goDocType').value;
+        const docNoVal = document.getElementById('goDocNo').value.trim().toUpperCase();
+
         const dispatchVoucher = {
             voucherNo: idx === -1 ? (gateoutData.length + 1) : gateoutData.find(x => x.fbKey === fbKey).voucherNo,
             date: document.getElementById('goDate').value,
             vehicleNo: document.getElementById('goVehicleNo').value.trim().toUpperCase(),
-            partyName: document.getElementById('goPartyName').value.trim().toUpperCase(), 
+            
+            docType: docTypeVal,
+            docNo: docNoVal,
+            partyName: docTypeVal + " - " + docNoVal, // 🛡️ कड़क सुरक्षा लॉक शील्ड
+            
             deliveryShipping: document.getElementById('goDeliveryShipping').value.trim().toUpperCase(),
             goSendBy: document.getElementById('goSendBy').value.trim().toUpperCase(),
             remarks: document.getElementById('goRemarks').value.trim().toUpperCase(), 
@@ -401,7 +422,7 @@
                     summaryHtml += `<span style="font-size:11px; color:#16a34a; padding-left:10px; font-weight:bold;">🔢 S/N: ${sTxt}</span><br>`;
                 }
 
-                // 🌟 पुराना बीओएम ऑटो-कट कॉम्पोनेन्ट दिखाने वाला पूरा इंजन वापस आ गया है
+                // 🌟 आपका पसंदीदा BOM Auto-Deducted समरी मोड 100% वापस लाइव है!
                 let linkedBOM = bomFormulaList.find(b => b && cleanStr(b.mainCode) === cleanStr(item.code));
                 if(linkedBOM && linkedBOM.accessories) {
                     summaryHtml += `<span style="font-size:10px; color:#0284c7; padding-left:10px;">📦 BOM Parts Auto-Deducted:</span><br>`;
@@ -413,10 +434,10 @@
             });
 
             let displayRemarks = g.remarks ? g.remarks : "-";
+            let docDisplayLabel = g.partyName ? `<b>${g.partyName}</b>` : "-";
 
-            // 🛠️ यहाँ "g.partyName" रेंडर वापस जोड़ दिया गया है
             b.innerHTML += `<tr>
-                <td>GVM-GO-${g.voucherNo}</td><td>${g.date}</td><td>${g.vehicleNo}</td><td><b>${g.partyName || '-'}</b></td><td style="text-align:left;">${summaryHtml}</td><td>${displayRemarks}</td>
+                <td>GVM-GO-${g.voucherNo}</td><td>${g.date}</td><td>${g.vehicleNo}</td><td>${docDisplayLabel}</td><td style="text-align:left;">${summaryHtml}</td><td>${displayRemarks}</td>
                 <td>
                     <button type="button" class="btn-print-receipt" onclick='triggerGateOutReceipt(${JSON.stringify(g)})'>🖨️ Print</button>
                     <button type="button" class="btn-edit-action" onclick="editGateoutRow(${origIdx})">Edit</button>
@@ -433,7 +454,20 @@
         document.getElementById('editFirebaseKey').value = d.fbKey;
         document.getElementById('goDate').value = d.date;
         document.getElementById('goVehicleNo').value = d.vehicleNo;
-        document.getElementById('goPartyName').value = d.partyName;
+        
+        // एडिट करते समय पुराने पार्टी नेम को स्प्लिट करके बॉक्स में लोड करना
+        if (d.docType && d.docNo) {
+            document.getElementById('goDocType').value = d.docType;
+            document.getElementById('goDocNo').value = d.docNo;
+        } else if (d.partyName && d.partyName.includes(" - ")) {
+            let parts = d.partyName.split(" - ");
+            document.getElementById('goDocType').value = parts[0];
+            document.getElementById('goDocNo').value = parts[1];
+        } else {
+            document.getElementById('goDocType').value = "BILL";
+            document.getElementById('goDocNo').value = d.partyName || "";
+        }
+        
         document.getElementById('goDeliveryShipping').value = d.deliveryShipping;
         document.getElementById('goSendBy').value = d.goSendBy || '';
         document.getElementById('goRemarks').value = d.remarks || ''; 
@@ -547,7 +581,7 @@
                 <div style="text-align:center; font-weight:bold; font-size:12px; border-bottom:1px solid #000; padding-bottom:2px; text-transform:uppercase;">GVM RAIL PVT LTD - DISPATCH OUTWARD REPORT</div>
                 <table style="width:100%; font-size:11px; margin-top:2px; line-height:1.2;">
                     <tr><td><b>Voucher No:</b> GVM-GO-${g.voucherNo}</td><td><b>Dispatch Date:</b> ${g.date}</td></tr>
-                    <tr><td><b>Vehicle No:</b> ${g.vehicleNo}</td><td><b>Party Target:</b> ${g.partyName || '-'}</td></tr>
+                    <tr><td><b>Vehicle No:</b> ${g.vehicleNo}</td><td><b>Document Ref:</b> ${g.partyName || '-'}</td></tr>
                     <tr><td colspan="2"><b>Location:</b> ${g.deliveryShipping || '-'} | <b>Dispatched By:</b> ${g.goSendBy || 'N/A'}</td></tr>
                     <tr><td colspan="2"><b>Remarks:</b> ${receiptRemarks}</td></tr>
                 </table>
@@ -571,7 +605,7 @@
         const fromDate = document.getElementById('goFromDate').value;
         const toDate = document.getElementById('goToDate').value;
         
-        let csv = "Voucher No,Date,Vehicle No,Party Target Reference,Delivery Location,Dispatched By,Remarks,Pool Type,Model Code,Model Name,Main Qty,Serial Numbers,BOM Component Code,BOM Component Qty\n";
+        let csv = "Voucher No,Date,Vehicle No,Document Target Reference,Delivery Location,Dispatched By,Remarks,Pool Type,Model Code,Model Name,Main Qty,Serial Numbers,BOM Component Code,BOM Component Qty\n";
         
         let targetList = gateoutData;
         if(fromDate && toDate) {
