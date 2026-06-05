@@ -37,6 +37,9 @@
         .catalog-filter-panel { display: flex; justify-content: space-between; align-items: center; background: #f1f5f9; padding: 10px 15px; border-radius: 6px; border: 1px solid #cbd5e1; margin-bottom: 15px; flex-wrap: wrap; gap: 10px; }
         .search-box-catalog { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; width: 320px; text-transform: uppercase; }
         .limit-select-catalog { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; cursor: pointer; background: #fff; font-weight: bold; }
+
+        /* 🌟 यूनिट ड्रॉपडाउन की सुंदर स्टाइलिंग */
+        .po-unit-select { padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; background: white; font-weight: bold; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -102,9 +105,17 @@
                     <label>PO Number <span>*</span></label>
                     <input type="text" id="poNumber" placeholder="e.g., PO-2026-88" style="text-transform:uppercase;">
                 </div>
-                <div class="form-group" style="flex: 1; min-width: 120px;">
-                    <label>Total PO Ordered Qty <span>*</span></label>
+                <div class="form-group" style="flex: 1; min-width: 110px;">
+                    <label>PO Ordered Qty <span>*</span></label>
                     <input type="number" min="1" id="poTotalQty" placeholder="e.g., 1000">
+                </div>
+                <div class="form-group" style="min-width: 110px;">
+                    <label>PO Unit Type <span>*</span></label>
+                    <select id="poUnit" class="po-unit-select" style="width: 100%;">
+                        <option value="NOS">NOS</option>
+                        <option value="MTR">MTR</option>
+                        <option value="SET">SET</option>
+                    </select>
                 </div>
             </div>
         </div>
@@ -120,13 +131,12 @@
             <h3 style="color:#1e3a8a; margin: 0;">📋 Generated Codes & PO Master Catalog List</h3>
         </div>
         
-        <!-- 🔍 यहाँ नया सर्च और लिमिट वाला फ़िल्टर लगा दिया गया है -->
         <div class="catalog-filter-panel">
-            <input type="text" id="catalogSearchBox" class="search-box-catalog" placeholder="🔍 Search Company, Code, Name or PO..." oninput="renderCatalogTable()">
+            <input type="text" id="catalogSearchBox" class="search-box-catalog" placeholder="🔍 Search Company, Code, Name or PO..." autocomplete="off" oninput="renderCatalogTable()">
             <div>
                 <label style="font-weight: bold; font-size: 13px; color: #475569; margin-right: 5px;">Show Records:</label>
                 <select id="catalogLimitSelect" class="limit-select-catalog" onchange="renderCatalogTable()">
-                    <option value="5">5 Rows</option>
+                    <option value="5" selected>5 Rows</option>
                     <option value="10">10 Rows</option>
                     <option value="15">15 Rows</option>
                     <option value="ALL">Show All</option>
@@ -143,7 +153,7 @@
                     <th>PO Linked?</th>
                     <th>PO Type</th>
                     <th>PO Number</th>
-                    <th>Total PO Qty</th>
+                    <th>Total PO Qty & Unit</th>
                     <th style="width: 15%;">Action Controls</th>
                 </tr>
             </thead>
@@ -155,7 +165,6 @@
 </div>
 
 <script>
-    /* 📑 लाइव क्लाउड फायरबेस क्रेडेंशियल ऑथेंटिकेशन सेटअप */
     const firebaseConfig = {
         apiKey: "AIzaSyCAOXbPwuFR3wh1QSLBXWsodupKWoRYmqs",
         authDomain: "gvm-stock-control.firebaseapp.com",
@@ -168,7 +177,6 @@
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
 
-    /* 📑 एक्टिव यूजर सेशन ट्रैकिंग और सुरक्षा कवच लॉजिक */
     const session = JSON.parse(localStorage.getItem('activeSession'));
     if(!session) { window.location.href = 'login.html'; }
     function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
@@ -176,7 +184,6 @@
     let flatCatalogList = [];
     const defaultCatalog = { "VINYAS": [{ code: "ACV 002", name: "SIEMENS" }], "HEX MOTO": [{ code: "T18 545", name: "INVERTER" }] };
 
-    /* 📑 फायरबेस रीयल-टाइम डेटाबेस सिंक और मास्टर कैटलॉग लोडर */
     database.ref('systemMasterCatalogFlat').on('value', (snapshot) => {
         flatCatalogList = [];
         const data = snapshot.val();
@@ -194,7 +201,7 @@
             localStorage.setItem('systemMasterCatalog', JSON.stringify(defaultCatalog));
             for(let key in defaultCatalog) {
                 defaultCatalog[key].forEach(x => {
-                    database.ref('systemMasterCatalogFlat').push({ company: key, code: x.code, name: x.name, hasPO: "NO", poType: "-", poNumber: "", poTotalQty: 0 });
+                    database.ref('systemMasterCatalogFlat').push({ company: key, code: x.code, name: x.name, hasPO: "NO", poType: "-", poNumber: "", poTotalQty: 0, poUnit: "NOS" });
                 });
             }
         }
@@ -202,7 +209,6 @@
         renderCatalogTable();
     });
 
-    /* 📑 कंपनी नाम प्रेडिक्शन ऑटो-सजेशन लिस्टिंग लोडर्स */
     function renderDatalist() {
         const list = document.getElementById('existingCompaniesList'); 
         list.innerHTML = '';
@@ -210,7 +216,6 @@
         uniqueCompanies.forEach(comp => { list.innerHTML += `<option value="${comp}">`; });
     }
 
-    /* 📑 पीओ बॉक्स विजार्ड शो/हाइड टॉगल कंडीशन इंजन */
     function togglePOFields() {
         const hasPO = document.getElementById('hasPO').value;
         const box = document.getElementById('poFormBox');
@@ -219,18 +224,20 @@
             document.getElementById('poType').required = true;
             document.getElementById('poNumber').required = true;
             document.getElementById('poTotalQty').required = true;
+            document.getElementById('poUnit').required = true;
         } else {
             box.classList.remove('po-box-open');
             document.getElementById('poType').required = false;
             document.getElementById('poNumber').required = false;
             document.getElementById('poTotalQty').required = false;
+            document.getElementById('poUnit').required = false;
             document.getElementById('poType').value = 'PURCHASE';
             document.getElementById('poNumber').value = '';
             document.getElementById('poTotalQty').value = '';
+            document.getElementById('poUnit').value = 'NOS';
         }
     }
 
-    /* 📑 फॉर्म सबमिशन सेव इंजन (मल्टीपल पीओ लिंकेज लॉजिक के साथ अपडेटेड) */
     document.getElementById('codeGeneratorForm').addEventListener('submit', function(e) {
         e.preventDefault();
         const fbKey = document.getElementById('editFirebaseKey').value;
@@ -242,11 +249,13 @@
         let pType = "-";
         let pNum = "";
         let pQty = 0;
+        let pUnit = "NOS";
 
         if(poStatus === "YES") {
             pType = document.getElementById('poType').value;
             pNum = document.getElementById('poNumber').value.trim().toUpperCase();
             pQty = parseInt(document.getElementById('poTotalQty').value) || 0;
+            pUnit = document.getElementById('poUnit').value;
             if(!pNum || pQty <= 0) { alert("Please enter valid PO configuration details!"); return; }
         }
 
@@ -258,6 +267,7 @@
             poType: pType, 
             poNumber: pNum,
             poTotalQty: pQty,
+            poUnit: pUnit, // 🌟 यूनिट पैकेट क्लाउड नोड पर मैप हो गया है
             lastUpdatedBy: session.userId
         };
 
@@ -279,7 +289,6 @@
         }
     });
 
-    /* 🛠️ मास्टर कैटलॉग सूची को यूनिवर्सल सर्च और लिमिट (5/10/ALL) के साथ रेंडर करने का नया इंजन */
     function renderCatalogTable() {
         const tbody = document.getElementById('catalogTableBody');
         tbody.innerHTML = '';
@@ -288,11 +297,9 @@
             return;
         }
         
-        // 1. सर्च बॉक्स और लिमिट बॉक्स की वैल्यू लें
         const searchStr = document.getElementById('catalogSearchBox').value.trim().toUpperCase();
         const limitVal = document.getElementById('catalogLimitSelect').value;
 
-        // 2. यूनिवर्सल फ़िल्टर: कंपनी, कोड, नाम या पीओ नंबर किसी से भी सर्च करें
         let filteredList = flatCatalogList.filter(item => {
             const matchComp = item.company ? item.company.toUpperCase().includes(searchStr) : false;
             const matchCode = item.code ? item.code.toUpperCase().includes(searchStr) : false;
@@ -302,10 +309,8 @@
             return matchComp || matchCode || matchName || matchPoNo;
         });
 
-        // 3. नए रिकॉर्ड ऊपर दिखाने के लिए लिस्ट को उल्टा करें
         let sortedList = [...filteredList].reverse();
 
-        // 4. लिस्ट को लिमिट (5, 10, ALL) के हिसाब से काटें
         if (limitVal !== "ALL") {
             sortedList = sortedList.slice(0, parseInt(limitVal));
         }
@@ -315,7 +320,6 @@
             return;
         }
 
-        // 5. टेबल में डेटा भरें (origIdx का लॉजिक एडिट/डिलीट को बचा कर रखेगा)
         sortedList.forEach((item) => {
             let origIdx = flatCatalogList.findIndex(x => x.fbKey === item.fbKey);
             let poBadge = item.hasPO === "YES" ? `<span class="badge-po-yes">YES</span>` : `<span class="badge-po-no">NO</span>`;
@@ -326,7 +330,8 @@
             }
 
             let displayPoNo = item.poNumber ? item.poNumber : "-";
-            let displayPoQty = item.poTotalQty ? item.poTotalQty : "-";
+            let currentUnit = item.poUnit ? item.poUnit : "NOS";
+            let displayPoQty = item.poTotalQty ? `${item.poTotalQty} ${currentUnit}` : "-";
 
             tbody.innerHTML += `<tr>
                 <td><b>${item.company}</b></td>
@@ -335,7 +340,7 @@
                 <td>${poBadge}</td>
                 <td>${typeBadge}</td>
                 <td><b>${displayPoNo}</b></td>
-                <td><b>${displayPoQty}</b></td>
+                <td><b style="color:#1e3a8a;">${displayPoQty}</b></td>
                 <td>
                     <button type="button" class="btn-edit-action" onclick="editCatalogItem(${origIdx})">Edit</button>
                     <button type="button" class="btn-delete-action" onclick="deleteCatalogItem('${item.fbKey}', '${item.code}')">Delete</button>
@@ -344,7 +349,6 @@
         });
     }
 
-    /* 📑 मास्टर सूची में से पुराने कैटलॉग रिकॉर्ड को एडिट मोड में लोड करने का ढांचा */
     function editCatalogItem(idx) {
         const item = flatCatalogList[idx];
         document.getElementById('editFirebaseKey').value = item.fbKey;
@@ -366,6 +370,7 @@
             document.getElementById('poType').value = item.poType || "PURCHASE";
             document.getElementById('poNumber').value = item.poNumber || "";
             document.getElementById('poTotalQty').value = item.poTotalQty || "";
+            document.getElementById('poUnit').value = item.poUnit || "NOS";
         }
 
         document.getElementById('formTitleCatalog').innerText = "🛠️ Modify Item Model & PO Configuration";
@@ -374,20 +379,28 @@
         document.getElementById('codeGeneratorForm').scrollIntoView({ behavior: 'smooth' });
     }
 
-    /* 📑 मास्टर कैटलॉग से पुराना रिकॉर्ड हमेशा के लिए साफ (Delete) करने का इंजन */
+    // 🔒 डबल वेरिफिकेशन लॉक्ड कैटलॉग डिलीट इंजन
     function deleteCatalogItem(fbKey, code) {
         const passwordInput = prompt(`🔑 Security Check:\nEnter Secret Password to Delete Code/PO Master "${code}":`);
+        if (passwordInput === null) return;
+
         if (passwordInput === "7004") {
-            database.ref('systemMasterCatalogFlat/' + fbKey).remove().then(() => {
-                alert("🗑️ Master Code and linked PO data completely wiped out.");
-                resetCatalogForm();
-            });
-        } else if (passwordInput !== null) {
+            // 🧠 सेकंड लेयर कड़क सुरक्षा चेक प्रोम्प्ट
+            let doubleCheck = confirm(`⚠️ ALERT: Are you absolutely sure you want to permanently delete the Master Code [ ${code} ] and all its linked PO configurations from Cloud?`);
+            
+            if (doubleCheck) {
+                database.ref('systemMasterCatalogFlat/' + fbKey).remove().then(() => {
+                    alert("🗑️ Master Code and linked PO data completely wiped out.");
+                    resetCatalogForm();
+                });
+            } else {
+                alert("🔒 Cancelled: Record is completely safe!");
+            }
+        } else {
             alert("❌ Access Denied: Incorrect Password!");
         }
     }
 
-    /* 📑 पूरे फॉर्म को रिफ्रेश कर सामान्य स्थिति में वापस लाने का मैकेनिज्म */
     function resetCatalogForm() {
         document.getElementById('editFirebaseKey').value = "";
         document.getElementById('codeGeneratorForm').reset();
@@ -401,6 +414,12 @@
         document.getElementById('btnCancelCatalogEdit').style.display = "none";
     }
     function cancelCatalogEditMode() { resetCatalogForm(); }
+
+    // सेफ्टी लॉक: पेज लोड होते ही इतिहास सर्च बार का पुराना कचरा साफ़ रखना
+    window.addEventListener('DOMContentLoaded', () => {
+        const box = document.getElementById('catalogSearchBox');
+        if (box) box.value = "";
+    });
 </script>
 </body>
 </html>
