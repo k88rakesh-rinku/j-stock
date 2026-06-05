@@ -57,6 +57,17 @@
             box-sizing: border-box;
         }
 
+        /* 🛠️ नए पूल सेलेक्ट ड्रॉपडाउन की स्टाइलिंग */
+        .rw-pool-select {
+            width: 100%;
+            padding: 5px;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            font-weight: bold;
+            background: #fff;
+            cursor: pointer;
+        }
+
         /* 🔥 सिर्फ प्रिंट साइज को 1/4 A4 सेट किया गया है, बाकी सब सेम है */
         @media print {
             body * { visibility: hidden; }
@@ -118,12 +129,13 @@
             <table class="grid-table">
                 <thead style="background-color: var(--success); color: white;">
                     <tr>
+                        <th style="width:12%;">Stock Pool Type</th>
                         <th style="width:15%;">Item Code 🔍</th>
-                        <th style="width:25%;">Item Display Name</th>
-                        <th style="width:10%;">Qty</th>
-                        <th style="width:12%;">S/N Req?</th>
+                        <th style="width:22%;">Item Display Name</th>
+                        <th style="width:9%;">Qty</th>
+                        <th style="width:10%;">S/N Req?</th>
                         <th style="width:10%;">Configuration</th>
-                        <th style="width:23%;">Item Remarks / Other Name</th>
+                        <th style="width:17%;">Item Remarks / Other Name</th>
                         <th style="width:5%;">Action</th>
                     </tr>
                 </thead>
@@ -137,7 +149,8 @@
 
     <div class="table-filter-panel">
         <div>
-            <input type="text" id="liveTableSearchBox" class="search-input-box" placeholder="🔍 Search Bill No, Code or Item Name..." oninput="triggerTableRender()">
+            <!-- 🛡️ ब्राउज़र ऑटोफ़िल रोकने लॉक शील्ड -->
+            <input type="text" id="liveTableSearchBox" class="search-input-box" placeholder="🔍 Search Bill No, Code or Item Name..." autocomplete="off" oninput="triggerTableRender()">
         </div>
         <div>
             <label style="font-weight: bold; font-size: 13px; color:#475569;">Show Records:</label>
@@ -173,7 +186,6 @@
 <div id="printSection"></div>
 
 <script>
-    // 🎯 फायरबेस कॉन्फ़िगरेशन
     const firebaseConfig = {
         apiKey: "AIzaSyCAOXbPwuFR3wh1QSLBXWsodupKWoRYmqs",
         authDomain: "gvm-stock-control.firebaseapp.com",
@@ -194,8 +206,8 @@
     let masterCatalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
     let activeBtnRef = null;
 
-    // 🔄 फायरबेस लाइव डेटा सिंक
-    database.ref('reworkStockData').on('value', (snapshot) => {
+    // 🔄 सिंक इंजन को आपके मास्टर लेज़र नोड 'reworkStockVouchers' से पूरी तरह सिंक कर दिया है
+    database.ref('reworkStockVouchers').on('value', (snapshot) => {
         reworkData = [];
         const data = snapshot.val();
         if(data) {
@@ -212,6 +224,12 @@
         const body = document.getElementById('dynamicItemsBody');
         const tr = document.createElement('tr');
         tr.innerHTML = `
+            <td>
+                <select class="rw-pool-select">
+                    <option value="REWORK">REWORK</option>
+                    <option value="FRESH">FRESH</option>
+                </select>
+            </td>
             <td><input type="text" required class="item-short" oninput="autofillItem(this)" style="text-transform:uppercase;"></td>
             <td><input type="text" required class="item-name"></td>
             <td><input type="number" min="1" required class="item-qty" oninput="clearSN(this)"></td>
@@ -258,12 +276,14 @@
             const qty = parseInt(row.querySelector('.item-qty').value);
             const snData = row.querySelector('.btn-sn-setup').getAttribute('data-sn');
             const itemRemarks = row.querySelector('.grid-remarks-input').value.trim();
+            const poolType = row.querySelector('.rw-pool-select').value;
             
             items.push({ 
+                pool: poolType, // 🌟 पूल टाइप क्लाउड में सेव होगा
                 itemShort: row.querySelector('.item-short').value.toUpperCase(), 
                 itemName: row.querySelector('.item-name').value, 
                 qty: qty, 
-                remarks: itemRemarks, // 💾 आइटम स्तर पर रिमार्क क्लाउड में सेव होगा
+                remarks: itemRemarks, 
                 serials: snData ? JSON.parse(snData) : [] 
             });
         });
@@ -275,7 +295,6 @@
         const currentGateInNo = document.getElementById('rwGateEntryNo').value.trim().toUpperCase();
         const currentBillDate = document.getElementById('rwBillDate').value;
 
-        // 🛡️ डुप्लीकेट सुरक्षा चक्र
         if (idx === -1) {
             let isDuplicate = reworkData.some(voucher => 
                 voucher.billNo === currentBillNo && 
@@ -302,12 +321,12 @@
         };
         
         if(idx === -1) {
-            database.ref('reworkStockData').push(entry).then(() => {
+            database.ref('reworkStockVouchers').push(entry).then(() => {
                 alert("🎉 Rework Gate In entry saved successfully to Cloud!");
                 resetReworkForm();
             });
         } else {
-            database.ref('reworkStockData/' + fbKey).set(entry).then(() => {
+            database.ref('reworkStockVouchers/' + fbKey).set(entry).then(() => {
                 alert("🎯 Cloud Entry updated successfully!");
                 resetReworkForm();
             });
@@ -355,8 +374,8 @@
             
             let desc = "";
             (r.gridItems || []).forEach(i => {
-                desc += `• <b>${i.itemName}</b> [<code>${i.itemShort}</code>] (<b>${i.qty} Nos</b>)`;
-                // ✍️ हर आइटम के ठीक नीचे उसका विशिष्ट रिमार्क दिखाएं
+                let pLabel = i.pool ? `[<b>${i.pool}</b>] ` : '';
+                desc += `• ${pLabel}<b>${i.itemName}</b> [<code>${i.itemShort}</code>] (<b>${i.qty} Nos</b>)`;
                 if(i.remarks) {
                     desc += ` <span style="color:#b45309; font-size:11px; font-weight:bold; background:#fff7ed; padding:1px 4px; border-radius:3px; border:1px solid #ffedd5; margin-left:5px;">📝 Rem: ${i.remarks}</span>`;
                 }
@@ -406,9 +425,15 @@
             const tr = document.createElement('tr');
             const snText = item.serials && item.serials.length > 0 ? `✔ Loaded (${item.serials.length})` : 'S/N';
             const snClass = item.serials && item.serials.length > 0 ? 'btn-sn-setup configured' : 'btn-sn-setup';
-            const itemRemarksValue = item.remarks || "";
+            const currentPool = item.pool || "REWORK";
             
             tr.innerHTML = `
+                <td>
+                    <select class="rw-pool-select">
+                        <option value="REWORK" ${currentPool === 'REWORK' ? 'selected' : ''}>REWORK</option>
+                        <option value="FRESH" ${currentPool === 'FRESH' ? 'selected' : ''}>FRESH</option>
+                    </select>
+                </td>
                 <td><input type="text" required class="item-short" value="${item.itemShort}" oninput="autofillItem(this)" style="text-transform:uppercase;"></td>
                 <td><input type="text" required class="item-name" value="${item.itemName}"></td>
                 <td><input type="number" min="1" required class="item-qty" value="${item.qty}" oninput="clearSN(this)"></td>
@@ -440,17 +465,24 @@
 
     function cancelEditMode() { resetReworkForm(); }
 
-    // 🔒 पासवर्ड लॉक्ड डिलीट इंजन
+    // 🔒 कड़क डबल वेरिफिकेशन पासवर्ड डिलीट लॉक इंजन
     function deleteReworkRow(idx) {
         const passwordInput = prompt("🔑 Security Check:\nEnter Secret Password to Delete Rework Record:");
         if (passwordInput === null) return; 
 
         if (passwordInput === "7004") {
-            const fbKey = reworkData[idx].fbKey;
-            database.ref('reworkStockData/' + fbKey).remove().then(() => {
-                alert("🗑️ Success: Cloud Record completely wiped out.");
-                resetReworkForm();
-            });
+            // 🧠 सेकंड लेयर सुरक्षा चेक प्रोम्प्ट
+            let confirmLock = confirm("⚠️ ALERT: Are you absolutely sure you want to permanently WIPE OUT this Gate In Record from Cloud?\n\nThis action cannot be undone!");
+            
+            if (confirmLock) {
+                const fbKey = reworkData[idx].fbKey;
+                database.ref('reworkStockVouchers/' + fbKey).remove().then(() => {
+                    alert("🗑️ Success: Cloud Record completely wiped out.");
+                    resetReworkForm();
+                });
+            } else {
+                alert("🔒 Cancelled: Record is completely safe!");
+            }
         } else {
             alert("❌ Access Denied: Incorrect Password! Record is safe.");
         }
@@ -460,8 +492,9 @@
         const shell = document.getElementById('printSection'); 
         let lines = ''; 
         e.gridItems.forEach(i => { 
+            let poolLabel = i.pool ? `[${i.pool}] ` : '';
             let remText = i.remarks ? ` | Rem: ${i.remarks}` : '';
-            lines += `• <b>${i.itemName}</b> [${i.itemShort}] - Qty: ${i.qty} NOS ${remText} (S/Ns: ${(i.serials || []).join(', ') || 'N/A'})<br>`; 
+            lines += `• ${poolLabel}<b>${i.itemName}</b> [${i.itemShort}] - Qty: ${i.qty} NOS ${remText} (S/Ns: ${(i.serials || []).join(', ') || 'N/A'})<br>`; 
         });
         
         shell.innerHTML = `
@@ -490,18 +523,23 @@
         document.getElementById('rwBillDate').value = todayStr;
     }
 
-    // 📈 एक्सेल एक्सपोर्ट इंजन (आइटम स्तर के रिमार्क्स सपोर्ट के साथ)
     function exportReworkToExcel() {
-        let csv = "Date,From Party,Challan No,Challan Date,Gate Entry No,Item Code,Item Name,Qty,Item Remarks\n";
+        let csv = "Date,From Party,Challan No,Challan Date,Gate Entry No,Pool Type,Item Code,Item Name,Qty,Item Remarks\n";
         reworkData.forEach(r => {
             (r.gridItems || []).forEach(i => {
-                csv += `"${r.date}","${r.partyName}","${r.billNo}","${r.billDate || ''}","${r.gateEntryNo}","${i.itemShort}","${i.itemName}","${i.qty}","${i.remarks || ''}"\n`;
+                csv += `"${r.date}","${r.partyName}","${r.billNo}","${r.billDate || ''}","${r.gateEntryNo}","${i.pool || 'REWORK'}","${i.itemShort}","${i.itemName}","${i.qty}","${i.remarks || ''}"\n`;
             });
         });
-        let blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        let blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
         let link = document.createElement("a"); link.href = URL.createObjectURL(blob);
         link.setAttribute("download", "Rework_Inward_Ledger.csv"); link.click();
     }
+
+    // 🛡️ सेफ्टी लॉक: पेज लोड होते ही इतिहास सर्च बार का पुराना कचरा साफ़ रखना
+    window.addEventListener('DOMContentLoaded', () => {
+        const box = document.getElementById('liveTableSearchBox');
+        if (box) box.value = "";
+    });
 
     applyLiveDateRestrictions();
     addReworkRow();
