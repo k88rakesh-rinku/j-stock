@@ -14,7 +14,6 @@
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); }
         .modal-content { background: #fff; margin: 2% auto; padding: 20px; width: 85%; border-radius: 8px; max-height: 90vh; overflow-y: auto; }
         
-        /* 📈 पॉपअप समरी ग्रिड डिज़ाइन */
         .modal-summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 20px; text-align: left; }
         .summary-card-box { padding: 10px; border-radius: 4px; font-size: 12px; line-height: 1.4; box-sizing: border-box; }
 
@@ -40,6 +39,7 @@
         <a href="ledger.html" class="tab-link active-ledger" style="background-color: #1e3a8a; color: white;">📊 Master Ledger & History</a>
         <a href="users.html" class="tab-link">👥 Manage Users</a>
         <a href="bom.html" class="tab-link">🔗 BOM Master</a>
+        <a href="failure.html" class="tab-link">🛠️ Failure Defect Log</a>
     </div>
 
     <div style="margin-top: 15px;">
@@ -68,13 +68,12 @@
                 </tr>
             </thead>
             <tbody id="poLedgerBody">
-                <tr><td colspan="10" style="text-align:center; padding:15px;">Loading Cloud Data...</td></tr>
+                <tr><td colspan="10" style="text-align:center; padding:15px; color:#0284c7; font-weight:bold;">🔄 Connecting to GVM Live Cloud Server...</td></tr>
             </tbody>
         </table>
     </div>
 </div>
 
-<!-- 🔍 विस्तृत पॉपअप मोड्यूल खिड़की -->
 <div id="historyModal" class="modal">
     <div class="modal-content">
         <div class="action-btns" style="display: flex; gap: 10px; margin-bottom: 15px; align-items: center;">
@@ -85,7 +84,6 @@
             <button class="erp-btn" style="background:#dc2626; color:white;" onclick="closeModal()">❌ Close</button>
         </div>
 
-        <!-- 📊 नया लाइव समरी ग्रिड कार्ड जो पॉपअप के अंदर लोड होगा -->
         <div id="modalSummaryBox" class="modal-summary-grid"></div>
 
         <table class="history-table" style="width:100%; border: 1px solid #cbd5e1;">
@@ -98,7 +96,16 @@
 <script>
     const normalize = (str) => String(str || "").toUpperCase().replace(/\s+/g, '');
 
-    const firebaseConfig = { apiKey: "AIzaSyCAOXbPwuFR3wh1QSLBXWsodupKWoRYmqs", databaseURL: "https://gvm-stock-control-default-rtdb.firebaseio.com", projectId: "gvm-stock-control" };
+    // 🛠️ FIX 1: पूरा फुल कॉन्फिगरेशन क्रेडेंशियल्स जोड़ा जो बाकी फाइलों में है
+    const firebaseConfig = {
+        apiKey: "AIzaSyCAOXbPwuFR3wh1QSLBXWsodupKWoRYmqs",
+        authDomain: "gvm-stock-control.firebaseapp.com",
+        databaseURL: "https://gvm-stock-control-default-rtdb.firebaseio.com",
+        projectId: "gvm-stock-control",
+        storageBucket: "gvm-stock-control.firebasestorage.app",
+        messagingSenderId: "202991207119",
+        appId: "1:202991207119:web:2246ffb7b92f9eb0c4adba"
+    };
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
 
@@ -110,6 +117,7 @@
     let currentModalRows = []; 
     let allModalRowsBackup = [];
 
+    // 🛠️ FIX 2: एरर कैचर इंजन चालू किया ताकि एरर होने पर लाइव स्क्रीन पर दिखे
     Promise.all([
         database.ref('freshStockVouchers').once('value'),
         database.ref('gateoutStockData').once('value'),
@@ -121,6 +129,9 @@
         flatCatalogPOList = s[2].val() ? Object.values(s[2].val()) : [];
         bomFormulaList = s[3].val() ? Object.values(s[3].val()) : [];
         renderPOBalanceTable();
+    }).catch(err => {
+        console.error("Firebase Sync Error: ", err);
+        document.getElementById('poLedgerBody').innerHTML = `<tr><td colspan="10" style="text-align:center; padding:20px; color:#dc2626; font-weight:bold;">❌ Cloud Sync Failed!<br><span style="font-size:12px; font-weight:normal; color:#64748b;">Reason: ${err.message}</span></td></tr>`;
     });
 
     function renderPOBalanceTable() {
@@ -135,7 +146,7 @@
         );
 
         if(foundPOs.length === 0) {
-            poBody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:15px; color:red; font-weight:bold;">No Data Found!</td></tr>`;
+            poBody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:15px; color:#dc2626; font-weight:bold;">⚠ No PO Matrix Data found on Cloud.</td></tr>`;
             return;
         }
 
@@ -187,12 +198,10 @@
         });
     }
 
-    // 📊 अपग्रेड किया गया व्यू इंजन: अब बाहर का सारा डेटा समरी कार्ड बनकर पॉपअप में खुलेगा
     function showHistory(code, poNumber, itemName, poQty, executed, dispatched, balance, pending) {
         document.getElementById('historyModal').style.display = 'block';
         document.getElementById('modalTitle').innerText = "Inventory Log Profile: " + code;
         
-        // पॉपअप के अंदर रंगीन समरी कार्ड्स रेंडर करना
         const summaryBox = document.getElementById('modalSummaryBox');
         summaryBox.innerHTML = `
             <div class="summary-card-box" style="background:#e0f2fe; border:1px solid #bae6fd; grid-column: span 2;"><b>Item Specs:</b><br>${itemName}</div>
