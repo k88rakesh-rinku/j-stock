@@ -55,22 +55,32 @@
         <a href="failure.html" class="tab-link">🛠️ Failure Defect Log</a>
     </div>
 
-    <!-- 🌟 3 मुख्य टैब लेआउट -->
     <div class="ledger-tabs">
-        <button class="ledger-tab-btn active" onclick="switchLedgerTab('po-tab', this)">📊 PO Matrix </button>
-        <button class="ledger-tab-btn" onclick="switchLedgerTab('stock-tab', this)">🏬  Fresh Stock (Bills)</button>
-        <button class="ledger-tab-btn" onclick="switchLedgerTab('rework-tab', this)">🛠️ Rework Inventory </button>
+        <button class="ledger-tab-btn active" onclick="switchLedgerTab('po-tab', this)">📊 PO Matrix Ledger</button>
+        <button class="ledger-tab-btn" onclick="switchLedgerTab('stock-tab', this)">🏬 Fresh Stock (Bills)</button>
+        <button class="ledger-tab-btn" onclick="switchLedgerTab('rework-tab', this)">🛠️ Rework Inventory (Gate Pass)</button>
     </div>
 
-    <!-- =================== टैब 1: PO MATRIX LEDGER =================== -->
     <div id="po-tab" class="tab-content active">
         <div class="control-panel">
             <div class="panel-left">
-                <label style="font-weight: bold; font-size: 13px; color:#475569;">Filter PO Status:</label>
+                <input type="text" id="poSearchBox" class="search-box" placeholder="🔍 Search PO No, Code, Name..." autocomplete="off" oninput="renderPoLedgerTable()">
+            </div>
+            <div class="panel-left">
+                <label style="font-weight: bold; font-size: 13px; color:#475569;">Status:</label>
                 <select id="poStatusDropdown" class="select-filter" onchange="renderPoLedgerTable()">
                     <option value="ACTIVE">Active PO Only</option>
                     <option value="COMPLETED">Completed PO Only</option>
                     <option value="ALL">All PO Records</option>
+                </select>
+            </div>
+            <div class="panel-left">
+                <label style="font-weight: bold; font-size: 13px; color:#475569;">Show:</label>
+                <select id="poLimitDropdown" class="select-filter" onchange="renderPoLedgerTable()">
+                    <option value="5" selected>5 Records</option>
+                    <option value="10">10 Records</option>
+                    <option value="15">15 Records</option>
+                    <option value="ALL">Show All PO</option>
                 </select>
             </div>
             <div class="panel-right">
@@ -91,7 +101,6 @@
         </div>
     </div>
 
-    <!-- =================== टैब 2: LIVE FRESH STOCK (BILLS) =================== -->
     <div id="stock-tab" class="tab-content">
         <div class="control-panel">
             <div class="panel-left">
@@ -100,10 +109,10 @@
             <div class="panel-left">
                 <label style="font-weight: bold; font-size: 13px; color:#475569;">Show Records:</label>
                 <select id="stockLimitDropdown" class="select-filter" onchange="renderPhysicalStockTable()">
-                    <option value="5">5 Records</option>
+                    <option value="5" selected>5 Records</option>
                     <option value="10">10 Records</option>
                     <option value="15">15 Records</option>
-                    <option value="ALL" selected>Show All Stock</option>
+                    <option value="ALL">Show All Stock</option>
                 </select>
             </div>
             <div class="panel-right">
@@ -124,7 +133,6 @@
         </div>
     </div>
 
-    <!-- =================== टैब 3: LIVE REWORK INVENTORY (GATE PASS) =================== -->
     <div id="rework-tab" class="tab-content">
         <div class="control-panel">
             <div class="panel-left">
@@ -133,10 +141,10 @@
             <div class="panel-left">
                 <label style="font-weight: bold; font-size: 13px; color:#475569;">Show Records:</label>
                 <select id="reworkLimitDropdown" class="select-filter" onchange="renderReworkStockTable()">
-                    <option value="5">5 Records</option>
+                    <option value="5" selected>5 Records</option>
                     <option value="10">10 Records</option>
                     <option value="15">15 Records</option>
-                    <option value="ALL" selected>Show All Rework</option>
+                    <option value="ALL">Show All Rework</option>
                 </select>
             </div>
             <div class="panel-right">
@@ -229,7 +237,7 @@
         renderReworkStockTable();
     }
 
-    // 1. PO Ledger Table Renderer
+    // 1. PO Ledger Table Renderer (सर्च इंजन और 5, 10, 15 लिमिट फ़िल्टर के साथ)
     function renderPoLedgerTable() {
         const tbody = document.getElementById('poLedgerItemsBody');
         tbody.innerHTML = '';
@@ -238,7 +246,9 @@
             return;
         }
 
+        const searchStr = document.getElementById('poSearchBox').value.trim().toUpperCase();
         const poFilter = document.getElementById('poStatusDropdown').value;
+        const limitVal = document.getElementById('poLimitDropdown').value;
 
         let poSummaryMap = {};
         inboundVouchers.forEach(v => {
@@ -259,9 +269,38 @@
             });
         });
 
-        let rowsCount = 0;
-        catalogFlatList.forEach(c => {
-            if(!c || !c.poNumber) return;
+        // सर्च बार और स्टेटस फ़िल्टर के हिसाब से डेटा छानना
+        let filteredCatalog = catalogFlatList.filter(c => {
+            if(!c || !c.poNumber) return false;
+            let catalogPoNo = cleanStr(c.poNumber);
+            let catalogCode = cleanStr(c.code);
+            let catalogName = c.name ? cleanStr(c.name) : "";
+            
+            let key = catalogPoNo + "|||" + catalogCode;
+            let totalReceived = poSummaryMap[key] || 0;
+            let poQty = parseInt(c.qty || c.poTotalQty || 0); 
+            let pendingBalance = poQty - totalReceived;
+            if (pendingBalance < 0) pendingBalance = 0;
+            let isCompleted = pendingBalance === 0;
+
+            // ए. स्टेटस फ़िल्टर नियम
+            if(poFilter === 'ACTIVE' && isCompleted) return false;
+            if(poFilter === 'COMPLETED' && !isCompleted) return false;
+
+            // बी. सर्च इंजन नियम
+            return catalogPoNo.includes(searchStr) || catalogCode.includes(searchStr) || catalogName.includes(searchStr);
+        });
+
+        if(filteredCatalog.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:15px; color:#64748b;">No PO records match the selected criteria.</td></tr>`;
+            return;
+        }
+
+        // लिमिट ड्रॉपडाउन सेट करना (Default: 5)
+        let viewCatalog = filteredCatalog;
+        if(limitVal !== 'ALL') { viewCatalog = filteredCatalog.slice(0, parseInt(limitVal)); }
+
+        viewCatalog.forEach(c => {
             let catalogPoNo = cleanStr(c.poNumber);
             let catalogCode = cleanStr(c.code);
             let key = catalogPoNo + "|||" + catalogCode;
@@ -270,13 +309,8 @@
             let poQty = parseInt(c.qty || c.poTotalQty || 0); 
             let pendingBalance = poQty - totalReceived;
             if (pendingBalance < 0) pendingBalance = 0;
-
             let isCompleted = pendingBalance === 0;
 
-            if(poFilter === 'ACTIVE' && isCompleted) return;
-            if(poFilter === 'COMPLETED' && !isCompleted) return;
-
-            rowsCount++;
             let statusBadge = isCompleted ? `<span style="color:#16a34a; font-weight:bold;">✅ Completed</span>` : `<span style="color:#ea580c; font-weight:bold;">⏳ Active</span>`;
 
             tbody.innerHTML += `<tr>
@@ -289,10 +323,6 @@
                 <td>${statusBadge}</td>
             </tr>`;
         });
-
-        if(rowsCount === 0) {
-            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:15px; color:#64748b;">No PO records match the status filter.</td></tr>`;
-        }
     }
 
     // 2. LIVE FRESH STOCK TAB ENGINE
@@ -325,7 +355,6 @@
             let items = safeConvertToArray(v.gridItems);
             items.forEach(item => {
                 if(!item) return;
-                // 🌟 सुधार: itemShort या modelCode दोनों को सपोर्ट करता है
                 let code = cleanStr(item.itemShort || item.modelCode || item.code);
                 if(!code) return;
                 
@@ -392,7 +421,7 @@
         });
     }
 
-    // 3. 🌟 सुधार लॉक: LIVE REWORK INVENTORY TAB ENGINE (itemShort फ़िक्स के साथ)
+    // 3. LIVE REWORK INVENTORY TAB ENGINE
     function renderReworkStockTable() {
         const tbody = document.getElementById('reworkStockBody');
         tbody.innerHTML = '';
@@ -408,7 +437,6 @@
             let items = safeConvertToArray(v.gridItems);
             items.forEach(item => {
                 if(!item) return;
-                // 🔥 यहाँ बड़ा सुधार किया गया है: itemShort को रीड करने के लिए लॉजिक फिट किया है
                 let code = cleanStr(item.itemShort || item.modelCode || item.code);
                 if(!code) return;
                 
@@ -537,7 +565,7 @@
         triggerDownloadBlob(csv, "Live_Fresh_Stock_Report.csv");
     }
 
-    // 6. रीवर्क स्टॉक एक्सेल डाउनलोड 
+    // 6. रीवर्क स्टॉक एक्सेल डाउनलोड
     function exportReworkStockToExcel() {
         let csv = "Model Part Code,Item Description,Total Rework Gate In,Total Rework Out,Live Rework Stock\n";
         let globalReworkInMap = {}; let globalReworkOutMap = {}; let itemNamesMap = {};
@@ -575,7 +603,9 @@
         link.setAttribute("download", filename); document.body.appendChild(link); link.click(); document.body.removeChild(link);
     }
 
+    // ऑटोफ़िल प्रोटेक्शन इंजन + सर्च बार कचरा सफाई इंजन
     window.addEventListener('DOMContentLoaded', () => {
+        if(document.getElementById('poSearchBox')) document.getElementById('poSearchBox').value = "";
         if(document.getElementById('stockSearchBox')) document.getElementById('stockSearchBox').value = "";
         if(document.getElementById('reworkSearchBox')) document.getElementById('reworkSearchBox').value = "";
     });
