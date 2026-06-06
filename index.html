@@ -14,9 +14,11 @@
         .inner-table { width: 100%; border-collapse: collapse; margin-top: 10px; background: #fff; }
         .inner-table th { background: #64748b; color: white; padding: 6px; font-size: 12px; }
         .inner-table td { padding: 6px; border: 1px solid #e2e8f0; font-size: 12px; }
-        .btn-remove-row { background: #ef4444; color:white; border:none; padding: 2px 6px; border-radius:3px; cursor:pointer; }
+        .btn-remove-row { background: #ef4444; color:white; border:none; padding: 4px 8px; border-radius:3px; cursor:pointer; font-weight:bold; }
+        .btn-modify-row { background: #0284c7; color:white; border:none; padding: 4px 8px; border-radius:3px; cursor:pointer; font-weight:bold; margin-right:4px; }
         .btn-edit-action { background-color: #0284c7; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
         .btn-delete-action { background-color: #dc2626; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; }
+        .btn-print-receipt { background-color: #007bff; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
         
         /* 🎯 सर्च बार और ड्रॉपडाउन पैनल की सीएसएस स्टाइलिंग */
         .table-filter-panel {
@@ -50,7 +52,7 @@
             font-weight: bold;
         }
 
-        /* 🛠️ नए ड्रॉपडाउन सेलेक्ट बॉक्स की सुंदर स्टाइलिंग */
+        /* 🛠️ नए ड्रॉपडाउन सेलेक्ट框 की सुंदर स्टाइलिंग */
         .po-dropdown-select {
             padding: 10px;
             border: 1px solid #0284c7;
@@ -103,7 +105,7 @@
         <button class="logout-btn" onclick="logout()">Logout</button>
     </div>
     
-   <div class="tabs-nav">
+    <div class="tabs-nav">
         <a href="index.html" class="tab-link" style="background-color: #1e3a8a; color: white; font-weight: bold;">📦 New Entry (Fresh)</a>
         <a href="rework.html" class="tab-link">🛠️ Gate In (Rework)</a>
         <a href="gateout.html" class="tab-link">🚪 Gate Out (Dispatch)</a>
@@ -111,8 +113,8 @@
         <a href="code.html" class="tab-link">🆕 Generate Code</a>
         <a href="ledger.html" class="tab-link">📊 Master Ledger & History</a>
         <a href="users.html" class="tab-link">👥 Manage Users</a>
-       <a href="bom.html" class="tab-link">🔗 BOM Master</a>
-       <a href="failure.html" class="tab-link">🛠️ Failure Defect Log</a>
+        <a href="bom.html" class="tab-link">🔗 BOM Master</a>
+        <a href="failure.html" class="tab-link">🛠️ Failure Defect Log</a>
     </div>
 
     <div id="lowStockAlert" class="low-stock-badge" style="display:none;">⚠️ Warning: Some Items are running low in Stock! Check Master Ledger.</div>
@@ -178,7 +180,7 @@
 
             <table class="inner-table">
                 <thead>
-                    <tr><th>Model Code</th><th>Description</th><th>Bill Qty</th><th>Receive Qty</th><th>Unit Type</th><th>Remove</th></tr>
+                    <tr><th>Model Code</th><th>Description</th><th>Bill Qty</th><th>Receive Qty</th><th>Unit Type</th><th>Action</th></tr>
                 </thead>
                 <tbody id="gridItemsBody"></tbody>
             </table>
@@ -196,7 +198,7 @@
 
     <div class="table-filter-panel">
         <div>
-            <input type="text" id="liveTableSearchBox" class="search-input-box" placeholder="🔍 Search Bill No, Code or Item Name..." autocomplete="off" oninput="triggerTableRender()">
+            <input type="text" id="liveTableSearchBox" class="search-input-box" placeholder="🔍 Search Bill No, Code or Item Name..." autocomplete="off" oninput="triggerTableRender()" data-block-refocus="true">
         </div>
         <div>
             <label style="font-weight: bold; font-size: 13px; color:#475569;">Show Records:</label>
@@ -269,6 +271,7 @@
                 flatPOList.push(data[key]);
             }
         }
+        fetchPurchasePOOptions();
     });
 
     database.ref('freshStockVouchers').on('value', (snapshot) => {
@@ -287,7 +290,11 @@
         const selectBox = document.getElementById('poNo');
         selectBox.innerHTML = '';
 
+        // 🌟 कड़क अपग्रेड: बिना पीओ के आने वाले माल का हैंडलर "WITHOUT PO"
+        selectBox.innerHTML = '<option value="WITHOUT PO">WITHOUT PO (NO PO LINKED)</option>';
+
         let validPOs = filteredPOs.filter(p => {
+            if(p.hasPO === "NO") return false;
             let poNum = p.poNumber.trim().toUpperCase();
             let pCode = p.code.trim().toUpperCase();
             let totalOrdered = parseInt(p.qty || p.poTotalQty || 0);
@@ -312,25 +319,21 @@
             return totalReceivedAlready < totalOrdered;
         });
 
-        if(validPOs.length === 0) {
-            selectBox.innerHTML = '<option value="NO PO LINKED">NO PO LINKED / ALL QUANTITY EXECUTED</option>';
-            return;
-        }
-
         let uniquePOs = [...new Set(validPOs.map(x => x.poNumber.trim().toUpperCase()))];
         uniquePOs.forEach(po => {
-            selectBox.innerHTML += `<option value="${po}">${po}</option>`;
+            let selectedAttr = (currentEditingPONo && po === currentEditingPONo.trim().toUpperCase()) ? 'selected' : '';
+            selectBox.innerHTML += `<option value="${po}" ${selectedAttr}>${po}</option>`;
         });
     }
 
     function fetchPurchasePOOptions() {
         const compName = document.getElementById('companyName').value.trim().toUpperCase();
         if(!compName) { 
-            document.getElementById('poNo').innerHTML = '<option value="">-- PO NUMBER --</option>'; 
+            document.getElementById('poNo').innerHTML = '<option value="WITHOUT PO">WITHOUT PO (NO PO LINKED)</option>'; 
             return; 
         }
         
-        let matches = flatPOList.filter(x => x.company === compName && x.hasPO === "YES" && x.poType === "PURCHASE");
+        let matches = flatPOList.filter(x => x.company === compName);
         updatePODropdownOptions(matches);
     }
 
@@ -345,13 +348,7 @@
             document.getElementById('gridModelName').value = foundName;
             if(!document.getElementById('companyName').value) { 
                 document.getElementById('companyName').value = foundCompany.toUpperCase(); 
-            }
-        }
-        
-        if(code) {
-            let matches = flatPOList.filter(x => x.code === code && x.hasPO === "YES" && x.poType === "PURCHASE");
-            if(matches.length > 0) {
-                updatePODropdownOptions(matches);
+                fetchPurchasePOOptions();
             }
         }
     }
@@ -373,9 +370,9 @@
         if(!code || !name || isNaN(bQty) || isNaN(rQty)) { alert("Please enter valid Model Details and Quantities!"); return; }
         if(bQty !== rQty) { alert("Error: Bill Qty and Receive Qty must match!"); return; }
 
-        // 🌟 यूनिट को कतार पैकेट ऑब्जेक्ट में जोड़ रहे हैं
         tempGridItems.push({ modelCode: code, modelName: name, qty: bQty, receiveQty: rQty, unit: unit });
         renderTempGrid();
+        
         document.getElementById('gridModelCode').value = '';
         document.getElementById('gridModelName').value = '';
         document.getElementById('gridBillQty').value = '';
@@ -388,11 +385,37 @@
 
     function removeTempRow(index) { tempGridItems.splice(index, 1); renderTempGrid(); }
 
+    // 🌟 महा-अपग्रेड: ग्रिड रो को लाइव एडिट/सुधार मोड में ऊपर लोड करने का इंजन
+    function editTempRow(index) {
+        let item = tempGridItems[index];
+        document.getElementById('gridModelCode').value = item.modelCode;
+        document.getElementById('gridModelName').value = item.modelName;
+        document.getElementById('gridBillQty').value = item.qty;
+        document.getElementById('gridRecQty').value = item.receiveQty;
+        document.getElementById('gridUnit').value = item.unit || 'NOS';
+        
+        tempGridItems.splice(index, 1);
+        renderTempGrid();
+        
+        lastActiveFocusedInputId = 'gridBillQty';
+        document.getElementById('gridBillQty').focus();
+    }
+
     function renderTempGrid() {
         const tbody = document.getElementById('gridItemsBody'); tbody.innerHTML = '';
         tempGridItems.forEach((item, index) => {
             let uText = item.unit ? item.unit : "NOS";
-            tbody.innerHTML += `<tr><td><code>${item.modelCode}</code></td><td>${item.modelName}</td><td><b>${item.qty}</b></td><td>${item.receiveQty}</td><td><span style="color:#0284c7; font-weight:bold;">${uText}</span></td><td><button type="button" class="btn-remove-row" onclick="removeTempRow(${index})">X</button></td></tr>`;
+            tbody.innerHTML += `<tr>
+                <td><code>${item.modelCode}</code></td>
+                <td>${item.modelName}</td>
+                <td><b>${item.qty}</b></td>
+                <td>${item.receiveQty}</td>
+                <td><span style="color:#0284c7; font-weight:bold;">${uText}</span></td>
+                <td>
+                    <button type="button" class="btn-modify-row" onclick="editTempRow(${index})">📝 Edit</button>
+                    <button type="button" class="btn-remove-row" onclick="removeTempRow(${index})">X</button>
+                </td>
+            </tr>`;
         });
     }
 
@@ -421,14 +444,10 @@
             }
         }
 
-        if(tempGridItems.length === 0) {
-            alert("Please enter at least one item with valid quantities!");
-            return;
-        }
+        if(tempGridItems.length === 0) { alert("Please enter at least one item with valid quantities!"); return; }
 
         if (idx === -1) {
             let matchingVouchers = stockData.filter(v => v.billNo === currentBillNo && v.gateInNo === currentGateInNo);
-
             if (matchingVouchers.length > 0) {
                 let hasSameModel = matchingVouchers.some(v => {
                     let items = v.gridItems || [];
@@ -469,9 +488,7 @@
         cancelEditMode(); 
     });
 
-    function triggerTableRender() {
-        renderTable();
-    }
+    function triggerTableRender() { renderTable(); }
 
     function renderTable() {
         const body = document.getElementById('tableBody'); body.innerHTML = '';
@@ -487,13 +504,14 @@
 
         let filteredList = stockData.filter(i => {
             const matchBill = i.billNo ? i.billNo.toUpperCase().includes(searchStr) : false;
+            const matchComp = i.companyName ? i.companyName.toUpperCase().includes(searchStr) : false;
             let itemsList = i.gridItems || [{ modelCode: i.modelCode, modelName: i.modelName }];
             const matchItems = itemsList.some(item => {
                 const matchCode = item.modelCode ? item.modelCode.toUpperCase().includes(searchStr) : false;
                 const matchName = item.modelName ? item.modelName.toUpperCase().includes(searchStr) : false;
                 return matchCode || matchName;
             });
-            return matchBill || matchItems;
+            return matchBill || matchComp || matchItems;
         });
 
         if(filteredList.length === 0) {
@@ -502,14 +520,10 @@
         }
 
         let viewList = filteredList;
-        if (limitVal !== "ALL") {
-            const maxRows = parseInt(limitVal);
-            viewList = filteredList.slice(0, maxRows);
-        }
+        if (limitVal !== "ALL") { viewList = filteredList.slice(0, parseInt(limitVal)); }
 
         viewList.forEach((i) => {
             let origIdx = stockData.findIndex(x => x.fbKey === i.fbKey);
-
             let itemsHtml = "";
             let itemsList = i.gridItems || [];
             
@@ -546,17 +560,9 @@
         const d = stockData[idx]; 
         document.getElementById('editRowIndex').value = idx;
         document.getElementById('editFirebaseKey').value = d.fbKey;
-
         document.getElementById('companyName').value = d.companyName; 
         
-        let matches = flatPOList.filter(x => x.company === d.companyName.toUpperCase() && x.hasPO === "YES" && x.poType === "PURCHASE");
-        
-        if(d.gridItems && d.gridItems.length > 0) {
-            let firstCode = d.gridItems[0].modelCode;
-            let itemMatches = flatPOList.filter(x => x.code === firstCode && x.hasPO === "YES" && x.poType === "PURCHASE");
-            if(itemMatches.length > 0) { matches = itemMatches; }
-        }
-
+        let matches = flatPOList.filter(x => x.company === d.companyName.toUpperCase());
         updatePODropdownOptions(matches, d.poNo);
         document.getElementById('poNo').value = d.poNo;
 
@@ -577,7 +583,7 @@
         document.getElementById('editRowIndex').value = "-1"; 
         document.getElementById('editFirebaseKey').value = ""; 
         document.getElementById('stockForm').reset(); 
-        document.getElementById('poNo').innerHTML = '<option value="">-- PO NUMBER --</option>';
+        document.getElementById('poNo').innerHTML = '<option value="WITHOUT PO">WITHOUT PO (NO PO LINKED)</option>';
         tempGridItems = []; 
         renderTempGrid();
         document.getElementById('btnSubmitForm').innerText = "Final Save Inward Voucher"; 
@@ -631,21 +637,11 @@
         shell.innerHTML = `
             <div style="border:1px solid #000; padding:6px; height:100%; box-sizing:border-box; display:flex; flex-direction:column; justify-content:space-between;">
                 <div style="text-align:center; font-weight:bold; font-size:12px; border-bottom:1px solid #000; padding-bottom:2px; text-transform:uppercase;">GVM RAIL PVT LTD - MATERIAL INWARD</div>
-                
                 <table style="width:100%; font-size:11px; margin-top:2px; line-height:1.2;">
-                    <tr>
-                        <td><b>Gate In Date:</b> ${i.gateInDate}</td>
-                        <td><b>Gate In No:</b> ${i.gateInNo}</td>
-                    </tr>
-                    <tr>
-                        <td><b>Bill No:</b> ${i.billNo}</td>
-                        <td><b>Company Name:</b> ${i.companyName}</td>
-                    </tr>
-                    <tr>
-                        <td colspan="2"><b>PO No:</b> ${i.poNo || 'N/A'} | <b>Bill Date:</b> ${i.billDate}</td>
-                    </tr>
+                    <tr><td><b>Gate In Date:</b> ${i.gateInDate}</td><td><b>Gate In No:</b> ${i.gateInNo}</td></tr>
+                    <tr><td><b>Bill No:</b> ${i.billNo}</td><td><b>Company Name:</b> ${i.companyName}</td></tr>
+                    <tr><td colspan="2"><b>PO No:</b> ${i.poNo || 'WITHOUT PO'} | <b>Bill Date:</b> ${i.billDate}</td></tr>
                 </table>
-
                 <table style="width:100%; border-collapse:collapse; margin-top:4px; font-size:10px;">
                     <thead>
                         <tr style="background:#eee;">
@@ -687,50 +683,42 @@
 
     function trackInputFocusMemory() {
         document.querySelectorAll('form input, form select').forEach(field => {
-            field.addEventListener('focus', function() {
-                if (this.id) { lastActiveFocusedInputId = this.id; }
-            });
-            field.addEventListener('mousedown', function() {
-                if (this.id) { lastActiveFocusedInputId = this.id; }
-            });
+            field.addEventListener('focus', function() { if (this.id) { lastActiveFocusedInputId = this.id; } });
+            field.addEventListener('mousedown', function() { if (this.id) { lastActiveFocusedInputId = this.id; } });
         });
     }
 
     function applyBulletproofRefocusEngine() {
         document.addEventListener('click', function(e) {
+            // 🌟 सुरक्षा गियर: अगर लाइव सर्च बार पर क्लिक हुआ है, तो रिफोकस गियर को बाईपास करें
+            if(e.target.id === "liveTableSearchBox" || e.target.getAttribute('data-block-refocus') === "true") return;
             if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'SELECT' && e.target.tagName !== 'BUTTON' && !e.target.closest('.secret-modal-card')) {
                 refocusLastElement();
             }
         });
 
-        document.addEventListener('visibilitychange', function() {
-            if (document.visibilityState === 'visible') { refocusLastElement(); }
-        });
-
+        document.addEventListener('visibilitychange', function() { if (document.visibilityState === 'visible') { refocusLastElement(); } });
         window.addEventListener('focus', function() { refocusLastElement(); });
         window.addEventListener('pageshow', function() { refocusLastElement(); });
 
         document.addEventListener('paste', function(e) {
             if (lastActiveFocusedInputId) {
                 const targetEl = document.getElementById(lastActiveFocusedInputId);
-                if (targetEl) {
-                    if (document.activeElement !== targetEl) {
-                        targetEl.focus();
+                if (targetEl && document.activeElement !== targetEl) { targetEl.focus(); }
+                setTimeout(() => {
+                    let text = targetEl.value;
+                    if (text.length > 0 && text.length % 2 === 0 && text.substring(0, text.length/2) === text.substring(text.length/2)) {
+                        targetEl.value = text.substring(0, text.length/2);
                     }
-                    
-                    setTimeout(() => {
-                        let text = targetEl.value;
-                        if (text.length > 0 && text.length % 2 === 0 && text.substring(0, text.length/2) === text.substring(text.length/2)) {
-                            targetEl.value = text.substring(0, text.length/2);
-                        }
-                    }, 10);
-                }
+                }, 10);
             }
         });
     }
 
     function refocusLastElement() {
         if(document.getElementById('secretPasswordModal').style.display === "flex") return;
+        // 🌟 सुरक्षा गियर: अगर एक्टिव एलिमेंट सर्च बार है, तो फोकस वहां से मत हटाओ
+        if(document.activeElement && document.activeElement.id === "liveTableSearchBox") return;
         
         if (lastActiveFocusedInputId) {
             const targetEl = document.getElementById(lastActiveFocusedInputId);
@@ -738,16 +726,13 @@
                 setTimeout(() => { 
                     targetEl.focus(); 
                     if (targetEl.tagName === 'INPUT' && (targetEl.type === 'text' || targetEl.type === 'number')) {
-                        const val = targetEl.value;
-                        targetEl.value = '';
-                        targetEl.value = val;
+                        const val = targetEl.value; targetEl.value = ''; targetEl.value = val;
                     }
                 }, 30);
             }
         }
     }
 
-    // सेफ्टी लॉक: पेज लोड होते ही इतिहास सर्च बार का पुराना कचरा साफ़ रखना
     window.addEventListener('DOMContentLoaded', () => {
         const box = document.getElementById('liveTableSearchBox');
         if (box) box.value = "";
