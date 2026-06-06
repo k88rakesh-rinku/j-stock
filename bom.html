@@ -18,6 +18,7 @@
         .btn-edit-action:hover { background-color: #0369a1; }
         .btn-delete-action { background-color: #dc2626; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; }
         .btn-delete-action:hover { background-color: #b91c1c; }
+        .btn-print-receipt { background-color: #007bff; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
         .badge-acc { background: #16a34a; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; display: inline-block; margin: 2px; }
         
         .main-item-box { background: #e0f2fe; padding: 15px; border-radius: 6px; border: 1px solid #bae6fd; margin-bottom: 15px; }
@@ -26,9 +27,17 @@
         .catalog-filter-panel { display: flex; justify-content: space-between; align-items: center; background: #f1f5f9; padding: 10px 15px; border-radius: 6px; border: 1px solid #cbd5e1; margin-bottom: 15px; flex-wrap: wrap; gap: 10px; }
         .search-box-catalog { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; width: 320px; text-transform: uppercase; }
         .limit-select-catalog { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; cursor: pointer; background: #fff; font-weight: bold; }
+        .btn-excel { background: #16a34a; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; }
 
         /* 🌟 यूनिट ड्रॉपडाउन स्टाइल */
         .unit-dropdown-select { padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; background: white; font-weight: bold; cursor: pointer; }
+
+        @media print {
+            body * { visibility: hidden; }
+            #printSection, #printSection * { visibility: visible; }
+            #printSection { position: absolute; left: 0; top: 0; width: 210mm; box-sizing: border-box; padding: 5mm; background: #fff; font-family: monospace; font-size: 12px; }
+            @page { size: A4 portrait; margin: 0; }
+        }
     </style>
 </head>
 <body>
@@ -121,6 +130,7 @@
                     <option value="ALL">Show All</option>
                 </select>
             </div>
+            <button type="button" class="btn-excel" onclick="exportBOMMasterToExcel()">Download BOM Excel</button>
         </div>
 
         <table class="history-table">
@@ -129,7 +139,7 @@
                     <th>Main Model Code</th>
                     <th>Main Model Name</th>
                     <th>Linked Accessories & Hardware (Qty per Unit)</th>
-                    <th>Action</th>
+                    <th>Action Controls</th>
                 </tr>
             </thead>
             <tbody id="bomTableBody">
@@ -138,6 +148,8 @@
         </table>
     </div>
 </div>
+
+<div id="printSection"></div>
 
 <script>
     const firebaseConfig = { apiKey: "AIzaSyCAOXbPwuFR3wh1QSLBXWsodupKWoRYmqs", databaseURL: "https://gvm-stock-control-default-rtdb.firebaseio.com", projectId: "gvm-stock-control" };
@@ -148,9 +160,8 @@
     if(!session) { window.location.href = 'login.html'; }
     function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
 
-    let flatCatalogList = [];
-    let tempAccItems = [];
-    let savedBOMs = [];
+    let flatCatalogList = []; let tempAccItems = []; let savedBOMs = [];
+    const cleanStr = (str) => String(str || "").trim().toUpperCase();
 
     database.ref('systemMasterCatalogFlat').on('value', (snapshot) => {
         flatCatalogList = [];
@@ -195,17 +206,13 @@
         if (newQtyInput === null) return;
         
         let parsedQty = parseInt(newQtyInput);
-        if(isNaN(parsedQty) || parsedQty <= 0) {
-            alert("Invalid Quantity! Change rejected.");
-            return;
-        }
+        if(isNaN(parsedQty) || parsedQty <= 0) { alert("Invalid Quantity!"); return; }
 
         let newUnitInput = prompt(`🔢 Enter New Unit (NOS / MTR / SET) for [${currentItem.code}]:`, currentItem.unit || "NOS");
         if (newUnitInput === null) return;
         let finalUnit = newUnitInput.trim().toUpperCase();
         if(finalUnit !== "NOS" && finalUnit !== "MTR" && finalUnit !== "SET") {
-            alert("Invalid Unit! Please write NOS, MTR or SET only.");
-            return;
+            alert("Invalid Unit Type!"); return;
         }
 
         tempAccItems[index].qty = parsedQty;
@@ -218,9 +225,7 @@
         tempAccItems.forEach((item, index) => {
             let uLabel = item.unit ? item.unit : "NOS";
             tbody.innerHTML += `<tr>
-                <td><code>${item.code}</code></td>
-                <td>${item.name}</td>
-                <td><b>${item.qty}</b></td>
+                <td><code>${item.code}</code></td><td>${item.name}</td><td><b>${item.qty}</b></td>
                 <td><span style="color:#0369a1; font-weight:bold;">${uLabel}</span></td>
                 <td>
                     <button type="button" class="btn-modify-row" onclick="modifyTempRowQty(${index})">Modify</button>
@@ -298,7 +303,8 @@
                 <td>${bom.mainName}</td>
                 <td style="text-align:left;">${accHtml}</td>
                 <td>
-                    <button type="button" class="btn-edit-action" onclick="editBOMFormula(${origIdx})">Edit/Modify BOM</button>
+                    <button type="button" class="btn-print-receipt" onclick='triggerPrintBOM(${JSON.stringify(bom)})'>🖨️ Print</button>
+                    <button type="button" class="btn-edit-action" onclick="editBOMFormula(${origIdx})">Edit</button>
                     <button type="button" class="btn-delete-action" onclick="deleteBOM('${bom.fbKey}', '${bom.mainCode}')">Delete</button>
                 </td>
             </tr>`;
@@ -330,6 +336,7 @@
         document.getElementById('bomForm').reset();
         tempAccItems = [];
         renderTempGrid();
+        
         document.getElementById('formTitleBOM').innerText = "🔗 Create New BOM (Accessory Linking)";
         document.getElementById('btnSubmitForm').innerText = "Save BOM Formula";
         document.getElementById('btnSubmitForm').style.backgroundColor = "#16a34a";
@@ -346,7 +353,66 @@
                     cancelEditMode();
                 });
             }
-        } else if (passwordInput !== null) { alert("❌ Access Denied: Incorrect Password!"); }
+        } else if (passwordInput !== null) {
+            alert("❌ Access Denied: Incorrect Password!");
+        }
+    }
+
+    // 🌟 १. सिंगल बीओएम स्लिप प्रिंट करने का नया इंजन गियर
+    function triggerPrintBOM(bom) {
+        const shell = document.getElementById('printSection');
+        let lines = '';
+        if(bom.accessories) {
+            bom.accessories.forEach((a, index) => {
+                lines += `<tr>
+                    <td style="border:1px solid #000; padding:4px; text-align:center;">${index+1}</td>
+                    <td style="border:1px solid #000; padding:4px;"><b>${a.code}</b></td>
+                    <td style="border:1px solid #000; padding:4px;">${a.name || 'Component Item'}</td>
+                    <td style="border:1px solid #000; padding:4px; text-align:center; font-weight:bold;">${a.qty}</td>
+                    <td style="border:1px solid #000; padding:4px; text-align:center;">${a.unit || 'NOS'}</td>
+                </tr>`;
+            });
+        }
+        shell.innerHTML = `
+            <div style="border:2px solid #000; padding:10px; box-sizing:border-box;">
+                <div style="text-align:center; font-weight:bold; font-size:14px; border-bottom:2px solid #000; padding-bottom:5px;">GVM RAIL PVT LTD - BOM KITTING SLIP</div>
+                <div style="margin: 8px 0; font-size:12px;">
+                    <b>Main Product Code:</b> ${bom.mainCode} <br>
+                    <b>Main Product Name:</b> ${bom.mainName}
+                </div>
+                <table style="width:100%; border-collapse:collapse; font-size:11px; margin-top:5px;">
+                    <thead>
+                        <tr style="background:#f2f2f2;">
+                            <th style="border:1px solid #000; padding:4px; width:8%;">S.N</th>
+                            <th style="border:1px solid #000; padding:4px; text-align:left; width:22%;">Item Code</th>
+                            <th style="border:1px solid #000; padding:4px; text-align:left; width:45%;">Item Description / Name</th>
+                            <th style="border:1px solid #000; padding:4px; width:12%;">Qty Req.</th>
+                            <th style="border:1px solid #000; padding:4px; width:13%;">Unit Type</th>
+                        </tr>
+                    </thead>
+                    <tbody>${lines}</tbody>
+                </table>
+                <div style="text-align:right; font-weight:bold; margin-top:20px; font-size:10px;">Authorized Testing Controller</div>
+            </div>`;
+        window.print();
+    }
+
+    // 🌟 २. ऑल-क्लाउड बीओएम फॉर्मूला लिस्ट एक्सेल (CSV) डाउनलोड इंजन
+    function exportBOMMasterToExcel() {
+        let csv = "Main Model Code,Main Model Description,Linked Accessory Code,Accessory Description,Qty Per Unit,Unit Type\n";
+        savedBOMs.forEach(bom => {
+            if(bom.accessories && bom.accessories.length > 0) {
+                bom.accessories.forEach(a => {
+                    csv += `"${bom.mainCode}","${bom.mainName}","${a.code}","${a.name || 'GENERIC'}","${a.qty}","${a.unit || 'NOS'}"\n`;
+                });
+            } else {
+                csv += `"${bom.mainCode}","${bom.mainName}","-","-","-","-"\n`;
+            }
+        });
+        let blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
+        let link = document.createElement("a"); link.href = URL.createObjectURL(blob);
+        link.setAttribute("download", "GVM_BOM_Master_Formula_Report.csv");
+        document.body.appendChild(link); link.click(); document.body.removeChild(link);
     }
 
     window.addEventListener('DOMContentLoaded', () => {
