@@ -29,7 +29,7 @@
         .badge-po-yes { background: #0284c7; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; }
         .badge-po-no { background: #64748b; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; }
         
-        /* 🟢 PURCHASE और SALE टाइप के सुंदर कलर बैज */
+        /* 🟢 PURCHASE और SALE टाइप के सुंदर Color बैज */
         .badge-type-pur { background-color: #16a34a; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; }
         .badge-type-sal { background-color: #b45309; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; }
 
@@ -267,23 +267,37 @@
             poType: pType, 
             poNumber: pNum,
             poTotalQty: pQty,
-            poUnit: pUnit, // 🌟 यूनिट पैकेट क्लाउड नोड पर मैप हो गया है
+            poUnit: pUnit,
             lastUpdatedBy: session.userId
         };
 
-        if(fbKey === "") {
-            let isDuplicate = flatCatalogList.some(x => x.company === comp && x.code === code && x.poNumber === pNum);
-            if(isDuplicate && poStatus === "YES") { 
-                alert(`🚨 ERROR: This Item Code [ ${code} ] is already registered under this company with PO No. [ ${pNum} ]!`); 
-                return; 
+        // 🌟 महा सुरक्षा चक्र इंजन (Validation Guard Logic)
+        // १. बिना PO वाला कड़ा चेकर नियम
+        if (poStatus === "NO") {
+            let isDuplicateNoPO = flatCatalogList.some(x => x.company === comp && x.code === code && x.hasPO === "NO" && x.fbKey !== fbKey);
+            if (isDuplicateNoPO) {
+                alert(`🚨 DUPLICATE BLOCK ERROR:\n\nThis Part Code [ ${code} ] already exists without PO in Company [ ${comp} ]!\n\nSystem has permanently locked this code config.`);
+                return;
             }
+        }
+        
+        // २. PO नंबर कड़ा चेकर नियम (केवल तब ब्लॉक करेगा जब सेम कंपनी, सेम कोड और सेम PO नंबर मिल जाए)
+        if (poStatus === "YES") {
+            let isDuplicateWithSamePO = flatCatalogList.some(x => x.company === comp && x.code === code && x.poNumber === pNum && x.fbKey !== fbKey);
+            if (isDuplicateWithSamePO) {
+                alert(`🚨 DUPLICATE PO ERROR:\n\nThis Part Code [ ${code} ] is already registered under this company with the exact same PO No. [ ${pNum} ]!`);
+                return;
+            }
+        }
+
+        if(fbKey === "") {
             database.ref('systemMasterCatalogFlat').push(modelData).then(() => {
                 alert("🎉 Success! Code generated & Routed PO Saved.");
                 resetCatalogForm();
             });
         } else {
             database.ref('systemMasterCatalogFlat/' + fbKey).set(modelData).then(() => {
-                alert("🎯 Item Configuration Updated!");
+                alert("🎯 Item Configuration Updated Successfully!");
                 resetCatalogForm();
             });
         }
@@ -352,13 +366,14 @@
     function editCatalogItem(idx) {
         const item = flatCatalogList[idx];
         document.getElementById('editFirebaseKey').value = item.fbKey;
+        
+        // 🌟 कड़क अपग्रेड: अब एडिट करते समय इनपुट डिब्बे पूरी तरह अनलॉक (Editable) रहेंगे भाई
         document.getElementById('newCompanyInput').value = item.company;
         document.getElementById('newPartCode').value = item.code;
-        
-        document.getElementById('newCompanyInput').setAttribute('readonly', 'true');
-        document.getElementById('newCompanyInput').style.background = '#e2e8f0';
-        document.getElementById('newPartCode').setAttribute('readonly', 'true');
-        document.getElementById('newPartCode').style.background = '#e2e8f0';
+        document.getElementById('newCompanyInput').removeAttribute('readonly');
+        document.getElementById('newCompanyInput').style.background = '#fff';
+        document.getElementById('newPartCode').removeAttribute('readonly');
+        document.getElementById('newPartCode').style.background = '#fff';
         
         document.getElementById('newModelName').value = item.name;
         
@@ -379,13 +394,11 @@
         document.getElementById('codeGeneratorForm').scrollIntoView({ behavior: 'smooth' });
     }
 
-    // 🔒 डबल वेरिफिकेशन लॉक्ड कैटलॉग डिलीट इंजन
     function deleteCatalogItem(fbKey, code) {
         const passwordInput = prompt(`🔑 Security Check:\nEnter Secret Password to Delete Code/PO Master "${code}":`);
         if (passwordInput === null) return;
 
         if (passwordInput === "7004") {
-            // 🧠 सेकंड लेयर कड़क सुरक्षा चेक प्रोम्प्ट
             let doubleCheck = confirm(`⚠️ ALERT: Are you absolutely sure you want to permanently delete the Master Code [ ${code} ] and all its linked PO configurations from Cloud?`);
             
             if (doubleCheck) {
@@ -415,7 +428,6 @@
     }
     function cancelCatalogEditMode() { resetCatalogForm(); }
 
-    // सेफ्टी लॉक: पेज लोड होते ही इतिहास सर्च बार का पुराना कचरा साफ़ रखना
     window.addEventListener('DOMContentLoaded', () => {
         const box = document.getElementById('catalogSearchBox');
         if (box) box.value = "";
