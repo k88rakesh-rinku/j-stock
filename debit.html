@@ -37,15 +37,15 @@
     </div>
     
     <div class="tabs-nav">
-        <a href="index.html" class="tab-link" style="background-color: #1e3a8a; color: white; font-weight: bold;">📦 New Entry (Fresh)</a>
+        <a href="index.html" class="tab-link">📦 New Entry (Fresh)</a>
         <a href="rework.html" class="tab-link">🛠️ Gate In (Rework)</a>
         <a href="gateout.html" class="tab-link">🚪 Gate Out (Dispatch)</a>
-        <a href="debit.html" class="tab-link">🧾 Debit Note (Vendor)</a>
+        <a href="debit.html" class="tab-link" style="background-color: #1e3a8a; color: white; font-weight: bold;">🧾 Debit Note (Vendor)</a>
         <a href="code.html" class="tab-link">🆕 Generate Code</a>
         <a href="ledger.html" class="tab-link">📊 Master Ledger & History</a>
         <a href="users.html" class="tab-link">👥 Manage Users</a>
-       <a href="bom.html" class="tab-link">🔗 BOM Master</a>
-       <a href="failure.html" class="tab-link">🛠️ Failure Defect Log</a>
+        <a href="bom.html" class="tab-link">🔗 BOM Master</a>
+        <a href="failure.html" class="tab-link">🛠️ Failure Defect Log</a>
     </div>
 
     <h3 id="formTitleDebit" style="color:var(--primary); margin: 15px 0 10px 0;">🧾 Debit Note (Vendor Return) Ledger</h3>
@@ -65,7 +65,8 @@
             <table class="grid-table">
                 <thead style="background-color: #ef4444; color: white;">
                     <tr>
-                        <th style="width:15%;">Stock Pool Type</th> <th style="width:15%;">Item Code 🔍</th>
+                        <th style="width:15%;">Stock Pool Type</th>
+                        <th style="width:15%;">Item Code 🔍</th>
                         <th style="width:30%;">Item Display Name</th>
                         <th style="width:10%;">Qty</th>
                         <th style="width:25%;">Reason for Debit / Return</th>
@@ -126,7 +127,6 @@
     let debitData = [];
     let masterCatalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
 
-    // 🔄 लाइव फायरबेस 'debitStockVouchers' नोड कनेक्शन सिंक
     database.ref('debitStockVouchers').on('value', (snapshot) => {
         debitData = [];
         const data = snapshot.val();
