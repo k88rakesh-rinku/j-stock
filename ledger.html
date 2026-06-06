@@ -75,7 +75,6 @@
         <button class="ledger-tab-btn" onclick="switchLedgerTab('rework-tab', this)">🛠️ Live Rework Inventory (Gate Pass)</button>
     </div>
 
-    <!-- =================== टैब 1: PO MATRIX LEDGER =================== -->
     <div id="po-tab" class="tab-content active">
         <div class="control-panel">
             <div class="panel-left">
@@ -108,7 +107,7 @@
                 <thead style="background-color: #334155; color: white;">
                     <tr>
                         <th>PO No</th><th>Model Code</th><th>Item Name</th><th>Total PO Qty</th>
-                        <th>Total Received</th><th>Pending Balance</th><th>Status</th>
+                        <th>Total Received</th><th>Pending Balance</th><th>Last Updated Date</th><th>Status</th>
                     </tr>
                 </thead>
                 <tbody id="poLedgerItemsBody"></tbody>
@@ -116,7 +115,6 @@
         </div>
     </div>
 
-    <!-- =================== टैब 2: LIVE FRESH STOCK (BILLS) =================== -->
     <div id="stock-tab" class="tab-content">
         <div class="control-panel">
             <div class="panel-left">
@@ -141,7 +139,7 @@
                 <thead style="background-color: #1e3a8a; color: white;">
                     <tr>
                         <th>Model Part Code</th><th>Description / Item Name</th>
-                        <th>Total Fresh Inward</th><th>Total Fresh Out (BOM)</th><th>Live Available Fresh Stock</th><th>Action</th>
+                        <th>Total Fresh Inward</th><th>Total Fresh Out (BOM)</th><th>Live Available Fresh Stock</th><th>Last Updated Date</th><th>Action</th>
                     </tr>
                 </thead>
                 <tbody id="physicalStockBody"></tbody>
@@ -149,7 +147,6 @@
         </div>
     </div>
 
-    <!-- =================== टैब 3: LIVE REWORK INVENTORY (GATE PASS) =================== -->
     <div id="rework-tab" class="tab-content">
         <div class="control-panel">
             <div class="panel-left">
@@ -174,7 +171,7 @@
                 <thead style="background-color: #0369a1; color: white;">
                     <tr>
                         <th>Model Part Code</th><th>Description / Item Name</th>
-                        <th>Total Rework Gate In</th><th>Total Rework Dispatched</th><th>Live Available Rework Stock</th><th>Action</th>
+                        <th>Total Rework Gate In</th><th>Total Rework Dispatched</th><th>Live Available Rework Stock</th><th>Last Updated Date</th><th>Action</th>
                     </tr>
                 </thead>
                 <tbody id="reworkStockBody"></tbody>
@@ -183,7 +180,6 @@
     </div>
 </div>
 
-<!-- 🌟 इतिहास पॉपअप मोडल विज़ार्ड ढांचा -->
 <div id="itemHistoryModal" class="history-modal">
     <div class="history-modal-content">
         <div class="modal-header-title">
@@ -242,7 +238,7 @@
 
     function calculateMasterLogic() { renderPoLedgerTable(); renderPhysicalStockTable(); renderReworkStockTable(); }
 
-    // 1. PO MATRIX TABLE
+    // 1. PO LEDGER TABLE RENDERER
     function renderPoLedgerTable() {
         const tbody = document.getElementById('poLedgerItemsBody'); tbody.innerHTML = '';
         if (catalogFlatList.length === 0) return;
@@ -251,13 +247,23 @@
         const limitVal = document.getElementById('poLimitDropdown').value;
 
         let poSummaryMap = {};
+        let poDateMap = {}; // 🌟 PO की तारीख ट्रैक करने के लिए
+
         inboundVouchers.forEach(v => {
             if(!v) return;
             let currentPoNo = v.poNo ? cleanStr(v.poNo) : "";
+            let entryDate = v.gateInDate || v.billDate || "";
             safeConvertToArray(v.gridItems).forEach(item => {
                 if(!item || !item.modelCode) return;
                 let key = currentPoNo + "|||" + cleanStr(item.modelCode);
                 poSummaryMap[key] = (poSummaryMap[key] || 0) + parseInt(item.qty || item.receiveQty || 0);
+                
+                // सबसे लेटेस्ट तारीख बचाना
+                if (entryDate) {
+                    if (!poDateMap[key] || entryDate > poDateMap[key]) {
+                        poDateMap[key] = entryDate;
+                    }
+                }
             });
         });
 
@@ -280,7 +286,9 @@
             let poQty = parseInt(c.qty || c.poTotalQty || 0);
             let pending = poQty - received; if(pending < 0) pending = 0;
             let unit = c.poUnit || "NOS";
-            tbody.innerHTML += `<tr><td><code>${c.poNumber}</code></td><td><code>${c.code}</code></td><td>${c.name}</td><td><b>${poQty} ${unit}</b></td><td style="color:#0284c7;">${received} ${unit}</td><td style="color:${pending>0?'#dc2626':'#16a34a'}">${pending} ${unit}</td><td>${pending===0?'✅ Complete':'⏳ Active'}</td></tr>`;
+            let lastDate = poDateMap[key] ? poDateMap[key] : "-"; // 🌟 लास्ट अपडेट डेट
+
+            tbody.innerHTML += `<tr><td><code>${c.poNumber}</code></td><td><code>${c.code}</code></td><td>${c.name}</td><td><b>${poQty} ${unit}</b></td><td style="color:#0284c7;">${received} ${unit}</td><td style="color:${pending>0?'#dc2626':'#16a34a'}">${pending} ${unit}</td><td style="color:#475569; font-weight:bold;">${lastDate}</td><td>${pending===0?'✅ Complete':'⏳ Active'}</td></tr>`;
         });
     }
 
@@ -291,23 +299,33 @@
         const limitVal = document.getElementById('stockLimitDropdown').value;
 
         let globalFreshInMap = {}; let itemNamesMap = {}; let itemUnitsMap = {};
+        let freshDateMap = {}; // 🌟 फ्रेश स्टॉक लास्ट डेट मैप
 
         inboundVouchers.forEach(v => {
+            let entryDate = v.gateInDate || v.billDate || "";
             safeConvertToArray(v.gridItems).forEach(item => {
                 if(!item || !item.modelCode) return;
                 let code = cleanStr(item.modelCode);
                 globalFreshInMap[code] = (globalFreshInMap[code] || 0) + parseInt(item.qty || item.receiveQty || 0);
                 itemNamesMap[code] = String(item.modelName || '').toUpperCase();
                 itemUnitsMap[code] = cleanStr(item.unit || 'NOS');
+                
+                if (entryDate && (!freshDateMap[code] || entryDate > freshDateMap[code])) {
+                    freshDateMap[code] = entryDate;
+                }
             });
         });
 
         reworkInboundVouchers.forEach(v => {
+            let entryDate = v.date || "";
             safeConvertToArray(v.gridItems).forEach(item => {
                 if(!item) return;
                 let code = cleanStr(item.itemShort || item.modelCode || item.code);
                 if(cleanStr(item.pool) === "FRESH") {
                     globalFreshInMap[code] = (globalFreshInMap[code] || 0) + parseInt(item.qty || item.receiveQty || 0);
+                    if (entryDate && (!freshDateMap[code] || entryDate > freshDateMap[code])) {
+                        freshDateMap[code] = entryDate;
+                    }
                 }
                 if(item.itemName || item.modelName) itemNamesMap[code] = String(item.itemName || item.modelName).toUpperCase();
                 if(item.unit) itemUnitsMap[code] = cleanStr(item.unit);
@@ -316,15 +334,26 @@
 
         let globalFreshOutMap = {};
         outwardDispatches.forEach(g => {
+            let entryDate = g.date || "";
             safeConvertToArray(g.gridItems).forEach(item => {
                 if(!item || !item.code) return;
                 let mainCode = cleanStr(item.code); let mainQty = parseInt(item.qty || 0);
                 if(item.pool === 'FRESH') {
                     globalFreshOutMap[mainCode] = (globalFreshOutMap[mainCode] || 0) + mainQty;
+                    if (entryDate && (!freshDateMap[mainCode] || entryDate > freshDateMap[mainCode])) {
+                        freshDateMap[mainCode] = entryDate;
+                    }
+                    
                     let targetBOM = bomFormulaList.find(b => b && cleanStr(b.mainCode) === mainCode);
                     if(targetBOM) {
                         safeConvertToArray(targetBOM.accessories).forEach(acc => {
-                            if(acc && acc.code) globalFreshOutMap[cleanStr(acc.code)] = (globalFreshOutMap[cleanStr(acc.code)] || 0) + (parseInt(acc.qty || 0) * mainQty);
+                            if(acc && acc.code) {
+                                let accCode = cleanStr(acc.code);
+                                globalFreshOutMap[accCode] = (globalFreshOutMap[accCode] || 0) + (parseInt(acc.qty || 0) * mainQty);
+                                if (entryDate && (!freshDateMap[accCode] || entryDate > freshDateMap[accCode])) {
+                                    freshDateMap[accCode] = entryDate;
+                                }
+                            }
                         });
                     }
                 }
@@ -338,10 +367,13 @@
         filteredCodes.forEach(code => {
             let tin = globalFreshInMap[code] || 0; let tout = globalFreshOutMap[code] || 0; let live = tin - tout; if(live < 0) live = 0;
             let unit = itemUnitsMap[code] || "NOS";
+            let lastDate = freshDateMap[code] ? freshDateMap[code] : "-";
+
             tbody.innerHTML += `<tr>
                 <td><code>${code}</code></td><td>${itemNamesMap[code] || 'GENERIC ITEM'}</td>
                 <td style="color:#16a34a; font-weight:bold;">${tin} ${unit}</td><td style="color:#64748b;">${tout} ${unit}</td>
                 <td><span class="badge-stock ${live>0?'badge-plus':'badge-zero'}">${live} ${unit}</span></td>
+                <td style="color:#475569; font-weight:bold;">${lastDate}</td>
                 <td><button type="button" class="btn-view-action" onclick="openItemLifecycleModal('${code}', 'FRESH')">👁️ View</button></td>
             </tr>`;
         });
@@ -354,8 +386,10 @@
         const limitVal = document.getElementById('reworkLimitDropdown').value;
 
         let globalReworkInMap = {}; let itemNamesMap = {}; let itemUnitsMap = {};
+        let reworkDateMap = {}; // 🌟 रीवर्क स्टॉक लास्ट डेट मैप
 
         reworkInboundVouchers.forEach(v => {
+            let entryDate = v.date || "";
             safeConvertToArray(v.gridItems).forEach(item => {
                 if(!item) return;
                 let code = cleanStr(item.itemShort || item.modelCode || item.code);
@@ -363,16 +397,25 @@
                     globalReworkInMap[code] = (globalReworkInMap[code] || 0) + parseInt(item.qty || item.receiveQty || 0);
                     itemNamesMap[code] = String(item.itemName || item.modelName || '').toUpperCase();
                     itemUnitsMap[code] = cleanStr(item.unit || 'NOS');
+                    
+                    if (entryDate && (!reworkDateMap[code] || entryDate > reworkDateMap[code])) {
+                        reworkDateMap[code] = entryDate;
+                    }
                 }
             });
         });
 
         let globalReworkOutMap = {};
         outwardDispatches.forEach(g => {
+            let entryDate = g.date || "";
             safeConvertToArray(g.gridItems).forEach(item => {
                 if(item && item.code && item.pool === 'REWORK') {
                     let code = cleanStr(item.code);
                     globalReworkOutMap[code] = (globalReworkOutMap[code] || 0) + parseInt(item.qty || 0);
+                    
+                    if (entryDate && (!reworkDateMap[code] || entryDate > reworkDateMap[code])) {
+                        reworkDateMap[code] = entryDate;
+                    }
                 }
             });
         });
@@ -384,16 +427,19 @@
         filteredCodes.forEach(code => {
             let rin = globalReworkInMap[code] || 0; let rout = globalReworkOutMap[code] || 0; let live = rin - rout; if(live < 0) live = 0;
             let unit = itemUnitsMap[code] || "NOS";
+            let lastDate = reworkDateMap[code] ? reworkDateMap[code] : "-";
+
             tbody.innerHTML += `<tr>
                 <td><code>${code}</code></td><td>${itemNamesMap[code] || 'REPAIR MATERIAL'}</td>
                 <td style="color:#0369a1; font-weight:bold;">${rin} ${unit}</td><td style="color:#64748b;">${rout} ${unit}</td>
                 <td><span class="badge-stock ${live>0?'badge-rework':'badge-zero'}">${live} ${unit}</span></td>
+                <td style="color:#475569; font-weight:bold;">${lastDate}</td>
                 <td><button type="button" class="btn-view-action" onclick="openItemLifecycleModal('${code}', 'REWORK')">👁️ View</button></td>
             </tr>`;
         });
     }
 
-    // 🌟 4. महा-इंजन: किसी सिंगल कोड की पूरी जनम कुंडली (Inward / Outward) पॉपअप में लोड करना
+    // 🌟 4. महा-इंजन: किसी सिंगल कोड की पूरी जनम कुंडली पॉपअप में लोड करना
     function openItemLifecycleModal(targetCode, poolType) {
         let cleanTarget = cleanStr(targetCode);
         document.getElementById('modalPartCodeLabel').innerText = cleanTarget;
@@ -401,7 +447,6 @@
         let inBody = document.getElementById('modalInwardTableBody'); inBody.innerHTML = '';
         let outBody = document.getElementById('modalOutwardTableBody'); outBody.innerHTML = '';
 
-        // ए. फ्रेश इनवर्ड छांटना
         if(poolType === 'FRESH') {
             inboundVouchers.forEach(v => {
                 safeConvertToArray(v.gridItems).forEach(item => {
@@ -412,7 +457,6 @@
             });
         }
 
-        // बी. रीवर्क गेट-इन छांटना
         reworkInboundVouchers.forEach(v => {
             safeConvertToArray(v.gridItems).forEach(item => {
                 let itemCode = cleanStr(item.itemShort || item.modelCode || item.code);
@@ -423,19 +467,16 @@
             });
         });
 
-        // सी. आउटवर्ड डिस्पैच छांटना (BOM को भी पकड़ेगा)
         outwardDispatches.forEach(g => {
             safeConvertToArray(g.gridItems).forEach(item => {
                 if(!item) return;
                 let mainCode = cleanStr(item.code);
                 let mainQty = parseInt(item.qty || 0);
 
-                // डायरेक्ट डिस्पैच मिलान
                 if(mainCode === cleanTarget && cleanStr(item.pool || 'FRESH') === poolType) {
                     outBody.innerHTML += `<tr><td>${g.date || '-'}</td><td>GO-${g.voucherNo} (${g.docType || 'CHALLAN'})</td><td>Loc: ${g.deliveryShipping || '-'}</td><td>${item.pool}</td><td><b>${mainQty} ${item.unit || 'NOS'}</b></td></tr>`;
                 }
 
-                // बीओएम कंपोनेंट्स ऑटो-कट मिलान (सिर्फ फ्रेश खाते के लिए)
                 if(poolType === 'FRESH' && item.pool === 'FRESH') {
                     let targetBOM = bomFormulaList.find(b => b && cleanStr(b.mainCode) === mainCode);
                     if(targetBOM && targetBOM.accessories) {
