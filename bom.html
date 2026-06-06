@@ -44,14 +44,15 @@
         <a href="gateout.html" class="tab-link">🚪 Gate Out (Dispatch)</a>
         <a href="debit.html" class="tab-link">🧾 Debit Note (Vendor)</a>
         <a href="code.html" class="tab-link">🆕 Generate Code</a>
+        <a href="ledger.html" class="tab-link">📊 Master Ledger & History</a>
+        <a href="users.html" class="tab-link">👥 Manage Users</a>
         <a href="bom.html" class="tab-link" style="background-color: #1e3a8a; color: white; font-weight: bold;">🔗 BOM Master</a>
-        <a href="ledger.html" class="tab-link">📊 Master Ledger</a>
+        <a href="failure.html" class="tab-link">🛠️ Failure Defect Log</a>
     </div>
 
     <h3 id="formTitleBOM" style="color:#1e3a8a; margin-top:0;">🔗 Create New BOM (Accessory Linking)</h3>
     
     <form id="bomForm">
-        <!-- एडिट ट्रैकिंग हिडन गियर्स -->
         <input type="hidden" id="editFirebaseKey" value="">
 
         <div class="main-item-box">
@@ -83,7 +84,6 @@
                     <label style="font-size:12px; font-weight:bold;">Qty</label>
                     <input type="number" id="accQty" placeholder="e.g. 4" min="1" style="padding:8px; width:100%; box-sizing:border-box;">
                 </div>
-                <!-- 🌟 नया: मास्टर यूनिट सेलेक्ट बॉक्स ड्रॉपडाउन गियर -->
                 <div style="min-width: 90px;">
                     <label style="font-size:12px; font-weight:bold;">Unit</label>
                     <select id="accUnit" class="unit-dropdown-select" style="width: 100%;">
@@ -114,7 +114,6 @@
             <input type="text" id="bomSearchBox" class="search-box-catalog" placeholder="🔍 Search Main Code or Name..." autocomplete="off" oninput="renderBOMTable()">
             <div>
                 <label style="font-weight: bold; font-size: 13px; color: #475569; margin-right: 5px;">Show Records:</label>
-                <!-- 🌟 सुधार: डिफ़ॉल्ट रूप से अब '5 Rows' लोड होगा -->
                 <select id="bomLimitSelect" class="limit-select-catalog" onchange="renderBOMTable()">
                     <option value="5" selected>5 Rows</option>
                     <option value="10">10 Rows</option>
@@ -153,14 +152,12 @@
     let tempAccItems = [];
     let savedBOMs = [];
 
-    // Master Catalog Load (For Autofill)
     database.ref('systemMasterCatalogFlat').on('value', (snapshot) => {
         flatCatalogList = [];
         const data = snapshot.val();
         if(data) { for(let key in data) { flatCatalogList.push(data[key]); } }
     });
 
-    // Saved BOMs Load
     database.ref('bomMasterData').on('value', (snapshot) => {
         savedBOMs = [];
         const data = snapshot.val();
@@ -181,7 +178,6 @@
         const aUnit = document.getElementById('accUnit').value;
 
         if(!aCode || !aName || isNaN(aQty) || aQty <= 0) { alert("Please enter valid Accessory details!"); return; }
-        
         if(tempAccItems.some(x => x.code === aCode)) { alert("This accessory is already added below!"); return; }
 
         tempAccItems.push({ code: aCode, name: aName, qty: aQty, unit: aUnit });
@@ -193,7 +189,6 @@
 
     function removeTempRow(index) { tempAccItems.splice(index, 1); renderTempGrid(); }
 
-    // 🌟 लाइव मॉडिफाई इंजन: ग्रिड के अंदर ही किसी आइटम की क्वांटिटी ऑन द स्पॉट चेंज करने का मैकेनिज्म
     function modifyTempRowQty(index) {
         let currentItem = tempAccItems[index];
         let newQtyInput = prompt(`📝 Enter New Qty for [${currentItem.code}]:`, currentItem.qty);
@@ -235,7 +230,6 @@
         });
     }
 
-    // Save/Update BOM Form Handler
     document.getElementById('bomForm').addEventListener('submit', function(e) {
         e.preventDefault();
         const mCode = document.getElementById('mainCode').value.trim().toUpperCase();
@@ -246,13 +240,11 @@
         if(tempAccItems.length === 0) { alert("Please add at least 1 Accessory/Hardware!"); return; }
 
         if(fbKey) {
-            // १. अगर एडिट मोड चालू है तो सीधे उसी की पर अपडेट मारो
             database.ref('bomMasterData/' + fbKey).set({ mainCode: mCode, mainName: mName, accessories: tempAccItems }).then(() => {
                 alert("🎯 BOM Kitting Formula Updated on Cloud!");
                 cancelEditMode();
             });
         } else {
-            // २. फ्रेश एंट्री मोड: ओवरराइट सुरक्षा चक्र ट्रैकिंग नियम
             let existingBOM = savedBOMs.find(b => b.mainCode === mCode);
             if(existingBOM) {
                 let conf = confirm(`⚠️ BOM for [ ${mCode} ] already exists! Do you want to overwrite it?`);
@@ -267,10 +259,8 @@
         }
     });
 
-    // 🛠️ Render Saved BOM Table
     function renderBOMTable() {
         const tbody = document.getElementById('bomTableBody'); tbody.innerHTML = '';
-        
         if(savedBOMs.length === 0) { 
             tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:15px; color:#64748b;">No BOM Configurations Found.</td></tr>`; 
             return; 
@@ -286,10 +276,7 @@
         });
 
         let sortedList = [...filteredList].reverse();
-
-        if (limitVal !== "ALL") {
-            sortedList = sortedList.slice(0, parseInt(limitVal));
-        }
+        if (limitVal !== "ALL") { sortedList = sortedList.slice(0, parseInt(limitVal)); }
 
         if (sortedList.length === 0) {
             tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:15px; color:#dc2626; font-weight:bold;">No matching search records found!</td></tr>`;
@@ -304,7 +291,6 @@
                     accHtml += `<span class="badge-acc" style="background:#475569;">${a.code} (${a.qty} ${uText})</span>`; 
                 });
             }
-            
             let origIdx = savedBOMs.findIndex(x => x.fbKey === bom.fbKey);
 
             tbody.innerHTML += `<tr>
@@ -319,7 +305,6 @@
         });
     }
 
-    // 🌟 पूरे पुराने बीओएम फॉर्मूले को वापस फॉर्म विज़ार्ड में ऊपर एडिट मोड में लोड करने का ढांचा
     function editBOMFormula(idx) {
         const targetBOM = savedBOMs[idx];
         if(!targetBOM) return;
@@ -327,7 +312,7 @@
         document.getElementById('editFirebaseKey').value = targetBOM.fbKey;
         document.getElementById('mainCode').value = targetBOM.mainCode;
         document.getElementById('mainName').value = targetBOM.mainName;
-        document.getElementById('mainCode').readOnly = true; // कोड चेंज लॉक प्रोटेक्शन
+        document.getElementById('mainCode').readOnly = true;
 
         tempAccItems = targetBOM.accessories ? [...targetBOM.accessories] : [];
         renderTempGrid();
@@ -345,7 +330,6 @@
         document.getElementById('bomForm').reset();
         tempAccItems = [];
         renderTempGrid();
-        
         document.getElementById('formTitleBOM').innerText = "🔗 Create New BOM (Accessory Linking)";
         document.getElementById('btnSubmitForm').innerText = "Save BOM Formula";
         document.getElementById('btnSubmitForm').style.backgroundColor = "#16a34a";
@@ -362,12 +346,9 @@
                     cancelEditMode();
                 });
             }
-        } else if (passwordInput !== null) {
-            alert("❌ Access Denied: Incorrect Password!");
-        }
+        } else if (passwordInput !== null) { alert("❌ Access Denied: Incorrect Password!"); }
     }
 
-    // सर्च बार क्लीनअप लॉक
     window.addEventListener('DOMContentLoaded', () => {
         if(document.getElementById('bomSearchBox')) document.getElementById('bomSearchBox').value = "";
     });
