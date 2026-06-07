@@ -14,19 +14,11 @@
         .inner-table td { padding: 6px; border: 1px solid #e2e8f0; font-size: 12px; }
         .btn-remove-row { background: #dc2626; color:white; border:none; padding: 4px 8px; border-radius:3px; cursor:pointer; font-weight:bold; }
         .btn-modify-row { background: #0284c7; color:white; border:none; padding: 4px 8px; border-radius:3px; cursor:pointer; font-weight:bold; margin-right:4px; }
-        
-        /* 📑 नए बटनों की सुंदर कलर कोडिंग */
-        .btn-view-bom { background-color: #475569; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
-        .btn-view-bom:hover { background-color: #334155; }
-        .btn-download-single { background-color: #0d9488; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
-        .btn-download-single:hover { background-color: #0f766e; }
-        
         .btn-edit-action { background-color: #0284c7; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
         .btn-edit-action:hover { background-color: #0369a1; }
         .btn-delete-action { background-color: #dc2626; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; }
         .btn-delete-action:hover { background-color: #b91c1c; }
         .btn-print-receipt { background-color: #007bff; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
-        .btn-print-receipt:hover { background-color: #0056b3; }
         .badge-acc { background: #475569; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; display: inline-block; margin: 2px; }
         
         .main-item-box { background: #e0f2fe; padding: 15px; border-radius: 6px; border: 1px solid #bae6fd; margin-bottom: 15px; }
@@ -36,6 +28,12 @@
         .search-box-catalog { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; width: 320px; text-transform: uppercase; }
         .limit-select-catalog { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; cursor: pointer; background: #fff; font-weight: bold; }
         .btn-excel { background: #16a34a; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+
+        /* 🌟放弃 और कस्टमाइज बटनों की स्टाइल */
+        .btn-view-bom { background-color: #475569; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
+        .btn-view-bom:hover { background-color: #334155; }
+        .btn-download-single { background-color: #0d9488; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
+        .btn-download-single:hover { background-color: #0f766e; }
 
         /* 🌟 यूनिट ड्रॉपडाउन स्टाइल */
         .unit-dropdown-select { padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; background: white; font-weight: bold; cursor: pointer; }
@@ -145,8 +143,7 @@
                     <option value="ALL">Show All</option>
                 </select>
             </div>
-            <button type="button" class="btn-excel" onclick="exportBOMMasterToExcel()">Download BOM Excel</button>
-        </div>
+            </div>
 
         <table class="history-table">
             <thead style="background-color: #1e3a8a; color: white;">
@@ -340,7 +337,6 @@
             }
             let origIdx = savedBOMs.findIndex(x => x.fbKey === bom.fbKey);
 
-            // 🌟 5-बटन का एकदम सटीक कॉम्बिनेशन सीक्वेंस में सेट कर दिया है भाई
             tbody.innerHTML += `<tr>
                 <td><b style="color:#1e3a8a;">${bom.mainCode}</b></td>
                 <td>${bom.mainName}</td>
@@ -356,7 +352,6 @@
         });
     }
 
-    // 🌟 पॉपअप मोडल ओपन करने का गियर
     function openBOMModal(idx) {
         currentViewingBOMObj = savedBOMs[idx];
         if(!currentViewingBOMObj) return;
@@ -374,7 +369,6 @@
         currentViewingBOMObj = null;
     }
 
-    // 🌟 पॉपअप मोडल के अंदर नाम और कोड दोनों से लाइव सर्च (फिल्टर) करने का महा-इंजन
     function filterInnerBOMGrid() {
         if(!currentViewingBOMObj) return;
         const tbody = document.getElementById('viewModalTableBody'); tbody.innerHTML = '';
@@ -408,7 +402,10 @@
         document.getElementById('editFirebaseKey').value = targetBOM.fbKey;
         document.getElementById('mainCode').value = targetBOM.mainCode;
         document.getElementById('mainName').value = targetBOM.mainName;
-        document.getElementById('mainCode').readOnly = true;
+        
+        // 🌟 सुधार 3: यहाँ से readOnly=true हटा दिया है ताकि आप एडिट मोड में कोड भी सुधार सकें!
+        document.getElementById('mainCode').readOnly = false;
+        document.getElementById('mainCode').style.background = '#fff';
 
         tempAccItems = targetBOM.accessories ? [...targetBOM.accessories] : [];
         renderTempGrid();
@@ -484,42 +481,27 @@
         window.print();
     }
 
-    // 🌟 सिंगल मटीरियल का एक्सेल डाउनलोड इंजन गियर
+    // 🌟 सुधार 1: यहाँ एक्सेल डाउनलोड स्क्रिप्ट को इमेज के हिसाब से कस्टमाइज किया गया है ताकि कोड-नाम बार-बार रिपीट न हो
     function exportSingleBOMToExcel(bom) {
         let csv = "Main Model Code,Main Model Description,Linked Component Code,Component Description,Qty Per Unit,Unit Type\n";
+        
         if(bom.accessories && bom.accessories.length > 0) {
-            bom.accessories.forEach(a => {
-                csv += `"${bom.mainCode}","${bom.mainName}","${a.code}","${a.name || 'GENERIC'}","${a.qty}","${a.unit || 'NOS'}"\n`;
+            bom.accessories.forEach((a, index) => {
+                // पहले कंपोनेंट की लाइन में ही मेन कोड और मेन नाम फिक्स लिखा जाएगा, बाकी लाइन्स खाली (क्लिन) रहेंगी
+                let mainCodeField = (index === 0) ? bom.mainCode : "";
+                let mainNameField = (index === 0) ? bom.mainName : "";
+                
+                csv += `"${mainCodeField}","${mainNameField}","${a.code}","${a.name || 'GENERIC'}","${a.qty}","${a.unit || 'NOS'}"\n`;
             });
         } else {
             csv += `"${bom.mainCode}","${bom.mainName}","-","-","-","-"\n`;
         }
+        
         let blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
         let link = document.createElement("a"); link.href = URL.createObjectURL(blob);
         link.setAttribute("download", `BOM_Formula_${bom.mainCode}.csv`);
         document.body.appendChild(link); link.click(); document.body.removeChild(link);
     }
-
-    function exportBOMMasterToExcel() {
-        let csv = "Main Model Code,Main Model Description,Linked Accessory Code,Accessory Description,Qty Per Unit,Unit Type\n";
-        savedBOMs.forEach(bom => {
-            if(bom.accessories && bom.accessories.length > 0) {
-                bom.accessories.forEach(a => {
-                    csv += `"${bom.mainCode}","${bom.mainName}","${a.code}","${a.name || 'GENERIC'}","${a.qty}","${a.unit || 'NOS'}"\n`;
-                });
-            } else {
-                csv += `"${bom.mainCode}","${bom.mainName}","-","-","-","-"\n`;
-            }
-        });
-        let blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
-        let link = document.createElement("a"); link.href = URL.createObjectURL(blob);
-        link.setAttribute("download", "GVM_BOM_Master_Formula_Report.csv");
-        document.body.appendChild(link); link.click(); document.body.removeChild(link);
-    }
-
-    window.addEventListener('DOMContentLoaded', () => {
-        if(document.getElementById('bomSearchBox')) document.getElementById('bomSearchBox').value = "";
-    });
 </script>
 </body>
 </html>
