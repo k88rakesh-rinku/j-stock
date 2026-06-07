@@ -184,7 +184,7 @@
     let bomFormulaList = []; 
     let masterCatalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
     let activeDeleteRowIdx = null; 
-    let flatPOList = []; // 🌟 जोड़ा: मास्टर कैटलॉग फ़्लैट सिंक
+    let flatPOList = []; 
 
     const cleanStr = (str) => String(str || "").trim().toUpperCase().replace(/\s+/g, '');
 
@@ -209,7 +209,6 @@
         renderTable();
     });
 
-    // 🌟 जोड़ा: मास्टर कैटलॉग लोड इंजन ऑटो-यूनिट फ़ेच करने के लिए
     database.ref('systemMasterCatalogFlat').on('value', (snapshot) => {
         flatPOList = [];
         const data = snapshot.val();
@@ -240,10 +239,11 @@
         let selectHtml = `<select class="go-sn-required" onchange="toggleSnField(this)" style="padding:6px; border-radius:4px;"><option value="NO" ${!hasSn?'selected':''}>NO</option><option value="YES" ${hasSn?'selected':''}>YES</option></select>`;
         let inputStyle = hasSn ? "display: inline-block; width: 180px;" : "display: none; width: 180px;";
 
+        // 🌟 सुधार 1: यहाँ input type="number" में step="0.001" और min="0" लगाया है ताकि पॉइंट वाली क्वांटिटी डल सके भाई
         tr.innerHTML = `<td><select class="go-pool-type"><option value="FRESH">FRESH</option><option value="REWORK">REWORK</option></select></td>
             <td><input type="text" required class="go-code" oninput="autofillGo(this)" style="text-transform:uppercase;"></td>
             <td><input type="text" required class="go-name"></td>
-            <td><input type="number" min="1" required class="go-qty"></td>
+            <td><input type="number" min="0" step="0.001" required class="go-qty"></td>
             <td>
                 <select class="go-unit-select">
                     <option value="NOS" ${savedUnit==='NOS'?'selected':''}>NOS</option>
@@ -283,7 +283,6 @@
         let tr = input.closest('tr');
         tr.querySelector('.go-name').value = foundName;
 
-        // 🌟 कड़क ऑटो-यूनिट डिटेक्शन गियर लिंक
         let matchCatalog = flatPOList.find(x => cleanStr(x.code) === code);
         if(matchCatalog && matchCatalog.poUnit) {
             tr.querySelector('.go-unit-select').value = matchCatalog.poUnit;
@@ -296,8 +295,9 @@
         stockData.forEach(v => {
             if(!v) return;
             let items = safeConvertToArray(v.gridItems);
+            // 🌟 सुधार 2: यहाँ parseInt की जगह parseFloat लगाया है ताकि इनवर्ड पॉइंट स्टॉक सही जुड़े
             if(items.length === 0 && v.modelCode) { items.push({ modelCode: v.modelCode, qty: v.qty || v.receiveQty || 0 }); }
-            items.forEach(item => { if(item && cleanStr(item.modelCode) === cleanedTarget) { totalIn += parseInt(item.qty || item.receiveQty || 0); } });
+            items.forEach(item => { if(item && cleanStr(item.modelCode) === cleanedTarget) { totalIn += parseFloat(item.qty || item.receiveQty || 0); } });
         });
 
         gateoutData.forEach(g => {
@@ -305,13 +305,15 @@
             let items = safeConvertToArray(g.gridItems);
             items.forEach(item => { 
                 if(!item) return;
-                if(item.pool === 'FRESH' && cleanStr(item.code) === cleanedTarget) { totalOut += parseInt(item.qty || 0); }
+                // 🌟 सुधार 3: यहाँ भी parseFloat लगाया है ताकि पॉइंट स्टॉक आउटवर्ड सही गिने
+                if(item.pool === 'FRESH' && cleanStr(item.code) === cleanedTarget) { totalOut += parseFloat(item.qty || 0); }
                 
                 let mainItemBOM = bomFormulaList.find(b => b && cleanStr(b.mainCode) === cleanStr(item.code));
                 if(mainItemBOM && mainItemBOM.accessories) {
                     let accs = safeConvertToArray(mainItemBOM.accessories);
                     accs.forEach(acc => {
-                        if(acc && cleanStr(acc.code) === cleanedTarget) { totalOut += (parseInt(acc.qty) * parseInt(item.qty || 0)); }
+                        // 🌟 सुधार 4: महा-अपग्रेड! BOM मटीरियल डिडक्शन कैलकुलेटर में parseFloat फिट किया ताकि तार का पॉइंट स्टॉक परफेक्ट कटे
+                        if(acc && cleanStr(acc.code) === cleanedTarget) { totalOut += (parseFloat(acc.qty) * parseFloat(item.qty || 0)); }
                     });
                 }
             });
@@ -329,7 +331,8 @@
         for(let row of rows) {
             const pool = row.querySelector('.go-pool-type').value;
             const rawCode = row.querySelector('.go-code').value.trim().toUpperCase();
-            const qty = parseInt(row.querySelector('.go-qty').value) || 0;
+            // 🌟 सुधार 5: यहाँ भी parseFloat लगाया है ताकि पॉइंट वाली डिस्पैच क्वांटिटी सेव हो सके
+            const qty = parseFloat(row.querySelector('.go-qty').value) || 0;
             const unit = row.querySelector('.go-unit-select').value;
             const snRequired = row.querySelector('.go-sn-required').value;
             
@@ -345,7 +348,7 @@
             if(pool === 'FRESH') {
                 let availableStock = calculateLiveFreshStock(rawCode, fbKey);
                 if(availableStock < qty) { 
-                    alert(`🚫 Deficit in Fresh Pool for Main Item: ${rawCode}\n\nAvailable: ${availableStock} NOS\nRequested: ${qty} NOS`); 
+                    alert(`🚫 Deficit in Fresh Pool for Main Item: ${rawCode}\n\nAvailable: ${availableStock} ${unit}\nRequested: ${qty} ${unit}`); 
                     deficit = true; break; 
                 }
 
@@ -354,10 +357,12 @@
                     let accs = safeConvertToArray(targetBOM.accessories);
                     for(let acc of accs) {
                         if(!acc) continue;
-                        let requiredAccQty = parseInt(acc.qty) * qty;
+                        // 🌟 सुधार 6: कड़क अलर्ट चेकर नियम - यहाँ भी parseFloat लगाकर स्टॉक डेफिसिट चेक होगा
+                        let requiredAccQty = parseFloat(acc.qty) * qty;
                         let availableAccStock = calculateLiveFreshStock(acc.code, fbKey);
+                        let bomUnit = acc.unit ? acc.unit : "NOS";
                         if(availableAccStock < requiredAccQty) {
-                            alert(`🚫 BOM Component Deficit!\n\nMain Model [${rawCode}] requires [${requiredAccQty} NOS] of Component [${acc.code}].`);
+                            alert(`🚫 BOM Component Deficit!\n\nMain Model [${rawCode}] requires [${requiredAccQty} ${bomUnit}] of Component [${acc.code}].\nAvailable Stock on Cloud: ${availableAccStock} ${bomUnit}`);
                             deficit = true; break;
                         }
                     }
@@ -369,8 +374,8 @@
                 pool: String(pool), 
                 code: String(rawCode), 
                 name: String(row.querySelector('.go-name').value), 
-                qty: parseInt(qty), 
-                unit: String(unit), // 🌟 यूनिट पैकेट डेटाबेस में सेव होगा
+                qty: parseFloat(qty), 
+                unit: String(unit), 
                 serials: String(serialsVal) 
             });
         }
@@ -460,7 +465,8 @@
                     accs.forEach(acc => {
                         if(acc) {
                             let bomUnit = acc.unit ? acc.unit : "NOS";
-                            summaryHtml += `<span style="font-size:10px; color:#64748b; padding-left:15px;">↳ ${acc.code}: ${parseInt(acc.qty)*parseInt(item.qty)} ${bomUnit}</span><br>`;
+                            // 🌟 सुधार 7: यहाँ भी parseFloat गुणा इंजन लगाया ताकि नीचे टेबल की समरी में पॉइंट वाला तार सही दिखे
+                            summaryHtml += `<span style="font-size:10px; color:#64748b; padding-left:15px;">↳ ${acc.code}: ${(parseFloat(acc.qty)*parseFloat(item.qty)).toFixed(3)} ${bomUnit}</span><br>`;
                         }
                     });
                 }
@@ -516,10 +522,11 @@
             let selectHtml = `<select class="go-sn-required" onchange="toggleSnField(this)" style="padding:6px; border-radius:4px;"><option value="NO" ${!hasSn?'selected':''}>NO</option><option value="YES" ${hasSn?'selected':''}>YES</option></select>`;
             let inputStyle = hasSn ? "display: inline-block; width: 180px;" : "display: none; width: 180px;";
 
+            // 🌟 सुधार 8: एडिट मोड में री-लोड होते समय भी इनपुट बॉक्स को step="0.001" के साथ लोड किया है भाई
             tr.innerHTML = `<td><select class="go-pool-type"><option value="FRESH" ${item.pool==='FRESH'?'selected':''}>FRESH</option><option value="REWORK" ${item.pool==='REWORK'?'selected':''}>REWORK</option></select></td>
                 <td><input type="text" required class="go-code" value="${item.code}" oninput="autofillGo(this)" style="text-transform:uppercase;"></td>
                 <td><input type="text" required class="go-name" value="${item.name}"></td>
-                <td><input type="number" min="1" required class="go-qty" value="${item.qty}"></td>
+                <td><input type="number" min="0" step="0.001" required class="go-qty" value="${item.qty}"></td>
                 <td>
                     <select class="go-unit-select">
                         <option value="NOS" ${savedUnit==='NOS'?'selected':''}>NOS</option>
@@ -609,14 +616,16 @@
 
             let printBOM = bomFormulaList.find(b => b && cleanStr(b.mainCode) === cleanStr(item.code));
             if(printBOM && printBOM.accessories) {
+                rowsHtml += `<tr style="background:#eee; font-weight:bold; font-size:9px;"><td colspan="4" style="border:1px solid #000; padding:2px 5px;">📦 Sub-Components (Deducted):</td></tr>`;
                 let accs = safeConvertToArray(printBOM.accessories);
                 accs.forEach(acc => {
                     if(acc) {
                         let bUnit = acc.unit ? acc.unit : "NOS";
+                        // 🌟 सुधार 9: प्रिंट रसीद के अंदर भी पॉइंट वाला गुणा बिल्कुल सटीक रेंडर होगा
                         rowsHtml += `<tr style="color:#555; font-style:italic; background:#fafafa; font-size:9px;">
                             <td style="border:1px solid #000; padding:2px 2px 2px 15px;">↳ Component: ${acc.code}</td>
                             <td style="border:1px solid #000; padding:2px;" colspan="2">${acc.name}</td>
-                            <td style="border:1px solid #000; padding:2px; text-align:center;">${parseInt(acc.qty)*parseInt(item.qty)} ${bUnit}</td>
+                            <td style="border:1px solid #000; padding:2px; text-align:center; font-weight:bold;">${(parseFloat(acc.qty)*parseFloat(item.qty)).toFixed(3)} ${bUnit}</td>
                         </tr>`;
                     }
                 });
@@ -677,7 +686,8 @@
                     accs.forEach(acc => {
                         if(acc) {
                             let bUnit = acc.unit ? acc.unit : "NOS";
-                            csv += `"GVM-GO-${g.voucherNo}","${g.date}","${g.vehicleNo}","${pName}","${g.deliveryShipping || ''}","${g.goSendBy || ''}","${rems}","${item.pool}","${item.code}","${item.name}","${item.qty}","${uLabel}","${sns}","${acc.code}","${parseInt(acc.qty)*parseInt(item.qty)}","${bUnit}"\n`;
+                            // 🌟 सुधार 10: डाउनलोड होने वाली एक्सेल रिपोर्ट के अंदर भी parseFloat गुणा गियर सटीक पॉइंट रेंडर करेगा भाई
+                            csv += `"GVM-GO-${g.voucherNo}","${g.date}","${g.vehicleNo}","${pName}","${g.deliveryShipping || ''}","${g.goSendBy || ''}","${rems}","${item.pool}","${item.code}","${item.name}","${item.qty}","${uLabel}","${sns}","${acc.code}"," ${(parseFloat(acc.qty)*parseFloat(item.qty)).toFixed(3)}","${bUnit}"\n`;
                         }
                     });
                 } else {
