@@ -14,12 +14,20 @@
         .inner-table td { padding: 6px; border: 1px solid #e2e8f0; font-size: 12px; }
         .btn-remove-row { background: #dc2626; color:white; border:none; padding: 4px 8px; border-radius:3px; cursor:pointer; font-weight:bold; }
         .btn-modify-row { background: #0284c7; color:white; border:none; padding: 4px 8px; border-radius:3px; cursor:pointer; font-weight:bold; margin-right:4px; }
+        
+        /* 📑 नए बटनों की सुंदर कलर कोडिंग */
+        .btn-view-bom { background-color: #475569; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
+        .btn-view-bom:hover { background-color: #334155; }
+        .btn-download-single { background-color: #0d9488; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
+        .btn-download-single:hover { background-color: #0f766e; }
+        
         .btn-edit-action { background-color: #0284c7; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
         .btn-edit-action:hover { background-color: #0369a1; }
         .btn-delete-action { background-color: #dc2626; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; }
         .btn-delete-action:hover { background-color: #b91c1c; }
         .btn-print-receipt { background-color: #007bff; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
-        .badge-acc { background: #16a34a; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; display: inline-block; margin: 2px; }
+        .btn-print-receipt:hover { background-color: #0056b3; }
+        .badge-acc { background: #475569; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; display: inline-block; margin: 2px; }
         
         .main-item-box { background: #e0f2fe; padding: 15px; border-radius: 6px; border: 1px solid #bae6fd; margin-bottom: 15px; }
 
@@ -31,6 +39,13 @@
 
         /* 🌟 यूनिट ड्रॉपडाउन स्टाइल */
         .unit-dropdown-select { padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; background: white; font-weight: bold; cursor: pointer; }
+
+        /* 👁️ लाइव सर्च व्यू मोडल पॉपअप स्टाइल */
+        .view-modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 10000; }
+        .view-modal-card { background: white; padding: 20px; border-radius: 8px; width: 680px; max-width: 90%; max-height: 85vh; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+        .view-modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #cbd5e1; padding-bottom: 10px; margin-bottom: 15px; }
+        .view-modal-close { background: #ef4444; color: white; border: none; padding: 5px 12px; font-weight: bold; border-radius: 4px; cursor: pointer; }
+        .view-search-box { width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; margin-bottom: 15px; text-transform: uppercase; font-size: 13px; box-sizing: border-box; }
 
         @media print {
             body * { visibility: hidden; }
@@ -139,12 +154,32 @@
                     <th>Main Model Code</th>
                     <th>Main Model Name</th>
                     <th>Linked Accessories & Hardware (Qty per Unit)</th>
-                    <th>Action Controls</th>
+                    <th style="width: 32%;">Action Controls</th>
                 </tr>
             </thead>
             <tbody id="bomTableBody">
                 <tr><td colspan="4" style="text-align:center; padding:15px; color:#64748b;">Loading BOM Data...</td></tr>
             </tbody>
+        </table>
+    </div>
+</div>
+
+<div id="viewBOMModal" class="view-modal-overlay">
+    <div class="view-modal-card">
+        <div class="view-modal-header">
+            <h3 id="viewModalHeaderTitle" style="margin:0; color:#1e3a8a;">📋 BOM Inner Component Explorer</h3>
+            <button type="button" class="view-modal-close" onclick="closeBOMModal()">X Close</button>
+        </div>
+        <div style="margin-bottom: 10px;">
+            <b style="color:#475569;">Main Model:</b> <code id="viewModalMainCode" style="font-size:14px;">-</code> &nbsp;|&nbsp; <span id="viewModalMainName" style="font-weight:bold;">-</span>
+        </div>
+        <input type="text" id="viewModalSearchField" class="view-search-box" placeholder="🔍 Type Component Code or Name to Filter instantly..." oninput="filterInnerBOMGrid()">
+        
+        <table class="inner-table" style="margin-top:5px;">
+            <thead style="background:#475569; color:white;">
+                <tr><th>S.N</th><th>Item Code</th><th>Item Description / Name</th><th>Qty Req.</th><th>Unit Type</th></tr>
+            </thead>
+            <tbody id="viewModalTableBody"></tbody>
         </table>
     </div>
 </div>
@@ -161,7 +196,7 @@
     function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
 
     let flatCatalogList = []; let tempAccItems = []; let savedBOMs = [];
-    const cleanStr = (str) => String(str || "").trim().toUpperCase();
+    let currentViewingBOMObj = null;
 
     database.ref('systemMasterCatalogFlat').on('value', (snapshot) => {
         flatCatalogList = [];
@@ -185,8 +220,6 @@
     function addAccToGrid() {
         const aCode = document.getElementById('accCode').value.trim().toUpperCase();
         const aName = document.getElementById('accName').value.trim();
-        
-        // 🌟 सुधार 3: यहाँ parseInt हटाकर parseFloat किया है ताकि पॉइंट वाली संख्या डेटा पैकेट में जा सके
         const aQty = parseFloat(document.getElementById('accQty').value);
         const aUnit = document.getElementById('accUnit').value;
 
@@ -207,9 +240,11 @@
         let newQtyInput = prompt(`📝 Enter New Qty for [${currentItem.code}]:`, currentItem.qty);
         if (newQtyInput === null) return;
         
-        // 🌟 सुधार 4: मॉडिफाई पॉपअप प्रॉम्प्ट में भी parseFloat गियर फिट कर दिया है
         let parsedQty = parseFloat(newQtyInput);
-        if(isNaN(parsedQty) || parsedQty <= 0) { alert("Invalid Quantity! Change rejected."); return; }
+        if(isNaN(parsedQty) || parsedQty <= 0) {
+            alert("Invalid Quantity! Change rejected.");
+            return;
+        }
 
         let newUnitInput = prompt(`🔢 Enter New Unit (NOS / MTR / SET) for [${currentItem.code}]:`, currentItem.unit || "NOS");
         if (newUnitInput === null) return;
@@ -297,23 +332,71 @@
         sortedList.forEach((bom) => {
             let accHtml = "";
             if(bom.accessories) {
-                bom.accessories.forEach(a => { 
+                bom.accessories.slice(0, 4).forEach(a => { 
                     let uText = a.unit ? a.unit : "NOS";
-                    accHtml += `<span class="badge-acc" style="background:#475569;">${a.code} (${a.qty} ${uText})</span>`; 
+                    accHtml += `<span class="badge-acc">${a.code} (${a.qty})</span>`; 
                 });
+                if(bom.accessories.length > 4) { accHtml += ` <span style="font-weight:bold; font-size:11px; color:#0284c7;">+${bom.accessories.length - 4} More</span>`; }
             }
             let origIdx = savedBOMs.findIndex(x => x.fbKey === bom.fbKey);
 
-            // 🌟 सुधार 5: आपकी इस फाइल में प्रिंट `🖨️ Print` एक्शन बटन भी मिसिंग था, उसे यहाँ जोड़ दिया है
+            // 🌟 5-बटन का एकदम सटीक कॉम्बिनेशन सीक्वेंस में सेट कर दिया है भाई
             tbody.innerHTML += `<tr>
                 <td><b style="color:#1e3a8a;">${bom.mainCode}</b></td>
                 <td>${bom.mainName}</td>
                 <td style="text-align:left;">${accHtml}</td>
                 <td>
+                    <button type="button" class="btn-view-bom" onclick="openBOMModal(${origIdx})">👁️ View</button>
                     <button type="button" class="btn-print-receipt" onclick='triggerPrintBOM(${JSON.stringify(bom)})'>🖨️ Print</button>
+                    <button type="button" class="btn-download-single" onclick='exportSingleBOMToExcel(${JSON.stringify(bom)})'>📥 Download Excel</button>
                     <button type="button" class="btn-edit-action" onclick="editBOMFormula(${origIdx})">Edit</button>
                     <button type="button" class="btn-delete-action" onclick="deleteBOM('${bom.fbKey}', '${bom.mainCode}')">Delete</button>
                 </td>
+            </tr>`;
+        });
+    }
+
+    // 🌟 पॉपअप मोडल ओपन करने का गियर
+    function openBOMModal(idx) {
+        currentViewingBOMObj = savedBOMs[idx];
+        if(!currentViewingBOMObj) return;
+
+        document.getElementById('viewModalMainCode').innerText = currentViewingBOMObj.mainCode;
+        document.getElementById('viewModalMainName').innerText = currentViewingBOMObj.mainName;
+        document.getElementById('viewModalSearchField').value = ""; 
+
+        filterInnerBOMGrid(); 
+        document.getElementById('viewBOMModal').style.display = 'flex';
+    }
+
+    function closeBOMModal() {
+        document.getElementById('viewBOMModal').style.display = 'none';
+        currentViewingBOMObj = null;
+    }
+
+    // 🌟 पॉपअप मोडल के अंदर नाम और कोड दोनों से लाइव सर्च (फिल्टर) करने का महा-इंजन
+    function filterInnerBOMGrid() {
+        if(!currentViewingBOMObj) return;
+        const tbody = document.getElementById('viewModalTableBody'); tbody.innerHTML = '';
+        const searchKeyword = document.getElementById('viewModalSearchField').value.trim().toUpperCase();
+
+        let accessoriesList = currentViewingBOMObj.accessories || [];
+        let filteredAccs = accessoriesList.filter(a => {
+            return (a.code || '').toUpperCase().includes(searchKeyword) || (a.name || '').toUpperCase().includes(searchKeyword);
+        });
+
+        if(filteredAccs.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#ef4444; font-weight:bold; padding:10px;">❌ No component matching "${searchKeyword}" found in this BOM!</td></tr>`;
+            return;
+        }
+
+        filteredAccs.forEach((a, index) => {
+            tbody.innerHTML += `<tr>
+                <td style="text-align:center;">${index + 1}</td>
+                <td><code>${a.code}</code></td>
+                <td><b>${a.name}</b></td>
+                <td style="text-align:center; font-weight:bold; color:#1e3a8a;">${a.qty}</td>
+                <td style="text-align:center; font-weight:bold; color:#0d9488;">${a.unit || 'NOS'}</td>
             </tr>`;
         });
     }
@@ -360,12 +443,9 @@
                     cancelEditMode();
                 });
             }
-        } else if (passwordInput !== null) {
-            alert("❌ Access Denied: Incorrect Password!");
-        }
+        } else if (passwordInput !== null) { alert("❌ Access Denied: Incorrect Password!"); }
     }
 
-    // 🌟 सुधार 6: प्रिंट कमांड रन करने के लिए स्लिप का एचटीएमएल रेंडर लॉजिक जोड़ा गया
     function triggerPrintBOM(bom) {
         const shell = document.getElementById('printSection');
         let lines = '';
@@ -404,7 +484,22 @@
         window.print();
     }
 
-    // 🌟 सुधार 7: एक्सेल एक्सपोर्ट करने का पूरा इंजन बैकएंड लॉजिक यहाँ फिट है
+    // 🌟 सिंगल मटीरियल का एक्सेल डाउनलोड इंजन गियर
+    function exportSingleBOMToExcel(bom) {
+        let csv = "Main Model Code,Main Model Description,Linked Component Code,Component Description,Qty Per Unit,Unit Type\n";
+        if(bom.accessories && bom.accessories.length > 0) {
+            bom.accessories.forEach(a => {
+                csv += `"${bom.mainCode}","${bom.mainName}","${a.code}","${a.name || 'GENERIC'}","${a.qty}","${a.unit || 'NOS'}"\n`;
+            });
+        } else {
+            csv += `"${bom.mainCode}","${bom.mainName}","-","-","-","-"\n`;
+        }
+        let blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
+        let link = document.createElement("a"); link.href = URL.createObjectURL(blob);
+        link.setAttribute("download", `BOM_Formula_${bom.mainCode}.csv`);
+        document.body.appendChild(link); link.click(); document.body.removeChild(link);
+    }
+
     function exportBOMMasterToExcel() {
         let csv = "Main Model Code,Main Model Description,Linked Accessory Code,Accessory Description,Qty Per Unit,Unit Type\n";
         savedBOMs.forEach(bom => {
