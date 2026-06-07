@@ -19,6 +19,7 @@
         .btn-delete-action { background-color: #dc2626; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; }
         .btn-delete-action:hover { background-color: #b91c1c; }
         .btn-print-receipt { background-color: #007bff; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
+        .btn-print-receipt:hover { background-color: #0056b3; }
         .badge-acc { background: #475569; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; display: inline-block; margin: 2px; }
         
         .main-item-box { background: #e0f2fe; padding: 15px; border-radius: 6px; border: 1px solid #bae6fd; margin-bottom: 15px; }
@@ -27,7 +28,6 @@
         .catalog-filter-panel { display: flex; justify-content: space-between; align-items: center; background: #f1f5f9; padding: 10px 15px; border-radius: 6px; border: 1px solid #cbd5e1; margin-bottom: 15px; flex-wrap: wrap; gap: 10px; }
         .search-box-catalog { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; width: 320px; text-transform: uppercase; }
         .limit-select-catalog { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; cursor: pointer; background: #fff; font-weight: bold; }
-        .btn-excel { background: #16a34a; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; }
 
         /* 🌟放弃 और कस्टमाइज बटनों की स्टाइल */
         .btn-view-bom { background-color: #475569; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
@@ -44,6 +44,9 @@
         .view-modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #cbd5e1; padding-bottom: 10px; margin-bottom: 15px; }
         .view-modal-close { background: #ef4444; color: white; border: none; padding: 5px 12px; font-weight: bold; border-radius: 4px; cursor: pointer; }
         .view-search-box { width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; margin-bottom: 15px; text-transform: uppercase; font-size: 13px; box-sizing: border-box; }
+
+        /* 🌟 क्लोन इनपुट डिब्बे की सुंदर कस्टमाइज स्टाइल */
+        .clone-dropdown-box { padding: 8px; border: 2px solid #16a34a; border-radius: 4px; font-weight: bold; background: #f0fdf4; color: #15803d; cursor: pointer; width: 100%; box-sizing: border-box; }
 
         @media print {
             body * { visibility: hidden; }
@@ -80,13 +83,19 @@
         <div class="main-item-box">
             <h4 style="margin: 0 0 10px 0; color:#0369a1;">1️⃣ Select Main Model</h4>
             <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-                <div class="form-group" style="flex: 1;">
+                <div class="form-group" style="flex: 1; min-width: 150px;">
                     <label>Main Model Code <span>*</span></label>
                     <input type="text" id="mainCode" placeholder="e.g. ACV 002" required style="text-transform:uppercase;" oninput="autoFillName('mainCode', 'mainName')">
                 </div>
-                <div class="form-group" style="flex: 2;">
+                <div class="form-group" style="flex: 2; min-width: 200px;">
                     <label>Main Model Name</label>
-                    <input type="text" id="mainName" placeholder="Auto-fill Name" readonly style="background:#f1f5f9;">
+                    <input type="text" id="mainName" placeholder="Auto-fill Name" style="text-transform:uppercase; padding:8px; width:100%; box-sizing:border-box; background:#fff;">
+                </div>
+                <div class="form-group" style="flex: 1.5; min-width: 220px;">
+                    <label style="color:#16a34a; font-weight:bold;">📋 Copy Components From Old BOM:</label>
+                    <select id="cloneBomSelect" class="clone-dropdown-box" onchange="executeBOMCloneLogic(this)">
+                        <option value="">-- SELECT OLD BOM TO COPY --</option>
+                    </select>
                 </div>
             </div>
         </div>
@@ -143,7 +152,7 @@
                     <option value="ALL">Show All</option>
                 </select>
             </div>
-            </div>
+        </div>
 
         <table class="history-table">
             <thead style="background-color: #1e3a8a; color: white;">
@@ -194,6 +203,7 @@
 
     let flatCatalogList = []; let tempAccItems = []; let savedBOMs = [];
     let currentViewingBOMObj = null;
+    let isEditModeActive = false;
 
     database.ref('systemMasterCatalogFlat').on('value', (snapshot) => {
         flatCatalogList = [];
@@ -205,10 +215,39 @@
         savedBOMs = [];
         const data = snapshot.val();
         if(data) { for(let key in data) { savedBOMs.push({ fbKey: key, ...data[key] }); } }
+        populateCloneDropdownOptions(); // 🌟 जोड़ा: ड्रॉपडाउन री-फ्रेश इंजन
         renderBOMTable();
     });
 
+    // 🌟 जोड़ा: क्लोन ड्रॉपडाउन मेनू भरने का डायनामिक इंजन
+    function populateCloneDropdownOptions() {
+        const selectBox = document.getElementById('cloneBomSelect');
+        if(!selectBox) return;
+        selectBox.innerHTML = '<option value="">-- SELECT OLD BOM TO COPY --</option>';
+        savedBOMs.forEach(bom => {
+            selectBox.innerHTML += `<option value="${bom.fbKey}">${bom.mainCode} [${bom.mainName || 'BOM'}]</option>`;
+        });
+    }
+
+    // 🌟 जोड़ा: पुराने मटीरियल्स पैकेट को वन-क्लिक में कतार में लोड करने का लॉजिक
+    function executeBOMCloneLogic(select) {
+        const selectedFbKey = select.value;
+        if(!selectedFbKey) return;
+        
+        const sourceBOM = savedBOMs.find(b => b.fbKey === selectedFbKey);
+        if(!sourceBOM) return;
+
+        if (confirm(`📋 Do you want to copy all components from [${sourceBOM.mainCode}] into your current row grid?`)) {
+            tempAccItems = sourceBOM.accessories ? JSON.parse(JSON.stringify(sourceBOM.accessories)) : [];
+            renderTempGrid();
+            alert(`🎉 Success: loaded ${tempAccItems.length} components into row grid! You can add/delete rows now.`);
+        }
+        select.value = ""; // रीसेट ड्रॉपडाउन
+    }
+
     function autoFillName(codeId, nameId) {
+        if (isEditModeActive && codeId === 'mainCode') return;
+
         let code = document.getElementById(codeId).value.trim().toUpperCase();
         let match = flatCatalogList.find(x => x.code.trim().toUpperCase() === code);
         document.getElementById(nameId).value = match ? match.name : "";
@@ -276,10 +315,10 @@
     document.getElementById('bomForm').addEventListener('submit', function(e) {
         e.preventDefault();
         const mCode = document.getElementById('mainCode').value.trim().toUpperCase();
-        const mName = document.getElementById('mainName').value.trim();
+        const mName = document.getElementById('mainName').value.trim().toUpperCase();
         const fbKey = document.getElementById('editFirebaseKey').value;
 
-        if(!mCode || !mName) { alert("Main Model Code is invalid!"); return; }
+        if(!mCode || !mName) { alert("Main Model Code or Name is invalid!"); return; }
         if(tempAccItems.length === 0) { alert("Please add at least 1 Accessory/Hardware!"); return; }
 
         if(fbKey) {
@@ -330,7 +369,6 @@
             let accHtml = "";
             if(bom.accessories) {
                 bom.accessories.slice(0, 4).forEach(a => { 
-                    let uText = a.unit ? a.unit : "NOS";
                     accHtml += `<span class="badge-acc">${a.code} (${a.qty})</span>`; 
                 });
                 if(bom.accessories.length > 4) { accHtml += ` <span style="font-weight:bold; font-size:11px; color:#0284c7;">+${bom.accessories.length - 4} More</span>`; }
@@ -352,58 +390,16 @@
         });
     }
 
-    function openBOMModal(idx) {
-        currentViewingBOMObj = savedBOMs[idx];
-        if(!currentViewingBOMObj) return;
-
-        document.getElementById('viewModalMainCode').innerText = currentViewingBOMObj.mainCode;
-        document.getElementById('viewModalMainName').innerText = currentViewingBOMObj.mainName;
-        document.getElementById('viewModalSearchField').value = ""; 
-
-        filterInnerBOMGrid(); 
-        document.getElementById('viewBOMModal').style.display = 'flex';
-    }
-
-    function closeBOMModal() {
-        document.getElementById('viewBOMModal').style.display = 'none';
-        currentViewingBOMObj = null;
-    }
-
-    function filterInnerBOMGrid() {
-        if(!currentViewingBOMObj) return;
-        const tbody = document.getElementById('viewModalTableBody'); tbody.innerHTML = '';
-        const searchKeyword = document.getElementById('viewModalSearchField').value.trim().toUpperCase();
-
-        let accessoriesList = currentViewingBOMObj.accessories || [];
-        let filteredAccs = accessoriesList.filter(a => {
-            return (a.code || '').toUpperCase().includes(searchKeyword) || (a.name || '').toUpperCase().includes(searchKeyword);
-        });
-
-        if(filteredAccs.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#ef4444; font-weight:bold; padding:10px;">❌ No component matching "${searchKeyword}" found in this BOM!</td></tr>`;
-            return;
-        }
-
-        filteredAccs.forEach((a, index) => {
-            tbody.innerHTML += `<tr>
-                <td style="text-align:center;">${index + 1}</td>
-                <td><code>${a.code}</code></td>
-                <td><b>${a.name}</b></td>
-                <td style="text-align:center; font-weight:bold; color:#1e3a8a;">${a.qty}</td>
-                <td style="text-align:center; font-weight:bold; color:#0d9488;">${a.unit || 'NOS'}</td>
-            </tr>`;
-        });
-    }
-
     function editBOMFormula(idx) {
         const targetBOM = savedBOMs[idx];
         if(!targetBOM) return;
+
+        isEditModeActive = true; 
 
         document.getElementById('editFirebaseKey').value = targetBOM.fbKey;
         document.getElementById('mainCode').value = targetBOM.mainCode;
         document.getElementById('mainName').value = targetBOM.mainName;
         
-        // 🌟 सुधार 3: यहाँ से readOnly=true हटा दिया है ताकि आप एडिट मोड में कोड भी सुधार सकें!
         document.getElementById('mainCode').readOnly = false;
         document.getElementById('mainCode').style.background = '#fff';
 
@@ -418,6 +414,7 @@
     }
 
     function cancelEditMode() {
+        isEditModeActive = false; 
         document.getElementById('editFirebaseKey').value = "";
         document.getElementById('mainCode').readOnly = false;
         document.getElementById('bomForm').reset();
@@ -481,22 +478,17 @@
         window.print();
     }
 
-    // 🌟 सुधार 1: यहाँ एक्सेल डाउनलोड स्क्रिप्ट को इमेज के हिसाब से कस्टमाइज किया गया है ताकि कोड-नाम बार-बार रिपीट न हो
     function exportSingleBOMToExcel(bom) {
         let csv = "Main Model Code,Main Model Description,Linked Component Code,Component Description,Qty Per Unit,Unit Type\n";
-        
         if(bom.accessories && bom.accessories.length > 0) {
             bom.accessories.forEach((a, index) => {
-                // पहले कंपोनेंट की लाइन में ही मेन कोड और मेन नाम फिक्स लिखा जाएगा, बाकी लाइन्स खाली (क्लिन) रहेंगी
                 let mainCodeField = (index === 0) ? bom.mainCode : "";
                 let mainNameField = (index === 0) ? bom.mainName : "";
-                
                 csv += `"${mainCodeField}","${mainNameField}","${a.code}","${a.name || 'GENERIC'}","${a.qty}","${a.unit || 'NOS'}"\n`;
             });
         } else {
             csv += `"${bom.mainCode}","${bom.mainName}","-","-","-","-"\n`;
         }
-        
         let blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
         let link = document.createElement("a"); link.href = URL.createObjectURL(blob);
         link.setAttribute("download", `BOM_Formula_${bom.mainCode}.csv`);
