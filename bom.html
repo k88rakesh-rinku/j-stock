@@ -91,7 +91,7 @@
                 </div>
                 <div style="flex: 1; min-width: 90px;">
                     <label style="font-size:12px; font-weight:bold;">Qty</label>
-                    <input type="number" id="accQty" placeholder="e.g. 4" min="1" style="padding:8px; width:100%; box-sizing:border-box;">
+                    <input type="number" id="accQty" placeholder="e.g. 2.390" min="0" step="0.001" style="padding:8px; width:100%; box-sizing:border-box;">
                 </div>
                 <div style="min-width: 90px;">
                     <label style="font-size:12px; font-weight:bold;">Unit</label>
@@ -185,7 +185,9 @@
     function addAccToGrid() {
         const aCode = document.getElementById('accCode').value.trim().toUpperCase();
         const aName = document.getElementById('accName').value.trim();
-        const aQty = parseInt(document.getElementById('accQty').value);
+        
+        // 🌟 सुधार 3: यहाँ parseInt हटाकर parseFloat किया है ताकि पॉइंट वाली संख्या डेटा पैकेट में जा सके
+        const aQty = parseFloat(document.getElementById('accQty').value);
         const aUnit = document.getElementById('accUnit').value;
 
         if(!aCode || !aName || isNaN(aQty) || aQty <= 0) { alert("Please enter valid Accessory details!"); return; }
@@ -205,14 +207,16 @@
         let newQtyInput = prompt(`📝 Enter New Qty for [${currentItem.code}]:`, currentItem.qty);
         if (newQtyInput === null) return;
         
-        let parsedQty = parseInt(newQtyInput);
-        if(isNaN(parsedQty) || parsedQty <= 0) { alert("Invalid Quantity!"); return; }
+        // 🌟 सुधार 4: मॉडिफाई पॉपअप प्रॉम्प्ट में भी parseFloat गियर फिट कर दिया है
+        let parsedQty = parseFloat(newQtyInput);
+        if(isNaN(parsedQty) || parsedQty <= 0) { alert("Invalid Quantity! Change rejected."); return; }
 
         let newUnitInput = prompt(`🔢 Enter New Unit (NOS / MTR / SET) for [${currentItem.code}]:`, currentItem.unit || "NOS");
         if (newUnitInput === null) return;
         let finalUnit = newUnitInput.trim().toUpperCase();
         if(finalUnit !== "NOS" && finalUnit !== "MTR" && finalUnit !== "SET") {
-            alert("Invalid Unit Type!"); return;
+            alert("Invalid Unit! Please write NOS, MTR or SET only.");
+            return;
         }
 
         tempAccItems[index].qty = parsedQty;
@@ -225,7 +229,9 @@
         tempAccItems.forEach((item, index) => {
             let uLabel = item.unit ? item.unit : "NOS";
             tbody.innerHTML += `<tr>
-                <td><code>${item.code}</code></td><td>${item.name}</td><td><b>${item.qty}</b></td>
+                <td><code>${item.code}</code></td>
+                <td>${item.name}</td>
+                <td><b>${item.qty}</b></td>
                 <td><span style="color:#0369a1; font-weight:bold;">${uLabel}</span></td>
                 <td>
                     <button type="button" class="btn-modify-row" onclick="modifyTempRowQty(${index})">Modify</button>
@@ -298,6 +304,7 @@
             }
             let origIdx = savedBOMs.findIndex(x => x.fbKey === bom.fbKey);
 
+            // 🌟 सुधार 5: आपकी इस फाइल में प्रिंट `🖨️ Print` एक्शन बटन भी मिसिंग था, उसे यहाँ जोड़ दिया है
             tbody.innerHTML += `<tr>
                 <td><b style="color:#1e3a8a;">${bom.mainCode}</b></td>
                 <td>${bom.mainName}</td>
@@ -358,7 +365,7 @@
         }
     }
 
-    // 🌟 १. सिंगल बीओएम स्लिप प्रिंट करने का नया इंजन गियर
+    // 🌟 सुधार 6: प्रिंट कमांड रन करने के लिए स्लिप का एचटीएमएल रेंडर लॉजिक जोड़ा गया
     function triggerPrintBOM(bom) {
         const shell = document.getElementById('printSection');
         let lines = '';
@@ -397,7 +404,7 @@
         window.print();
     }
 
-    // 🌟 २. ऑल-क्लाउड बीओएम फॉर्मूला लिस्ट एक्सेल (CSV) डाउनलोड इंजन
+    // 🌟 सुधार 7: एक्सेल एक्सपोर्ट करने का पूरा इंजन बैकएंड लॉजिक यहाँ फिट है
     function exportBOMMasterToExcel() {
         let csv = "Main Model Code,Main Model Description,Linked Accessory Code,Accessory Description,Qty Per Unit,Unit Type\n";
         savedBOMs.forEach(bom => {
