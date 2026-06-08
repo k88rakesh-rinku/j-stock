@@ -259,7 +259,7 @@
     let tempGridItems = [];
     let lastActiveFocusedInputId = "companyName";
     let activeDeleteRowIdx = null; 
-    let isInternallyUpdatingPO = false; // 🌟 जोड़ा: मोमेंट्री लॉक ताकि फ़िल्टर रेंडर डिस्टर्ब न हो भाई
+    let isInternallyUpdatingPO = false;
 
     database.ref('systemMasterCatalogFlat').on('value', (snapshot) => {
         flatPOList = [];
@@ -326,7 +326,7 @@
     }
 
     function fetchPurchasePOOptions() {
-        if(isInternallyUpdatingPO) return; // 🌟 सुरक्षा कवर: एडिट ट्रिगर के समय ऑटो-एग्जीक्यूशन ब्लॉक रहेगा
+        if(isInternallyUpdatingPO) return; 
         const compName = document.getElementById('companyName').value.trim().toUpperCase();
         if(!compName) { 
             document.getElementById('poNo').innerHTML = '<option value="WITHOUT PO">WITHOUT PO (NO PO LINKED)</option>'; 
@@ -415,6 +415,14 @@
         });
     }
 
+    // तारीख को DD.MM.YYYY फॉर्मेट में बदलने का हेल्पर फंक्शन
+    function formatCustomDate(dateStr) {
+        if(!dateStr) return "-";
+        let p = dateStr.split('-');
+        if(p.length === 3) return `${p[2]}.${p[1]}.${p[0]}`;
+        return dateStr;
+    }
+
     document.getElementById('stockForm').addEventListener('submit', function(e) {
         e.preventDefault();
 
@@ -424,6 +432,7 @@
         const currentBillNo = document.getElementById('billNo').value.trim().toUpperCase();
         const currentGateInNo = document.getElementById('gateInNo').value.trim().toUpperCase();
         const currentBillDate = document.getElementById('billDate').value;
+        const currentCompany = document.getElementById('companyName').value.trim().toUpperCase();
 
         const code = document.getElementById('gridModelCode').value.trim().toUpperCase();
         if (code) {
@@ -436,34 +445,37 @@
 
             if(code && name && !isNaN(bQty) && !isNaN(rQty)) {
                 if(bQty !== rQty) { alert("Error: Bill Qty and Receive Qty must match!"); return; }
-                tempGridItems.push({ modelCode: code, modelName: name, qty: bQty, receiveQty: rQty, unit: unit });
+                if(!tempGridItems.some(t => t.modelCode === code)) {
+                    tempGridItems.push({ modelCode: code, modelName: name, qty: bQty, receiveQty: rQty, unit: unit });
+                }
             }
         }
 
         if(tempGridItems.length === 0) { alert("Please enter at least one item with valid quantities!"); return; }
 
+        // 🌟 कड़क आयरन लॉक: अब 'Confirm' की ढील ख़त्म, सीधा तारीख के साथ हार्ड रिजेक्शन एरर!
         if (idx === -1) {
-            let matchingVouchers = stockData.filter(v => v.billNo === currentBillNo && v.gateInNo === currentGateInNo);
-            if (matchingVouchers.length > 0) {
-                let hasSameModel = matchingVouchers.some(v => {
-                    let items = v.gridItems || [];
-                    return items.some(item => tempGridItems.some(t => t.modelCode === item.modelCode.toUpperCase()));
-                });
+            // १. पहले चेक करो कि क्या यह गेट-इन नंबर इस कंपनी के लिए पहले से दर्ज है?
+            let matchedVoucherByGateIn = stockData.find(v => v.gateInNo === currentGateInNo && v.companyName === currentCompany);
+            if (matchedVoucherByGateIn) {
+                let existingDate = formatCustomDate(matchedVoucherByGateIn.gateInDate);
+                alert(`🚨 DUPLICATE GATE-IN REJECTED:\n\nGate-In No. [ ${currentGateInNo} ] is already entered on dated ${existingDate} under Company [ ${currentCompany} ]!\n\nSystem has blocked this duplicate entry permanently.`);
+                return;
+            }
 
-                if (hasSameModel) {
-                    alert(`🚨 ERROR: Duplicate Entry Blocked!\n\nThis Bill No. [ ${currentBillNo} ] with Gate-In No. [ ${currentGateInNo} ] already has this Model Code registered on Cloud!`);
-                    return;
-                } else {
-                    let confirmSave = confirm(`⚠️ ALERT: Bill Found!\n\nThis Bill No. [ ${currentBillNo} ] & Gate-In No. [ ${currentGateInNo} ] is already entered in system with another item!\n\nDo you want to add this new model to this existing bill?`);
-                    if (!confirmSave) { return; }
-                }
+            // २. अब चेक करो कि क्या यह बिल नंबर इस कंपनी के लिए पहले से दर्ज है?
+            let matchedVoucherByBill = stockData.find(v => v.billNo === currentBillNo && v.companyName === currentCompany);
+            if (matchedVoucherByBill) {
+                let existingDate = formatCustomDate(matchedVoucherByBill.billDate);
+                alert(`🚨 DUPLICATE BILL REJECTED:\n\nBill No. [ ${currentBillNo} ] is already entered on dated ${existingDate} under Company [ ${currentCompany} ]!\n\nSystem has blocked this duplicate entry permanently.`);
+                return;
             }
         }
 
         let originalCreator = (idx !== -1 && stockData[idx]) ? (stockData[idx].createdBy || "k88rakesh") : session.userId;
 
         const masterVoucher = {
-            companyName: document.getElementById('companyName').value.trim().toUpperCase(), 
+            companyName: currentCompany, 
             poNo: document.getElementById('poNo').value.trim().toUpperCase(),
             billNo: currentBillNo, 
             billDate: currentBillDate,
@@ -501,13 +513,14 @@
         let filteredList = stockData.filter(i => {
             const matchBill = i.billNo ? i.billNo.toUpperCase().includes(searchStr) : false;
             const matchComp = i.companyName ? i.companyName.toUpperCase().includes(searchStr) : false;
+            const matchGateIn = i.gateInNo ? i.gateInNo.toUpperCase().includes(searchStr) : false;
             let itemsList = i.gridItems || [{ modelCode: i.modelCode, modelName: i.modelName }];
             const matchItems = itemsList.some(item => {
                 const matchCode = item.modelCode ? item.modelCode.toUpperCase().includes(searchStr) : false;
                 const matchName = item.modelName ? item.modelName.toUpperCase().includes(searchStr) : false;
                 return matchCode || matchName;
             });
-            return matchBill || matchComp || matchItems;
+            return matchBill || matchComp || matchGateIn || matchItems;
         });
 
         if(filteredList.length === 0) {
@@ -554,8 +567,6 @@
 
     function editFreshRow(idx) {
         const d = stockData[idx]; 
-        
-        // 🌟 महा सुधार गियर: फ़िल्टर सिंक लॉक ऑन ताकि इतिहास टेबल गायब न हो भाई
         isInternallyUpdatingPO = true; 
 
         document.getElementById('editRowIndex').value = idx;
@@ -577,14 +588,12 @@
         document.getElementById('btnSubmitForm').innerText = "Update Entire Material Inward Bill";
         document.getElementById('btnCancelEdit').style.display = "inline-block";
         
-        // 🌟 सुरक्षा गियर जारी: रेंडरिंग खत्म होने के बाद लॉक रिलीज़
         setTimeout(() => { isInternallyUpdatingPO = false; }, 100);
-
         document.getElementById('stockForm').scrollIntoView({ behavior: 'smooth' });
     }
 
     function cancelEditMode() {
-        isInternallyUpdatingPO = false; // सेफ्टी लॉक रिलीज
+        isInternallyUpdatingPO = false;
         document.getElementById('editRowIndex').value = "-1"; 
         document.getElementById('editFirebaseKey').value = ""; 
         document.getElementById('stockForm').reset(); 
@@ -603,8 +612,6 @@
         document.getElementById('secretPasswordModal').style.display = "flex";
         document.getElementById('secretModalPasswordField').focus();
     }
-
-    // बाकी कोड को बिना टच किए वैसे ही सुरक्षित रखा है भाई
 
     function closeSecretPasswordModal() {
         document.getElementById('secretPasswordModal').style.display = "none";
