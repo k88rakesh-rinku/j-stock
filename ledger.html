@@ -247,7 +247,7 @@
         const limitVal = document.getElementById('poLimitDropdown').value;
 
         let poSummaryMap = {};
-        let poDateMap = {}; // 🌟 PO की तारीख ट्रैक करने के लिए
+        let poDateMap = {};
 
         inboundVouchers.forEach(v => {
             if(!v) return;
@@ -258,7 +258,6 @@
                 let key = currentPoNo + "|||" + cleanStr(item.modelCode);
                 poSummaryMap[key] = (poSummaryMap[key] || 0) + parseInt(item.qty || item.receiveQty || 0);
                 
-                // सबसे लेटेस्ट तारीख बचाना
                 if (entryDate) {
                     if (!poDateMap[key] || entryDate > poDateMap[key]) {
                         poDateMap[key] = entryDate;
@@ -286,7 +285,7 @@
             let poQty = parseInt(c.qty || c.poTotalQty || 0);
             let pending = poQty - received; if(pending < 0) pending = 0;
             let unit = c.poUnit || "NOS";
-            let lastDate = poDateMap[key] ? poDateMap[key] : "-"; // 🌟 लास्ट अपडेट डेट
+            let lastDate = poDateMap[key] ? poDateMap[key] : "-";
 
             tbody.innerHTML += `<tr><td><code>${c.poNumber}</code></td><td><code>${c.code}</code></td><td>${c.name}</td><td><b>${poQty} ${unit}</b></td><td style="color:#0284c7;">${received} ${unit}</td><td style="color:${pending>0?'#dc2626':'#16a34a'}">${pending} ${unit}</td><td style="color:#475569; font-weight:bold;">${lastDate}</td><td>${pending===0?'✅ Complete':'⏳ Active'}</td></tr>`;
         });
@@ -299,7 +298,7 @@
         const limitVal = document.getElementById('stockLimitDropdown').value;
 
         let globalFreshInMap = {}; let itemNamesMap = {}; let itemUnitsMap = {};
-        let freshDateMap = {}; // 🌟 फ्रेश स्टॉक लास्ट डेट मैप
+        let freshDateMap = {};
 
         inboundVouchers.forEach(v => {
             let entryDate = v.gateInDate || v.billDate || "";
@@ -386,7 +385,7 @@
         const limitVal = document.getElementById('reworkLimitDropdown').value;
 
         let globalReworkInMap = {}; let itemNamesMap = {}; let itemUnitsMap = {};
-        let reworkDateMap = {}; // 🌟 रीवर्क स्टॉक लास्ट डेट मैप
+        let reworkDateMap = {};
 
         reworkInboundVouchers.forEach(v => {
             let entryDate = v.date || "";
@@ -510,31 +509,25 @@
         for (let i = 0; i < rows.length; i++) {
             const row = rows[i];
             let rowData = [];
-            
-            // th और td दोनों का डेटा उठाना, लेकिन आख़िरी "Action" कॉलम छोड़ देना (अगर है तो)
             const cols = row.querySelectorAll("th, td");
             
             for (let j = 0; j < cols.length; j++) {
-                // अगर Fresh या Rework स्टॉक टेबल है, तो आख़िरी "Action" (👁️ View) कॉलम एक्सेल में नहीं भेजेंगे
                 if((tableId === "freshStockTableHead" || tableId === "reworkStockTableHead") && j === cols.length - 1) {
                     continue; 
                 }
                 
-                // डेटा को साफ़ करना ताकि कोमा (,) से एक्सेल की सेल ख़राब न हो
                 let cellText = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, "").trim();
-                cellText = cellText.replace(/"/g, '""'); // डबल कोट्स फिक्स
+                cellText = cellText.replace(/"/g, '""');
                 
                 rowData.push('"' + cellText + '"');
             }
             csvRows.push(rowData.join(","));
         }
 
-        // BOM (Byte Order Mark) जोड़ना ताकि एक्सेल में हिंदी/स्पेशल करैक्टर सही दिखें
         const csvContent = "\uFEFF" + csvRows.join("\n");
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         
-        // सीक्रेट लिंक बनाकर डाउनलोड ट्रिगर करना
         const link = document.createElement("a");
         link.setAttribute("href", url);
         link.setAttribute("download", filename);
@@ -544,13 +537,70 @@
         document.body.removeChild(link);
     }
 
-    // तीनों बटनों के असली फ़ंक्शंस जो डाउनलोड चालू करेंगे
     function exportPoLedgerToExcel() { 
         downloadTableToCSV("poLedgerTableHead", "PO_Matrix_Ledger_Report.csv");
     }
     
+    // 🧠 📊 महा-एडवांस फ़ंक्शन: सीधे डेटाबेस से एक-एक बिल की कुंडली निकालना
     function exportPhysicalStockToExcel() { 
-        downloadTableToCSV("freshStockTableHead", "Live_Fresh_Stock_Report.csv");
+        if (inboundVouchers.length === 0) {
+            alert("डेटाबेस में कोई फ्रेश इनवर्ड रिकॉर्ड नहीं मिला!");
+            return;
+        }
+
+        let csvRows = [];
+        
+        // 1. एक्सेल की हेडर लाइन (कॉलम के नाम)
+        csvRows.push(['"Inward Date"', '"Bill No / Ref"', '"Vendor / Company Name"', '"Model Part Code"', '"Item Description"', '"Received Qty"', '"Unit"'].join(","));
+
+        // 2. पूरे डेटाबेस से एक-एक इनवर्ड बिल का लूप चलाना
+        inboundVouchers.forEach(v => {
+            if (!v) return;
+            
+            let billDate = v.gateInDate || v.billDate || "-";
+            let billNo = v.billNo || "-";
+            let vendorName = v.companyName || "-";
+
+            // बिल नंबर या नाम में कोमा (,) हो तो एक्सेल ख़राब न हो, इसके लिए क्लीनिंग
+            billNo = billNo.replace(/"/g, '""');
+            vendorName = vendorName.replace(/"/g, '""');
+
+            safeConvertToArray(v.gridItems).forEach(item => {
+                if (!item) return;
+                
+                let pCode = cleanStr(item.modelCode || "-");
+                let pName = String(item.modelName || "GENERIC ITEM").toUpperCase().replace(/"/g, '""');
+                let qty = item.qty || item.receiveQty || 0;
+                let unit = cleanStr(item.unit || "NOS");
+
+                // एक रो (Row) तैयार करना
+                let rowData = [
+                    '"' + billDate + '"',
+                    '"' + billNo + '"',
+                    '"' + vendorName + '"',
+                    '"' + pCode + '"',
+                    '"' + pName + '"',
+                    '"' + qty + '"',
+                    '"' + unit + '"'
+                ];
+                
+                csvRows.push(rowData.join(","));
+            });
+        });
+
+        // एक्सेल में हिंदी और फ़ॉर्मेटिंग फिक्स करने के लिए BOM जोड़ना
+        const csvContent = "\uFEFF" + csvRows.join("\n");
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        
+        // फाइल डाउनलोड ट्रिगर करना
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", "Detailed_Fresh_Inward_Bill_Report.csv");
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     }
     
     function exportReworkStockToExcel() { 
