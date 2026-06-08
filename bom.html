@@ -205,21 +205,22 @@
     let currentViewingBOMObj = null;
     let isEditModeActive = false;
 
+    // फ़ायरबेस से मास्टर कैटलॉग लोड करना
     database.ref('systemMasterCatalogFlat').on('value', (snapshot) => {
         flatCatalogList = [];
         const data = snapshot.val();
         if(data) { for(let key in data) { flatCatalogList.push(data[key]); } }
     });
 
+    // फ़ायरबेस से सेव किया हुआ बीओएम डेटा लोड करना
     database.ref('bomMasterData').on('value', (snapshot) => {
         savedBOMs = [];
         const data = snapshot.val();
         if(data) { for(let key in data) { savedBOMs.push({ fbKey: key, ...data[key] }); } }
-        populateCloneDropdownOptions(); // 🌟 जोड़ा: ड्रॉपडाउन री-फ्रेश इंजन
+        populateCloneDropdownOptions(); 
         renderBOMTable();
     });
 
-    // 🌟 जोड़ा: क्लोन ड्रॉपडाउन मेनू भरने का डायनामिक इंजन
     function populateCloneDropdownOptions() {
         const selectBox = document.getElementById('cloneBomSelect');
         if(!selectBox) return;
@@ -229,7 +230,6 @@
         });
     }
 
-    // 🌟 जोड़ा: पुराने मटीरियल्स पैकेट को वन-क्लिक में कतार में लोड करने का लॉजिक
     function executeBOMCloneLogic(select) {
         const selectedFbKey = select.value;
         if(!selectedFbKey) return;
@@ -242,7 +242,7 @@
             renderTempGrid();
             alert(`🎉 Success: loaded ${tempAccItems.length} components into row grid! You can add/delete rows now.`);
         }
-        select.value = ""; // रीसेट ड्रॉपडाउन
+        select.value = ""; 
     }
 
     function autoFillName(codeId, nameId) {
@@ -390,6 +390,50 @@
         });
     }
 
+    // 🌟 सुधार: यहाँ 'View' पॉपअप ओपन करने और क्लोज करने के पूरे फंक्शन्स को जोड़ा गया है भाई
+    function openBOMModal(idx) {
+        currentViewingBOMObj = savedBOMs[idx];
+        if(!currentViewingBOMObj) return;
+
+        document.getElementById('viewModalMainCode').innerText = currentViewingBOMObj.mainCode;
+        document.getElementById('viewModalMainName').innerText = currentViewingBOMObj.mainName;
+        document.getElementById('viewModalSearchField').value = ""; 
+
+        filterInnerBOMGrid(); 
+        document.getElementById('viewBOMModal').style.display = 'flex';
+    }
+
+    function closeBOMModal() {
+        document.getElementById('viewBOMModal').style.display = 'none';
+        currentViewingBOMObj = null;
+    }
+
+    function filterInnerBOMGrid() {
+        if(!currentViewingBOMObj) return;
+        const tbody = document.getElementById('viewModalTableBody'); tbody.innerHTML = '';
+        const searchKeyword = document.getElementById('viewModalSearchField').value.trim().toUpperCase();
+
+        let accessoriesList = currentViewingBOMObj.accessories || [];
+        let filteredAccs = accessoriesList.filter(a => {
+            return (a.code || '').toUpperCase().includes(searchKeyword) || (a.name || '').toUpperCase().includes(searchKeyword);
+        });
+
+        if(filteredAccs.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#ef4444; font-weight:bold; padding:10px;">❌ No component matching "${searchKeyword}" found in this BOM!</td></tr>`;
+            return;
+        }
+
+        filteredAccs.forEach((a, index) => {
+            tbody.innerHTML += `<tr>
+                <td style="text-align:center;">${index + 1}</td>
+                <td><code>${a.code}</code></td>
+                <td><b>${a.name}</b></td>
+                <td style="text-align:center; font-weight:bold; color:#1e3a8a;">${a.qty}</td>
+                <td style="text-align:center; font-weight:bold; color:#0d9488;">${a.unit || 'NOS'}</td>
+            </tr>`;
+        });
+    }
+
     function editBOMFormula(idx) {
         const targetBOM = savedBOMs[idx];
         if(!targetBOM) return;
@@ -438,44 +482,6 @@
                 });
             }
         } else if (passwordInput !== null) { alert("❌ Access Denied: Incorrect Password!"); }
-    }
-
-    function triggerPrintBOM(bom) {
-        const shell = document.getElementById('printSection');
-        let lines = '';
-        if(bom.accessories) {
-            bom.accessories.forEach((a, index) => {
-                lines += `<tr>
-                    <td style="border:1px solid #000; padding:4px; text-align:center;">${index+1}</td>
-                    <td style="border:1px solid #000; padding:4px;"><b>${a.code}</b></td>
-                    <td style="border:1px solid #000; padding:4px;">${a.name || 'Component Item'}</td>
-                    <td style="border:1px solid #000; padding:4px; text-align:center; font-weight:bold;">${a.qty}</td>
-                    <td style="border:1px solid #000; padding:4px; text-align:center;">${a.unit || 'NOS'}</td>
-                </tr>`;
-            });
-        }
-        shell.innerHTML = `
-            <div style="border:2px solid #000; padding:10px; box-sizing:border-box;">
-                <div style="text-align:center; font-weight:bold; font-size:14px; border-bottom:2px solid #000; padding-bottom:5px;">GVM RAIL PVT LTD - BOM KITTING SLIP</div>
-                <div style="margin: 8px 0; font-size:12px;">
-                    <b>Main Product Code:</b> ${bom.mainCode} <br>
-                    <b>Main Product Name:</b> ${bom.mainName}
-                </div>
-                <table style="width:100%; border-collapse:collapse; font-size:11px; margin-top:5px;">
-                    <thead>
-                        <tr style="background:#f2f2f2;">
-                            <th style="border:1px solid #000; padding:4px; width:8%;">S.N</th>
-                            <th style="border:1px solid #000; padding:4px; text-align:left; width:22%;">Item Code</th>
-                            <th style="border:1px solid #000; padding:4px; text-align:left; width:45%;">Item Description / Name</th>
-                            <th style="border:1px solid #000; padding:4px; width:12%;">Qty Req.</th>
-                            <th style="border:1px solid #000; padding:4px; width:13%;">Unit Type</th>
-                        </tr>
-                    </thead>
-                    <tbody>${lines}</tbody>
-                </table>
-                <div style="text-align:right; font-weight:bold; margin-top:20px; font-size:10px;">Authorized Testing Controller</div>
-            </div>`;
-        window.print();
     }
 
     function exportSingleBOMToExcel(bom) {
