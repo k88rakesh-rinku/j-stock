@@ -418,7 +418,7 @@
         });
     }
 
-    // 🌟 4. VIEW POPUP HISTORY ENGINE (Flipped/Fixed Fields For Date & Refs)
+    // 🌟 4. VIEW POPUP HISTORY ENGINE
     let currentActiveModalCode = "";
     let currentActiveModalPool = "";
 
@@ -435,7 +435,6 @@
         if(poolType === 'FRESH') {
             inboundVouchers.forEach(v => {
                 if(!v) return;
-                // यहाँ सारे संभावित फ़ील्ड्स चेक कर रहे हैं ताकि डेट या वेंडर मिस न हो
                 let billDate = v.gateInDate || v.billDate || v.date || "-";
                 let refNo = v.billNo || v.invoiceNo || v.gateInNo || "-";
                 let vName = v.companyName || v.vendorName || v.supplier || "-";
@@ -504,58 +503,136 @@
 
     function closeHistoryModal() { document.getElementById('itemHistoryModal').style.display = 'none'; }
 
-    // 📊 SINGLE ITEM STATEMENT CSV DOWNLOADER 
+    // 🚀 🌟 जादुई स्क्रीनशॉट मैच डाउनलोडर इंजन (image_a5a825.png के हुबहू लेआउट में) 🌟 🚀
     function exportModalStatementToCSV() {
         let csvRows = [];
-        csvRows.push([`"Statement Report For Code: ${currentActiveModalCode} (${currentActiveModalPool} Pool)"`].join(","));
-        csvRows.push([]); // ब्लैंक लाइन
-
-        // --- INWARD SECTION ---
-        csvRows.push(['"INWARD LOGS"'].join(","));
-        csvRows.push(['"Date"', '"Ref / Voucher No"', '"Source Party / Vendor"', '"Pool Type"', '"Quantity Received"'].join(","));
         
-        const inRows = document.querySelectorAll("#modalInwardTableBody tr");
-        inRows.forEach(row => {
-            let cols = row.querySelectorAll("td");
-            if(cols.length > 1) {
-                let rData = Array.from(cols).map(c => '"' + c.innerText.replace(/"/g, '""') + '"');
-                csvRows.push(rData.join(","));
-            } else {
-                csvRows.push(['"' + row.innerText + '"'].join(","));
+        // डेटाबेस से आइटम का नाम और पार्टी (वेंडर) ढूंढना
+        let matchedItemName = "GENERIC ITEM";
+        let matchedParties = [];
+
+        // 1. नाम ढूंढें
+        catalogFlatList.forEach(c => {
+            if(c && cleanStr(c.code) === currentActiveModalCode) {
+                matchedItemName = c.name;
             }
         });
 
-        csvRows.push([]); // ब्लैंक लाइन
-
-        // --- OUTWARD SECTION ---
-        csvRows.push(['"OUTWARD LOGS"'].join(","));
-        csvRows.push(['"Date"', '"Voucher No / Doc Ref"', '"Destination / Location"', '"Pool Type"', '"Quantity Deducted"'].join(","));
+        // 2. इस पार्ट से जुड़े सारे वेंडर ढूंढें
+        if(currentActiveModalPool === 'FRESH') {
+            inboundVouchers.forEach(v => {
+                if(!v) return;
+                let vName = v.companyName || v.vendorName || v.supplier;
+                if(vName) {
+                    safeConvertToArray(v.gridItems).forEach(item => {
+                        if(item && cleanStr(item.modelCode) === currentActiveModalCode) {
+                            let cleanVendor = vName.trim().toUpperCase();
+                            if(!matchedParties.includes(cleanVendor)) matchedParties.push(cleanVendor);
+                        }
+                    });
+                }
+            });
+        }
         
-        const outRows = document.querySelectorAll("#modalOutwardTableBody tr");
-        outRows.forEach(row => {
-            let cols = row.querySelectorAll("td");
-            if(cols.length > 1) {
-                let rData = Array.from(cols).map(c => '"' + c.innerText.replace(/"/g, '""') + '"');
-                csvRows.push(rData.join(","));
-            } else {
-                csvRows.push(['"' + row.innerText + '"'].join(","));
+        reworkInboundVouchers.forEach(v => {
+            if(!v) return;
+            let pName = v.partyName || v.clientName;
+            if(pName) {
+                safeConvertToArray(v.gridItems).forEach(item => {
+                    let itemCode = cleanStr(item.itemShort || item.modelCode || item.code);
+                    let rowPool = cleanStr(item.pool || 'REWORK');
+                    if(itemCode === currentActiveModalCode && rowPool === currentActiveModalPool) {
+                        let cleanParty = pName.trim().toUpperCase();
+                        if(!matchedParties.includes(cleanParty)) matchedParties.push(cleanParty);
+                    }
+                });
             }
         });
 
+        let finalPartyString = matchedParties.length > 0 ? matchedParties.join(" / ") : "-";
+
+        // 📋 स्क्रीनशॉट के मुताबिक टॉप हेडर ब्लॉक डिज़ाइन करना भाई
+        csvRows.push([`"Item Code:",,,"${currentActiveModalCode}"`].join(","));
+        csvRows.push([`"Item Name:",,,"${matchedItemName.toUpperCase().replace(/"/g, '""')}"`].join(","));
+        csvRows.push([`"Party Name:",,,"${finalPartyString.replace(/"/g, '""')}"`].join(","));
+        csvRows.push([]); // स्पेस के लिए खाली लाइन
+
+        // 📥 टेबल का हेडर (आपके स्क्रीनशॉट के कॉलम के नाम)
+        csvRows.push(['"Gate Id"', '"Gate in Date"', '"Bill No"', '"Bill Qty"', '"Bill Date"'].join(","));
+        
+        // 📥 डेटाबेस से रिकॉर्ड्स को निकाल कर स्क्रीनशॉट की टेबल के हिसाब से अरेंज करना
+        if(currentActiveModalPool === 'FRESH') {
+            inboundVouchers.forEach((v, index) => {
+                if(!v) return;
+                let billDate = v.billDate || "-";
+                let gateInDate = v.gateInDate || v.date || "-";
+                let refNo = v.billNo || v.invoiceNo || "-";
+                let gateId = v.gateInNo || `G-${1000 + index}`; // अगर Gate ID न हो तो टेम्परेरी बनाना
+
+                safeConvertToArray(v.gridItems).forEach(item => {
+                    if(item && cleanStr(item.modelCode) === currentActiveModalCode) {
+                        let qty = item.qty || item.receiveQty || 0;
+                        let unit = cleanStr(item.unit || "NOS");
+                        
+                        let rData = [
+                            '"' + gateId + '"',
+                            '"' + gateInDate + '"',
+                            '"' + refNo + '"',
+                            '"' + qty + ' ' + unit + '"',
+                            '"' + billDate + '"'
+                        ];
+                        csvRows.push(rData.join(","));
+                    }
+                });
+            });
+        } else {
+            // रीवर्क पूल के लिए डेटा अरेंजमेंट
+            reworkInboundVouchers.forEach((v, index) => {
+                if(!v) return;
+                let gateInDate = v.date || "-";
+                let refNo = v.gateEntryNo || v.challanNo || "-";
+                let gateId = v.gateEntryNo || `GP-${2000 + index}`;
+
+                safeConvertToArray(v.gridItems).forEach(item => {
+                    let itemCode = cleanStr(item.itemShort || item.modelCode || item.code);
+                    let rowPool = cleanStr(item.pool || 'REWORK');
+                    if(itemCode === currentActiveModalCode && rowPool === currentActiveModalPool) {
+                        let qty = item.qty || item.receiveQty || 0;
+                        let unit = cleanStr(item.unit || "NOS");
+                        
+                        let rData = [
+                            '"' + gateId + '"',
+                            '"' + gateInDate + '"',
+                            '"' + refNo + '"',
+                            '"' + qty + ' ' + unit + '"',
+                            '"' + gateInDate + '"'
+                        ];
+                        csvRows.push(rData.join(","));
+                    }
+                });
+            });
+        }
+
+        // अगर नीचे कोई एंट्री न मिले तो खाली मैसेज रो डालना
+        if(csvRows.length === 5) {
+            csvRows.push(['"No transactions found for this item in database."', '""', '""', '""', '""'].join(","));
+        }
+
+        // एक्सेल में फाइल जनरेट करके डाउनलोड करना
         const csvContent = "\uFEFF" + csvRows.join("\n");
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         
         const link = document.createElement("a");
         link.setAttribute("href", url);
-        link.setAttribute("download", `Statement_${currentActiveModalCode}_${currentActiveModalPool}.csv`);
+        link.setAttribute("download", `Statement_${currentActiveModalCode}.csv`);
         link.style.visibility = 'hidden';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
     }
 
-    // 🚀 GLOBAL TABLES EXPORTER ENGINE
+    // GLOBAL EXPORTERS
     function downloadTableToCSV(tableId, filename) {
         const table = document.getElementById(tableId);
         if(!table) return;
@@ -566,56 +643,4 @@
             const cols = rows[i].querySelectorAll("th, td");
             for (let j = 0; j < cols.length; j++) {
                 if((tableId === "freshStockTableHead" || tableId === "reworkStockTableHead") && j === cols.length - 1) continue; 
-                let cellText = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, "").trim().replace(/"/g, '""');
-                rowData.push('景色' + cellText + '"');
-                rowData[rowData.length - 1] = '"' + cellText + '"';
-            }
-            csvRows.push(rowData.join(","));
-        }
-        const csvContent = "\uFEFF" + csvRows.join("\n");
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.setAttribute("href", url);
-        link.setAttribute("download", filename);
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    }
-
-    function exportPoLedgerToExcel() { downloadTableToCSV("poLedgerTableHead", "PO_Matrix_Ledger_Report.csv"); }
-    function exportReworkStockToExcel() { downloadTableToCSV("reworkStockTableHead", "Live_Rework_Inventory_Report.csv"); }
-    
-    function exportPhysicalStockToExcel() { 
-        if (inboundVouchers.length === 0) { alert("डेटाबेस में कोई रिकॉर्ड नहीं मिला!"); return; }
-        let csvRows = [];
-        csvRows.push(['"Inward Date"', '"Bill No / Ref"', '"Vendor / Company Name"', '"Model Part Code"', '"Item Description"', '"Received Qty"', '"Unit"'].join(","));
-        inboundVouchers.forEach(v => {
-            if (!v) return;
-            let billDate = v.gateInDate || v.billDate || v.date || "-";
-            let billNo = (v.billNo || v.invoiceNo || "-").replace(/"/g, '""');
-            let vendorName = (v.companyName || v.vendorName || "-").replace(/"/g, '""');
-            safeConvertToArray(v.gridItems).forEach(item => {
-                if (!item) return;
-                let pCode = cleanStr(item.modelCode || "-");
-                let pName = String(item.modelName || "GENERIC ITEM").toUpperCase().replace(/"/g, '""');
-                let qty = item.qty || item.receiveQty || item.quantity || 0;
-                let unit = cleanStr(item.unit || "NOS");
-                csvRows.push(['"' + billDate + '"', '"' + billNo + '"', '"' + vendorName + '"', '"' + pCode + '"', '"' + pName + '"', '"' + qty + '"', '"' + unit + '"'].join(","));
-            });
-        });
-        const csvContent = "\uFEFF" + csvRows.join("\n");
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.setAttribute("href", url);
-        link.setAttribute("download", "Detailed_Fresh_Inward_Bill_Report.csv");
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    }
-</script>
-</body>
-</html>
+                let cellText = cols[j].innerText.replace(/(\r\n|\n
