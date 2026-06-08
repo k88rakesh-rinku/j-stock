@@ -22,6 +22,11 @@ body {
     -webkit-font-smoothing: antialiased;
 }
 
+/* 🌟 नया जोड़ा: स्मूथ स्क्रॉलिंग इफेक्ट ताकि ऊपर जाते समय पेज झटका न मारे */
+html {
+    scroll-behavior: smooth;
+}
+
 .container { 
     max-width: 100%; 
     margin: 0 auto; 
@@ -87,12 +92,14 @@ body {
     border-radius: 6px; 
     background-color: #e2e8f0; 
     color: #475569; 
+    position: relative;
     transition: var(--transition); 
 }
 .tab-link:hover {
     background-color: #cbd5e1;
     color: var(--primary-dark);
 }
+
 /* सभी एक्टिव टैब का रंग अब एक जैसा ब्लू और प्रीमियम रहेगा */
 .tab-link.active-fresh, 
 .tab-link.active-rework, 
@@ -100,10 +107,24 @@ body {
 .tab-link.active-debit, 
 .tab-link.active-code, 
 .tab-link.active-users,
-.tab-link.active-production { 
+.tab-link.active-production,
+.tab-link.active-code { 
     background-color: var(--primary); 
     color: white; 
     box-shadow: 0 4px 10px rgba(30, 58, 138, 0.25);
+}
+
+/* 🌟 नया जोड़ा: एक्टिव टैब के नीचे चमकीला डायनामिक पल्स ग्लो इफ़ेक्ट */
+.tab-link[class*="active-"]::after {
+    content: '';
+    position: absolute;
+    bottom: -15px;
+    left: 15%;
+    width: 70%;
+    height: 4px;
+    background-color: var(--primary-light);
+    border-radius: 4px;
+    box-shadow: 0 0 8px var(--primary-light);
 }
 
 /* 📝 Form Layouts with Focus Glow Effect */
@@ -137,7 +158,6 @@ body {
     color: #1e293b; 
     transition: var(--transition);
 }
-/* 🌟 नया जोड़ा: डिब्बों पर क्लिक करते ही ग्लोइंग इफेक्ट */
 .form-group input:focus, .form-group select:focus {
     outline: none;
     border-color: var(--border-focus);
@@ -246,7 +266,6 @@ body {
     font-size: 14px; 
     color: #334155;
 }
-/* 🌟 नया जोड़ा: माउस ले जाते ही रो चमकने लगेगी */
 .history-table tbody tr:hover, .grid-table tbody tr:hover {
     background-color: #f1f5f9;
     transition: background-color 0.1s ease;
@@ -265,7 +284,7 @@ body {
     border-color: var(--border-focus);
 }
 
-/* 🛑 PURE ERROR STYLING - लाल रंग सिर्फ यहाँ दिखेगा */
+/* 🛑 PURE ERROR STYLING */
 .error-message { 
     grid-column: 1 / -1; 
     background-color: var(--error-bg); 
@@ -301,7 +320,7 @@ body {
 }
 .btn-delete:hover { background-color: #bd2130; }
 
-/* 🔐 Login Wrapper Styling - Premium Minimal Layout */
+/* 🔐 Login Wrapper Styling */
 .login-wrapper { 
     max-width: 360px; 
     margin: 100px auto; 
@@ -336,7 +355,7 @@ body {
 }
 .login-btn:hover { background-color: var(--primary-dark); }
 
-/* 📥 Modals Framework - Popups Soft Layer */
+/* 📥 Modals Framework */
 .sn-modal { 
     display: none; 
     position: fixed; 
@@ -374,6 +393,37 @@ body {
 .component-header { font-weight: bold; font-size: 11px; color: #475569; text-align: center; background: #e2e8f0; padding: 6px 0; border-radius: 4px;}
 .view-sn-link { color: var(--primary-light); text-decoration: none; cursor: pointer; font-weight: bold; font-size: 12px; transition: var(--transition); }
 .view-sn-link:hover { color: var(--primary-dark); text-decoration: underline; }
+
+/* 🌟 नया जोड़ा: हवा में तैरता हुआ 'स्मार्ट गो-टू-टॉप' बटन (Pure CSS Back-To-Top Hack) */
+body::after {
+    content: '↑';
+    position: fixed;
+    bottom: 25px;
+    right: 25px;
+    width: 45px;
+    height: 45px;
+    background-color: var(--primary);
+    color: white;
+    font-size: 22px;
+    font-weight: bold;
+    text-align: center;
+    line-height: 42px;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(15, 23, 42, 0.3);
+    z-index: 9999;
+    transition: var(--transition);
+    opacity: 0.8;
+}
+body:hover::after {
+    opacity: 1;
+    background-color: var(--primary-light);
+    transform: translateY(-3px);
+}
+/* बटन पर क्लिक करने के लिए स्क्रीन को टॉप एंकर पर ले जाना */
+body:active::after {
+    transform: translateY(0);
+}
 
 @media print {
     body * { visibility: hidden; }
