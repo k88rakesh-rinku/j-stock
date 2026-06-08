@@ -258,6 +258,7 @@
     let tempGridItems = [];
     let lastActiveFocusedInputId = "companyName";
     let activeDeleteRowIdx = null; 
+    let isInternallyUpdatingPO = false; // 🌟 जोड़ा: मोमेंट्री लॉक ताकि फ़िल्टर रेंडर डिस्टर्ब न हो भाई
 
     database.ref('systemMasterCatalogFlat').on('value', (snapshot) => {
         flatPOList = [];
@@ -267,7 +268,7 @@
                 flatPOList.push({ fbKey: key, ...data[key] });
             }
         }
-        fetchPurchasePOOptions();
+        if(!isInternallyUpdatingPO) { fetchPurchasePOOptions(); }
     });
 
     database.ref('freshStockVouchers').on('value', (snapshot) => {
@@ -289,9 +290,8 @@
         selectBox.innerHTML = '<option value="WITHOUT PO">WITHOUT PO (NO PO LINKED)</option>';
 
         let validPOs = filteredPOs.filter(p => {
-            // 🌟 सुधार 1: यहाँ p.hasPO === "NO" को चेक करने के साथ-साथ यह पक्का किया कि असली PO फ़िल्टर न हों
             if(p.hasPO === "NO" || !p.poNumber || p.poNumber === "-") return false;
-            if(p.poType !== "PURCHASE") return false; // सिर्फ परचेज PO फ्रेश इनवर्ड में लोड होंगे
+            if(p.poType !== "PURCHASE") return false; 
             
             let poNum = p.poNumber.trim().toUpperCase();
             let pCode = p.code.trim().toUpperCase();
@@ -325,13 +325,13 @@
     }
 
     function fetchPurchasePOOptions() {
+        if(isInternallyUpdatingPO) return; // 🌟 सुरक्षा कवर: एडिट ट्रिगर के समय ऑटो-एग्जीक्यूशन ब्लॉक रहेगा
         const compName = document.getElementById('companyName').value.trim().toUpperCase();
         if(!compName) { 
             document.getElementById('poNo').innerHTML = '<option value="WITHOUT PO">WITHOUT PO (NO PO LINKED)</option>'; 
             return; 
         }
         
-        // 🌟 सुधार 2: यहाँ x.companyName की जगह x.company कर दिया है ताकि code.html के डेटाबेस नोड से सटीक मैच हो सके!
         let matches = flatPOList.filter(x => x.company === compName);
         updatePODropdownOptions(matches);
     }
@@ -379,7 +379,7 @@
         document.getElementById('gridModelCode').focus();
     }
 
-    function removeTempRow(index) { tempAccItems.splice(index, 1); renderTempGrid(); }
+    function removeTempRow(index) { tempGridItems.splice(index, 1); renderTempGrid(); }
 
     function editTempRow(index) {
         let item = tempGridItems[index];
@@ -553,6 +553,10 @@
 
     function editFreshRow(idx) {
         const d = stockData[idx]; 
+        
+        // 🌟 महा सुधार गियर: फ़िल्टर सिंक लॉक ऑन ताकि इतिहास टेबल गायब न हो भाई
+        isInternallyUpdatingPO = true; 
+
         document.getElementById('editRowIndex').value = idx;
         document.getElementById('editFirebaseKey').value = d.fbKey;
         document.getElementById('companyName').value = d.companyName; 
@@ -571,10 +575,15 @@
 
         document.getElementById('btnSubmitForm').innerText = "Update Entire Material Inward Bill";
         document.getElementById('btnCancelEdit').style.display = "inline-block";
+        
+        // 🌟 सुरक्षा गियर जारी: रेंडरिंग खत्म होने के बाद लॉक रिलीज़
+        setTimeout(() => { isInternallyUpdatingPO = false; }, 100);
+
         document.getElementById('stockForm').scrollIntoView({ behavior: 'smooth' });
     }
 
     function cancelEditMode() {
+        isInternallyUpdatingPO = false; // सेफ्टी लॉक रिलीज
         document.getElementById('editRowIndex').value = "-1"; 
         document.getElementById('editFirebaseKey').value = ""; 
         document.getElementById('stockForm').reset(); 
@@ -593,6 +602,8 @@
         document.getElementById('secretPasswordModal').style.display = "flex";
         document.getElementById('secretModalPasswordField').focus();
     }
+
+    // बाकी कोड को बिना टच किए वैसे ही सुरक्षित रखा है भाई
 
     function closeSecretPasswordModal() {
         document.getElementById('secretPasswordModal').style.display = "none";
