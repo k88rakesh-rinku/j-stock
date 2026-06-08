@@ -103,7 +103,7 @@
         </div>
 
         <div class="table-responsive">
-            <table class="history-table">
+            <table class="history-table" id="poLedgerTableHead">
                 <thead style="background-color: #334155; color: white;">
                     <tr>
                         <th>PO No</th><th>Model Code</th><th>Item Name</th><th>Total PO Qty</th>
@@ -135,7 +135,7 @@
         </div>
 
         <div class="table-responsive">
-            <table class="history-table">
+            <table class="history-table" id="freshStockTableHead">
                 <thead style="background-color: #1e3a8a; color: white;">
                     <tr>
                         <th>Model Part Code</th><th>Description / Item Name</th>
@@ -167,7 +167,7 @@
         </div>
 
         <div class="table-responsive">
-            <table class="history-table">
+            <table class="history-table" id="reworkStockTableHead">
                 <thead style="background-color: #0369a1; color: white;">
                     <tr>
                         <th>Model Part Code</th><th>Description / Item Name</th>
@@ -498,9 +498,64 @@
     }
 
     function closeHistoryModal() { document.getElementById('itemHistoryModal').style.display = 'none'; }
-    function exportPoLedgerToExcel() { alert("PO Matrix CSV Generated Successfully."); }
-    function exportPhysicalStockToExcel() { alert("Live Fresh Stock CSV Generated Successfully."); }
-    function exportReworkStockToExcel() { alert("Live Rework Stock CSV Generated Successfully."); }
+
+    // 🚀 🌟 जादुई डाउनलोडर इंजन (HTML Table to Real Excel CSV) 🌟 🚀
+    function downloadTableToCSV(tableId, filename) {
+        const table = document.getElementById(tableId);
+        if(!table) return;
+
+        let csvRows = [];
+        const rows = table.querySelectorAll("tr");
+        
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            let rowData = [];
+            
+            // th और td दोनों का डेटा उठाना, लेकिन आख़िरी "Action" कॉलम छोड़ देना (अगर है तो)
+            const cols = row.querySelectorAll("th, td");
+            
+            for (let j = 0; j < cols.length; j++) {
+                // अगर Fresh या Rework स्टॉक टेबल है, तो आख़िरी "Action" (👁️ View) कॉलम एक्सेल में नहीं भेजेंगे
+                if((tableId === "freshStockTableHead" || tableId === "reworkStockTableHead") && j === cols.length - 1) {
+                    continue; 
+                }
+                
+                // डेटा को साफ़ करना ताकि कोमा (,) से एक्सेल की सेल ख़राब न हो
+                let cellText = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, "").trim();
+                cellText = cellText.replace(/"/g, '""'); // डबल कोट्स फिक्स
+                
+                rowData.push('"' + cellText + '"');
+            }
+            csvRows.push(rowData.join(","));
+        }
+
+        // BOM (Byte Order Mark) जोड़ना ताकि एक्सेल में हिंदी/स्पेशल करैक्टर सही दिखें
+        const csvContent = "\uFEFF" + csvRows.join("\n");
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        
+        // सीक्रेट लिंक बनाकर डाउनलोड ट्रिगर करना
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", filename);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    // तीनों बटनों के असली फ़ंक्शंस जो डाउनलोड चालू करेंगे
+    function exportPoLedgerToExcel() { 
+        downloadTableToCSV("poLedgerTableHead", "PO_Matrix_Ledger_Report.csv");
+    }
+    
+    function exportPhysicalStockToExcel() { 
+        downloadTableToCSV("freshStockTableHead", "Live_Fresh_Stock_Report.csv");
+    }
+    
+    function exportReworkStockToExcel() { 
+        downloadTableToCSV("reworkStockTableHead", "Live_Rework_Inventory_Report.csv");
+    }
 </script>
 </body>
 </html>
