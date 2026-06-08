@@ -36,18 +36,18 @@
         .badge-zero { background: #fee2e2; color: #b91c1c; }
         .btn-excel { background: #16a34a; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; }
         
-        /* 👁️ View एक्शन बटन की स्टाइल */
         .btn-view-action { background-color: #64748b; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; }
         .btn-view-action:hover { background-color: #475569; }
 
-        /* 🌟 इतिहास देखने के लिए सुंदर पॉपअप (Modal) सीएसएस स्टाइल */
+        /* 🌟 History Modal Styling */
         .history-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 10000; }
-        .history-modal-content { background: white; padding: 20px; border-radius: 8px; width: 750px; max-width: 90%; max-height: 85vh; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+        .history-modal-content { background: white; padding: 20px; border-radius: 8px; width: 800px; max-width: 95%; max-height: 85vh; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
         .modal-header-title { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 15px; }
         .modal-close-btn { background: #ef4444; color: white; border: none; padding: 5px 12px; font-weight: bold; border-radius: 4px; cursor: pointer; }
-        .sub-modal-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .sub-modal-table { width: 100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 15px; }
         .sub-modal-table th { background: #475569; color: white; padding: 8px; font-size: 12px; text-align: left; }
         .sub-modal-table td { padding: 8px; border: 1px solid #e2e8f0; font-size: 12px; }
+        .btn-modal-download { background: #0284c7; color: white; border: none; padding: 6px 12px; font-size: 12px; border-radius: 4px; font-weight: bold; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -184,18 +184,21 @@
     <div class="history-modal-content">
         <div class="modal-header-title">
             <h3 id="modalItemTitle" style="margin:0; color:#1e3a8a;">📋 Item Lifecycle Statement</h3>
-            <button class="modal-close-btn" onclick="closeHistoryModal()">X Close</button>
+            <div>
+                <button class="btn-modal-download" id="btnModalDownloadCSV" onclick="exportModalStatementToCSV()">📥 Download Statement</button>
+                <button class="modal-close-btn" onclick="closeHistoryModal()" style="margin-left:10px;">X Close</button>
+            </div>
         </div>
         <div style="margin-bottom:15px;"><b style="color:#475569;">Part Code:</b> <code id="modalPartCodeLabel" style="font-size:14px;">-</code></div>
         
         <h4 style="color:#16a34a; margin: 10px 0 5px 0;">📥 Inward Logs (Store Received History)</h4>
-        <table class="sub-modal-table">
+        <table class="sub-modal-table" id="modalInwardTable">
             <thead><tr><th>Date</th><th>Ref No / Bill Ref</th><th>Source Party</th><th>Type Pool</th><th>Qty Received</th></tr></thead>
             <tbody id="modalInwardTableBody"></tbody>
         </table>
 
         <h4 style="color:#ef4444; margin: 20px 0 5px 0;">📤 Outward Logs (Store Dispatched / BOM Deducted History)</h4>
-        <table class="sub-modal-table">
+        <table class="sub-modal-table" id="modalOutwardTable">
             <thead><tr><th>Date</th><th>Voucher No / Doc Ref</th><th>Destination Location</th><th>Type Pool</th><th>Qty Deducted</th></tr></thead>
             <tbody id="modalOutwardTableBody"></tbody>
         </table>
@@ -238,7 +241,7 @@
 
     function calculateMasterLogic() { renderPoLedgerTable(); renderPhysicalStockTable(); renderReworkStockTable(); }
 
-    // 1. PO LEDGER TABLE RENDERER
+    // 1. PO LEDGER TABLE
     function renderPoLedgerTable() {
         const tbody = document.getElementById('poLedgerItemsBody'); tbody.innerHTML = '';
         if (catalogFlatList.length === 0) return;
@@ -246,23 +249,17 @@
         const poFilter = document.getElementById('poStatusDropdown').value;
         const limitVal = document.getElementById('poLimitDropdown').value;
 
-        let poSummaryMap = {};
-        let poDateMap = {};
+        let poSummaryMap = {}; let poDateMap = {};
 
         inboundVouchers.forEach(v => {
             if(!v) return;
             let currentPoNo = v.poNo ? cleanStr(v.poNo) : "";
-            let entryDate = v.gateInDate || v.billDate || "";
+            let entryDate = v.gateInDate || v.billDate || v.date || "";
             safeConvertToArray(v.gridItems).forEach(item => {
                 if(!item || !item.modelCode) return;
                 let key = currentPoNo + "|||" + cleanStr(item.modelCode);
-                poSummaryMap[key] = (poSummaryMap[key] || 0) + parseInt(item.qty || item.receiveQty || 0);
-                
-                if (entryDate) {
-                    if (!poDateMap[key] || entryDate > poDateMap[key]) {
-                        poDateMap[key] = entryDate;
-                    }
-                }
+                poSummaryMap[key] = (poSummaryMap[key] || 0) + parseInt(item.qty || item.receiveQty || item.quantity || 0);
+                if (entryDate && (!poDateMap[key] || entryDate > poDateMap[key])) poDateMap[key] = entryDate;
             });
         });
 
@@ -297,21 +294,17 @@
         const searchStr = document.getElementById('stockSearchBox').value.trim().toUpperCase();
         const limitVal = document.getElementById('stockLimitDropdown').value;
 
-        let globalFreshInMap = {}; let itemNamesMap = {}; let itemUnitsMap = {};
-        let freshDateMap = {};
+        let globalFreshInMap = {}; let itemNamesMap = {}; let itemUnitsMap = {}; let freshDateMap = {};
 
         inboundVouchers.forEach(v => {
-            let entryDate = v.gateInDate || v.billDate || "";
+            let entryDate = v.gateInDate || v.billDate || v.date || "";
             safeConvertToArray(v.gridItems).forEach(item => {
                 if(!item || !item.modelCode) return;
                 let code = cleanStr(item.modelCode);
-                globalFreshInMap[code] = (globalFreshInMap[code] || 0) + parseInt(item.qty || item.receiveQty || 0);
+                globalFreshInMap[code] = (globalFreshInMap[code] || 0) + parseInt(item.qty || item.receiveQty || item.quantity || 0);
                 itemNamesMap[code] = String(item.modelName || '').toUpperCase();
                 itemUnitsMap[code] = cleanStr(item.unit || 'NOS');
-                
-                if (entryDate && (!freshDateMap[code] || entryDate > freshDateMap[code])) {
-                    freshDateMap[code] = entryDate;
-                }
+                if (entryDate && (!freshDateMap[code] || entryDate > freshDateMap[code])) freshDateMap[code] = entryDate;
             });
         });
 
@@ -321,10 +314,8 @@
                 if(!item) return;
                 let code = cleanStr(item.itemShort || item.modelCode || item.code);
                 if(cleanStr(item.pool) === "FRESH") {
-                    globalFreshInMap[code] = (globalFreshInMap[code] || 0) + parseInt(item.qty || item.receiveQty || 0);
-                    if (entryDate && (!freshDateMap[code] || entryDate > freshDateMap[code])) {
-                        freshDateMap[code] = entryDate;
-                    }
+                    globalFreshInMap[code] = (globalFreshInMap[code] || 0) + parseInt(item.qty || item.receiveQty || item.quantity || 0);
+                    if (entryDate && (!freshDateMap[code] || entryDate > freshDateMap[code])) freshDateMap[code] = entryDate;
                 }
                 if(item.itemName || item.modelName) itemNamesMap[code] = String(item.itemName || item.modelName).toUpperCase();
                 if(item.unit) itemUnitsMap[code] = cleanStr(item.unit);
@@ -339,9 +330,7 @@
                 let mainCode = cleanStr(item.code); let mainQty = parseInt(item.qty || 0);
                 if(item.pool === 'FRESH') {
                     globalFreshOutMap[mainCode] = (globalFreshOutMap[mainCode] || 0) + mainQty;
-                    if (entryDate && (!freshDateMap[mainCode] || entryDate > freshDateMap[mainCode])) {
-                        freshDateMap[mainCode] = entryDate;
-                    }
+                    if (entryDate && (!freshDateMap[mainCode] || entryDate > freshDateMap[mainCode])) freshDateMap[mainCode] = entryDate;
                     
                     let targetBOM = bomFormulaList.find(b => b && cleanStr(b.mainCode) === mainCode);
                     if(targetBOM) {
@@ -349,9 +338,7 @@
                             if(acc && acc.code) {
                                 let accCode = cleanStr(acc.code);
                                 globalFreshOutMap[accCode] = (globalFreshOutMap[accCode] || 0) + (parseInt(acc.qty || 0) * mainQty);
-                                if (entryDate && (!freshDateMap[accCode] || entryDate > freshDateMap[accCode])) {
-                                    freshDateMap[accCode] = entryDate;
-                                }
+                                if (entryDate && (!freshDateMap[accCode] || entryDate > freshDateMap[accCode])) freshDateMap[accCode] = entryDate;
                             }
                         });
                     }
@@ -378,14 +365,13 @@
         });
     }
 
-    // 3. LIVE REWORK STOCK TABLE
+    // 3. REWORK STOCK TABLE
     function renderReworkStockTable() {
         const tbody = document.getElementById('reworkStockBody'); tbody.innerHTML = '';
         const searchStr = document.getElementById('reworkSearchBox').value.trim().toUpperCase();
         const limitVal = document.getElementById('reworkLimitDropdown').value;
 
-        let globalReworkInMap = {}; let itemNamesMap = {}; let itemUnitsMap = {};
-        let reworkDateMap = {};
+        let globalReworkInMap = {}; let itemNamesMap = {}; let itemUnitsMap = {}; let reworkDateMap = {};
 
         reworkInboundVouchers.forEach(v => {
             let entryDate = v.date || "";
@@ -393,13 +379,10 @@
                 if(!item) return;
                 let code = cleanStr(item.itemShort || item.modelCode || item.code);
                 if(cleanStr(item.pool || 'REWORK') === "REWORK") {
-                    globalReworkInMap[code] = (globalReworkInMap[code] || 0) + parseInt(item.qty || item.receiveQty || 0);
+                    globalReworkInMap[code] = (globalReworkInMap[code] || 0) + parseInt(item.qty || item.receiveQty || item.quantity || 0);
                     itemNamesMap[code] = String(item.itemName || item.modelName || '').toUpperCase();
                     itemUnitsMap[code] = cleanStr(item.unit || 'NOS');
-                    
-                    if (entryDate && (!reworkDateMap[code] || entryDate > reworkDateMap[code])) {
-                        reworkDateMap[code] = entryDate;
-                    }
+                    if (entryDate && (!reworkDateMap[code] || entryDate > reworkDateMap[code])) reworkDateMap[code] = entryDate;
                 }
             });
         });
@@ -411,10 +394,7 @@
                 if(item && item.code && item.pool === 'REWORK') {
                     let code = cleanStr(item.code);
                     globalReworkOutMap[code] = (globalReworkOutMap[code] || 0) + parseInt(item.qty || 0);
-                    
-                    if (entryDate && (!reworkDateMap[code] || entryDate > reworkDateMap[code])) {
-                        reworkDateMap[code] = entryDate;
-                    }
+                    if (entryDate && (!reworkDateMap[code] || entryDate > reworkDateMap[code])) reworkDateMap[code] = entryDate;
                 }
             });
         });
@@ -438,9 +418,15 @@
         });
     }
 
-    // 🌟 4. महा-इंजन: किसी सिंगल कोड की पूरी जनम कुंडली पॉपअप में लोड करना
+    // 🌟 4. VIEW POPUP HISTORY ENGINE (Flipped/Fixed Fields For Date & Refs)
+    let currentActiveModalCode = "";
+    let currentActiveModalPool = "";
+
     function openItemLifecycleModal(targetCode, poolType) {
         let cleanTarget = cleanStr(targetCode);
+        currentActiveModalCode = cleanTarget;
+        currentActiveModalPool = poolType;
+
         document.getElementById('modalPartCodeLabel').innerText = cleanTarget;
         
         let inBody = document.getElementById('modalInwardTableBody'); inBody.innerHTML = '';
@@ -448,32 +434,52 @@
 
         if(poolType === 'FRESH') {
             inboundVouchers.forEach(v => {
+                if(!v) return;
+                // यहाँ सारे संभावित फ़ील्ड्स चेक कर रहे हैं ताकि डेट या वेंडर मिस न हो
+                let billDate = v.gateInDate || v.billDate || v.date || "-";
+                let refNo = v.billNo || v.invoiceNo || v.gateInNo || "-";
+                let vName = v.companyName || v.vendorName || v.supplier || "-";
+
                 safeConvertToArray(v.gridItems).forEach(item => {
                     if(item && cleanStr(item.modelCode) === cleanTarget) {
-                        inBody.innerHTML += `<tr><td>${v.gateInDate || v.billDate || '-'}</td><td>Bill: ${v.billNo || '-'}</td><td>${v.companyName || '-'}</td><td><span style="color:#16a34a;">FRESH</span></td><td><b>${item.qty || item.receiveQty} ${item.unit || 'NOS'}</b></td></tr>`;
+                        let qty = item.qty || item.receiveQty || item.quantity || 0;
+                        inBody.innerHTML += `<tr><td>${billDate}</td><td>Bill: ${refNo}</td><td>${vName}</td><td><span style="color:#16a34a;">FRESH</span></td><td><b>${qty} ${item.unit || 'NOS'}</b></td></tr>`;
                     }
                 });
             });
         }
 
         reworkInboundVouchers.forEach(v => {
+            if(!v) return;
+            let entryDate = v.date || v.gateInDate || "-";
+            let refNo = v.gateEntryNo || v.gpNo || v.challanNo || "-";
+            let pName = v.partyName || v.clientName || "-";
+
             safeConvertToArray(v.gridItems).forEach(item => {
+                if(!item) return;
                 let itemCode = cleanStr(item.itemShort || item.modelCode || item.code);
                 let rowPool = cleanStr(item.pool || 'REWORK');
                 if(itemCode === cleanTarget && rowPool === poolType) {
-                    inBody.innerHTML += `<tr><td>${v.date || '-'}</td><td>GP Entry: ${v.gateEntryNo || '-'}</td><td>${v.partyName || '-'}</td><td><span style="color:#0369a1;">${rowPool}</span></td><td><b>${item.qty || item.receiveQty} ${item.unit || 'NOS'}</b></td></tr>`;
+                    let qty = item.qty || item.receiveQty || item.quantity || 0;
+                    inBody.innerHTML += `<tr><td>${entryDate}</td><td>GP Entry: ${refNo}</td><td>${pName}</td><td><span style="color:#0369a1;">${rowPool}</span></td><td><b>${qty} ${item.unit || 'NOS'}</b></td></tr>`;
                 }
             });
         });
 
         outwardDispatches.forEach(g => {
+            if(!g) return;
+            let outDate = g.date || "-";
+            let vNo = g.voucherNo || g.gateOutNo || "-";
+            let docType = g.docType || "CHALLAN";
+            let loc = g.deliveryShipping || g.destination || "-";
+
             safeConvertToArray(g.gridItems).forEach(item => {
                 if(!item) return;
                 let mainCode = cleanStr(item.code);
                 let mainQty = parseInt(item.qty || 0);
 
                 if(mainCode === cleanTarget && cleanStr(item.pool || 'FRESH') === poolType) {
-                    outBody.innerHTML += `<tr><td>${g.date || '-'}</td><td>GO-${g.voucherNo} (${g.docType || 'CHALLAN'})</td><td>Loc: ${g.deliveryShipping || '-'}</td><td>${item.pool}</td><td><b>${mainQty} ${item.unit || 'NOS'}</b></td></tr>`;
+                    outBody.innerHTML += `<tr><td>${outDate}</td><td>GO-${vNo} (${docType})</td><td>Loc: ${loc}</td><td>${item.pool}</td><td><b>${mainQty} ${item.unit || 'NOS'}</b></td></tr>`;
                 }
 
                 if(poolType === 'FRESH' && item.pool === 'FRESH') {
@@ -482,7 +488,7 @@
                         safeConvertToArray(targetBOM.accessories).forEach(acc => {
                             if(acc && cleanStr(acc.code) === cleanTarget) {
                                 let totalCut = parseInt(acc.qty) * mainQty;
-                                outBody.innerHTML += `<tr><td>${g.date || '-'}</td><td>BOM Cut (Main: ${mainCode})</td><td>Loc: ${g.deliveryShipping || '-'}</td><td>FRESH (BOM)</td><td style="color:#ef4444;"><b>${totalCut} ${acc.unit || 'NOS'}</b></td></tr>`;
+                                outBody.innerHTML += `<tr><td>${outDate}</td><td>BOM Cut (Main: ${mainCode})</td><td>Loc: ${loc}</td><td>FRESH (BOM)</td><td style="color:#ef4444;"><b>${totalCut} ${acc.unit || 'NOS'}</b></td></tr>`;
                             }
                         });
                     }
@@ -498,36 +504,77 @@
 
     function closeHistoryModal() { document.getElementById('itemHistoryModal').style.display = 'none'; }
 
-    // 🚀 🌟 जादुई डाउनलोडर इंजन (HTML Table to Real Excel CSV) 🌟 🚀
-    function downloadTableToCSV(tableId, filename) {
-        const table = document.getElementById(tableId);
-        if(!table) return;
-
+    // 📊 SINGLE ITEM STATEMENT CSV DOWNLOADER 
+    function exportModalStatementToCSV() {
         let csvRows = [];
-        const rows = table.querySelectorAll("tr");
+        csvRows.push([`"Statement Report For Code: ${currentActiveModalCode} (${currentActiveModalPool} Pool)"`].join(","));
+        csvRows.push([]); // ब्लैंक लाइन
+
+        // --- INWARD SECTION ---
+        csvRows.push(['"INWARD LOGS"'].join(","));
+        csvRows.push(['"Date"', '"Ref / Voucher No"', '"Source Party / Vendor"', '"Pool Type"', '"Quantity Received"'].join(","));
         
-        for (let i = 0; i < rows.length; i++) {
-            const row = rows[i];
-            let rowData = [];
-            const cols = row.querySelectorAll("th, td");
-            
-            for (let j = 0; j < cols.length; j++) {
-                if((tableId === "freshStockTableHead" || tableId === "reworkStockTableHead") && j === cols.length - 1) {
-                    continue; 
-                }
-                
-                let cellText = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, "").trim();
-                cellText = cellText.replace(/"/g, '""');
-                
-                rowData.push('"' + cellText + '"');
+        const inRows = document.querySelectorAll("#modalInwardTableBody tr");
+        inRows.forEach(row => {
+            let cols = row.querySelectorAll("td");
+            if(cols.length > 1) {
+                let rData = Array.from(cols).map(c => '"' + c.innerText.replace(/"/g, '""') + '"');
+                csvRows.push(rData.join(","));
+            } else {
+                csvRows.push(['"' + row.innerText + '"'].join(","));
             }
-            csvRows.push(rowData.join(","));
-        }
+        });
+
+        csvRows.push([]); // ब्लैंक लाइन
+
+        // --- OUTWARD SECTION ---
+        csvRows.push(['"OUTWARD LOGS"'].join(","));
+        csvRows.push(['"Date"', '"Voucher No / Doc Ref"', '"Destination / Location"', '"Pool Type"', '"Quantity Deducted"'].join(","));
+        
+        const outRows = document.querySelectorAll("#modalOutwardTableBody tr");
+        outRows.forEach(row => {
+            let cols = row.querySelectorAll("td");
+            if(cols.length > 1) {
+                let rData = Array.from(cols).map(c => '"' + c.innerText.replace(/"/g, '""') + '"');
+                csvRows.push(rData.join(","));
+            } else {
+                csvRows.push(['"' + row.innerText + '"'].join(","));
+            }
+        });
 
         const csvContent = "\uFEFF" + csvRows.join("\n");
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `Statement_${currentActiveModalCode}_${currentActiveModalPool}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    // 🚀 GLOBAL TABLES EXPORTER ENGINE
+    function downloadTableToCSV(tableId, filename) {
+        const table = document.getElementById(tableId);
+        if(!table) return;
+        let csvRows = [];
+        const rows = table.querySelectorAll("tr");
+        for (let i = 0; i < rows.length; i++) {
+            let rowData = [];
+            const cols = rows[i].querySelectorAll("th, td");
+            for (let j = 0; j < cols.length; j++) {
+                if((tableId === "freshStockTableHead" || tableId === "reworkStockTableHead") && j === cols.length - 1) continue; 
+                let cellText = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, "").trim().replace(/"/g, '""');
+                rowData.push('景色' + cellText + '"');
+                rowData[rowData.length - 1] = '"' + cellText + '"';
+            }
+            csvRows.push(rowData.join(","));
+        }
+        const csvContent = "\uFEFF" + csvRows.join("\n");
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.setAttribute("href", url);
         link.setAttribute("download", filename);
@@ -537,63 +584,30 @@
         document.body.removeChild(link);
     }
 
-    function exportPoLedgerToExcel() { 
-        downloadTableToCSV("poLedgerTableHead", "PO_Matrix_Ledger_Report.csv");
-    }
+    function exportPoLedgerToExcel() { downloadTableToCSV("poLedgerTableHead", "PO_Matrix_Ledger_Report.csv"); }
+    function exportReworkStockToExcel() { downloadTableToCSV("reworkStockTableHead", "Live_Rework_Inventory_Report.csv"); }
     
-    // 🧠 📊 महा-एडवांस फ़ंक्शन: सीधे डेटाबेस से एक-एक बिल की कुंडली निकालना
     function exportPhysicalStockToExcel() { 
-        if (inboundVouchers.length === 0) {
-            alert("डेटाबेस में कोई फ्रेश इनवर्ड रिकॉर्ड नहीं मिला!");
-            return;
-        }
-
+        if (inboundVouchers.length === 0) { alert("डेटाबेस में कोई रिकॉर्ड नहीं मिला!"); return; }
         let csvRows = [];
-        
-        // 1. एक्सेल की हेडर लाइन (कॉलम के नाम)
         csvRows.push(['"Inward Date"', '"Bill No / Ref"', '"Vendor / Company Name"', '"Model Part Code"', '"Item Description"', '"Received Qty"', '"Unit"'].join(","));
-
-        // 2. पूरे डेटाबेस से एक-एक इनवर्ड बिल का लूप चलाना
         inboundVouchers.forEach(v => {
             if (!v) return;
-            
-            let billDate = v.gateInDate || v.billDate || "-";
-            let billNo = v.billNo || "-";
-            let vendorName = v.companyName || "-";
-
-            // बिल नंबर या नाम में कोमा (,) हो तो एक्सेल ख़राब न हो, इसके लिए क्लीनिंग
-            billNo = billNo.replace(/"/g, '""');
-            vendorName = vendorName.replace(/"/g, '""');
-
+            let billDate = v.gateInDate || v.billDate || v.date || "-";
+            let billNo = (v.billNo || v.invoiceNo || "-").replace(/"/g, '""');
+            let vendorName = (v.companyName || v.vendorName || "-").replace(/"/g, '""');
             safeConvertToArray(v.gridItems).forEach(item => {
                 if (!item) return;
-                
                 let pCode = cleanStr(item.modelCode || "-");
                 let pName = String(item.modelName || "GENERIC ITEM").toUpperCase().replace(/"/g, '""');
-                let qty = item.qty || item.receiveQty || 0;
+                let qty = item.qty || item.receiveQty || item.quantity || 0;
                 let unit = cleanStr(item.unit || "NOS");
-
-                // एक रो (Row) तैयार करना
-                let rowData = [
-                    '"' + billDate + '"',
-                    '"' + billNo + '"',
-                    '"' + vendorName + '"',
-                    '"' + pCode + '"',
-                    '"' + pName + '"',
-                    '"' + qty + '"',
-                    '"' + unit + '"'
-                ];
-                
-                csvRows.push(rowData.join(","));
+                csvRows.push(['"' + billDate + '"', '"' + billNo + '"', '"' + vendorName + '"', '"' + pCode + '"', '"' + pName + '"', '"' + qty + '"', '"' + unit + '"'].join(","));
             });
         });
-
-        // एक्सेल में हिंदी और फ़ॉर्मेटिंग फिक्स करने के लिए BOM जोड़ना
         const csvContent = "\uFEFF" + csvRows.join("\n");
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
-        
-        // फाइल डाउनलोड ट्रिगर करना
         const link = document.createElement("a");
         link.setAttribute("href", url);
         link.setAttribute("download", "Detailed_Fresh_Inward_Bill_Report.csv");
@@ -601,10 +615,6 @@
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-    }
-    
-    function exportReworkStockToExcel() { 
-        downloadTableToCSV("reworkStockTableHead", "Live_Rework_Inventory_Report.csv");
     }
 </script>
 </body>
