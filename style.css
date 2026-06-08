@@ -22,7 +22,7 @@ body {
     -webkit-font-smoothing: antialiased;
 }
 
-/* 🌟 नया जोड़ा: स्मूथ स्क्रॉलिंग इफेक्ट ताकि ऊपर जाते समय पेज झटका न मारे */
+/* स्मूथ स्क्रॉलिंग इफेक्ट */
 html {
     scroll-behavior: smooth;
 }
@@ -74,17 +74,19 @@ html {
     box-shadow: 0 0 10px rgba(220, 53, 69, 0.4);
 }
 
-/* 🗂️ Unified Navigation Tabs - Clean & Modern */
+/* 🗂️ 100% फिक्स: टैब अब दो लाइनों में आने पर भी आपस में कभी नहीं चिपकेंगे भाई */
 .tabs-nav { 
     display: flex; 
     gap: 8px; 
-    margin-bottom: 25px; 
+    margin-bottom: 30px; 
     border-bottom: 3px solid #e2e8f0; 
-    padding-bottom: 12px; 
+    padding-bottom: 15px; 
     flex-wrap: wrap; 
+    align-items: center;
+    line-height: 2.2; /* निचली लाइन को स्पेस देने के लिए */
 }
 .tab-link { 
-    display: block; 
+    display: inline-block; 
     padding: 10px 18px; 
     font-size: 13px; 
     font-weight: 600; 
@@ -93,6 +95,7 @@ html {
     background-color: #e2e8f0; 
     color: #475569; 
     position: relative;
+    margin-bottom: 6px; /* 🌟 दो लाइनों के बीच दूरी बनाए रखने का लॉक */
     transition: var(--transition); 
 }
 .tab-link:hover {
@@ -100,7 +103,7 @@ html {
     color: var(--primary-dark);
 }
 
-/* सभी एक्टिव टैब का रंग अब एक जैसा ब्लू और प्रीमियम रहेगा */
+/* सभी एक्टिव टैब का कॉमन बैकग्राउंड */
 .tab-link.active-fresh, 
 .tab-link.active-rework, 
 .tab-link.active-gateout, 
@@ -108,17 +111,18 @@ html {
 .tab-link.active-code, 
 .tab-link.active-users,
 .tab-link.active-production,
-.tab-link.active-code { 
-    background-color: var(--primary); 
-    color: white; 
+.tab-link.active-code,
+.active-code { 
+    background-color: var(--primary) !important; 
+    color: white !important; 
     box-shadow: 0 4px 10px rgba(30, 58, 138, 0.25);
 }
 
-/* 🌟 नया जोड़ा: एक्टिव टैब के नीचे चमकीला डायनामिक पल्स ग्लो इफ़ेक्ट */
-.tab-link[class*="active-"]::after {
+/* एक्टिव टैब के नीचे चमकीला डायनामिक पल्स ग्लो इफ़ेक्ट जो टैब के साथ घूमेगा */
+.tabs-nav a[class*="active-"]::after, .tabs-nav a.active-code::after {
     content: '';
     position: absolute;
-    bottom: -15px;
+    bottom: -10px;
     left: 15%;
     width: 70%;
     height: 4px;
@@ -394,7 +398,7 @@ html {
 .view-sn-link { color: var(--primary-light); text-decoration: none; cursor: pointer; font-weight: bold; font-size: 12px; transition: var(--transition); }
 .view-sn-link:hover { color: var(--primary-dark); text-decoration: underline; }
 
-/* 🌟 नया जोड़ा: हवा में तैरता हुआ 'स्मार्ट गो-टू-टॉप' बटन (Pure CSS Back-To-Top Hack) */
+/* 🌟 100% फिक्स: 'गो-टू-टॉप' बटन को 'z-index' की महाशक्ति दी गई है ताकि यह कभी गायब न हो */
 body::after {
     content: '↑';
     position: fixed;
@@ -410,8 +414,8 @@ body::after {
     line-height: 42px;
     border-radius: 50%;
     cursor: pointer;
-    box-shadow: 0 4px 15px rgba(15, 23, 42, 0.3);
-    z-index: 9999;
+    box-shadow: 0 4px 15px rgba(15, 23, 42, 0.4);
+    z-index: 999999 !important; /* सभी एलीमेंट्स से ऊपर रहने के लिए सर्वोच्च प्राथमिकता */
     transition: var(--transition);
     opacity: 0.8;
 }
@@ -420,7 +424,6 @@ body:hover::after {
     background-color: var(--primary-light);
     transform: translateY(-3px);
 }
-/* बटन पर क्लिक करने के लिए स्क्रीन को टॉप एंकर पर ले जाना */
 body:active::after {
     transform: translateY(0);
 }
