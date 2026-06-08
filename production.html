@@ -24,19 +24,26 @@
         .active-production { background-color: #1e3a8a !important; color: white !important; font-weight: bold; }
         .info-summary-box { background: #fff; padding: 12px; border: 1px solid #cbd5e1; border-radius: 4px; margin-top: 10px; font-size: 13px; display: none; }
 
-        /* 🖨️ प्रिंट सेटिंग्स को पूरी तरह सुधारा गया है */
+        /* 🖨️ प्रिंट प्रीव्यू ब्लैंक आने का 100% सॉलिड CSS फिक्स */
         @media print {
-            html, body { background: #ffffff !important; color: #000000 !important; visibility: visible !important; height: auto !important; overflow: visible !important; margin: 0; padding: 0; }
-            .tabs-nav, .erp-header, .planner-card, .action-btn-container, .logout-btn { display: none !important; }
-            .container, .table-responsive, #plannerTable, #plannerTableBody, tr, td, th { display: block !important; visibility: visible !important; opacity: 1 !important; }
-            /* टेबल को वापस ग्रिड लेआउट में सेट करना */
-            #plannerTable { display: table !important; width: 100% !important; border-collapse: collapse !important; }
-            thead { display: table-header-group !important; }
-            tr { display: table-row !important; }
-            th, td { display: table-cell !important; border: 1px solid #cbd5e1 !important; padding: 8px !important; text-align: left !important; }
-            .history-table th { background-color: #475569 !important; color: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            .status-badge-ok { background: #dcfce7 !important; color: #15803d !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            .status-badge-short { background: #fee2e2 !important; color: #b91c1c !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            body, html { background: #fff !important; color: #000 !important; font-family: Arial, sans-serif !important; margin: 0 !important; padding: 0 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            .tabs-nav, .erp-header, .planner-card, .action-btn-container, .logout-btn, p { display: none !important; }
+            .container { width: 100% !important; max-width: 100% !important; padding: 0 !important; margin: 0 !important; border: none !important; box-shadow: none !important; }
+            
+            /* टेबल का विजुअल इंजन रीसेट */
+            .table-responsive { display: block !important; overflow: visible !important; width: 100% !important; }
+            .history-table { display: table !important; width: 100% !important; border-collapse: collapse !important; margin-top: 20px !important; }
+            .history-table thead { display: table-header-group !important; }
+            .history-table tbody { display: table-row-group !important; }
+            .history-table tr { display: table-row !important; page-break-inside: avoid !important; }
+            .history-table th, .history-table td { display: table-cell !important; border: 1px solid #000 !important; padding: 8px !important; font-size: 12px !important; color: #000 !important; opacity: 1 !important; visibility: visible !important; }
+            
+            .history-table th { background-color: #e2e8f0 !important; color: #000 !important; font-weight: bold !important; }
+            .status-badge-ok, .status-badge-short { background: transparent !important; border: none !important; padding: 0 !important; font-size: 11px !important; display: inline !important; }
+            
+            h3 { font-size: 16px !important; color: #000 !important; margin-bottom: 5px !important; visibility: visible !important; display: block !important; }
+            .info-summary-box { display: block !important; border: 1px solid #000 !important; background: #fff !important; color: #000 !important; margin-bottom: 15px !important; padding: 10px !important; }
+            @page { size: A4 portrait; margin: 15mm 10mm 15mm 10mm; }
         }
     </style>
 </head>
@@ -61,7 +68,7 @@
     </div>
 
     <h3 style="color:#1e3a8a; margin: 15px 0 10px 0;">🏭 Production Batch Kitting & Shortage Planner</h3>
-    <p class="erp-header" style="font-size: 13px; color: #64748b; margin-top: 0; margin-bottom: 15px;">Note: This is a simulation panel. Checking or loading formulas here will NOT deduct any live stock from database.</p>
+    <p style="font-size: 13px; color: #64748b; margin-top: 0; margin-bottom: 15px;">Note: This is a simulation panel. Checking or loading formulas here will NOT deduct any live stock from database.</p>
 
     <div class="planner-card">
         <h4 style="margin: 0 0 12px 0; color:#0369a1;">🛠️ Simulate New Production Batch Plan</h4>
@@ -238,19 +245,21 @@
 
             let statusHtml = "";
             if(liveAvailableStock >= totalRequiredQty) {
-                statusHtml = `<span class="status-badge-ok">🟢 AVAILABLE</span>`;
+                // 🌟 सुधार: यहाँ से 🟢 इमोजी हटाकर क्लीन टेक्स्ट बैज लगाया है भाई
+                statusHtml = `<span class="status-badge-ok">AVAILABLE</span>`;
             } else {
                 let deficitAmt = totalRequiredQty - liveAvailableStock;
-                statusHtml = `<span class="status-badge-short">🔴 SHORT BY ${formatCleanQty(deficitAmt)} ${uLabel}</span>`;
+                // 🌟 सुधार: यहाँ से 🔴 इमोजी हटा दिया है ताकि एक्सेल क्रैश न हो
+                statusHtml = `<span class="status-badge-short">SHORT BY ${formatCleanQty(deficitAmt)} ${uLabel}</span>`;
                 totalShortageItemsCount++;
             }
 
             tbody.innerHTML += `<tr>
                 <td style="text-align:center;">${index + 1}</td>
-                <td><code>${acc.code}</code></td>
-                <td style="text-align:left;"><b>${acc.name || 'Component Item'}</b></td>
-                <td><b style="color:#1e3a8a;">${formatCleanQty(totalRequiredQty)} ${uLabel}</b></td>
-                <td><b style="color:#475569;">${formatCleanQty(liveAvailableStock)} ${uLabel}</b></td>
+                <td>${acc.code}</td>
+                <td style="text-align:left;">${acc.name || 'Component Item'}</td>
+                <td>${formatCleanQty(totalRequiredQty)} ${uLabel}</td>
+                <td>${formatCleanQty(liveAvailableStock)} ${uLabel}</td>
                 <td style="text-align:center;">${statusHtml}</td>
             </tr>`;
         });
@@ -259,17 +268,19 @@
         summaryBox.style.display = 'block';
         
         if(totalShortageItemsCount === 0) {
-            summaryBox.innerHTML = `<b style="color:#16a34a;">✅ PRODUCTION FEASIBLE:</b> All linked BOM components are fully available in live stock room for building <b>${formatCleanQty(batchQty)} Sets</b> of <b>${targetCode}</b>. You can proceed with manufacturing.`;
+            summaryBox.innerHTML = `<b>PRODUCTION FEASIBLE:</b> All linked BOM components are fully available in live stock room for building <b>${formatCleanQty(batchQty)} Sets</b> of <b>${targetCode}</b>. You can proceed with manufacturing.`;
             summaryBox.style.background = '#f0fdf4';
             summaryBox.style.borderColor = '#bbf7d0';
+            summaryBox.style.color = '#15803d';
         } else {
-            summaryBox.innerHTML = `<b style="color:#dc2626;">❌ SHORTAGE DETECTED:</b> Out of ${accessoriesList.length} required components, <b>${totalShortageItemsCount} items are falling short</b> in store room! Please check red status lines below and issue purchase PO packets to vendors.`;
+            summaryBox.innerHTML = `<b>SHORTAGE DETECTED:</b> Out of ${accessoriesList.length} required components, <b>${totalShortageItemsCount} items are falling short</b> in store room! Please check shortage status lines below and issue purchase PO packets to vendors.`;
             summaryBox.style.background = '#fdf2f2';
             summaryBox.style.borderColor = '#fecaca';
+            summaryBox.style.color = '#b91c1c';
         }
     });
 
-    // 📥 एक्सेल डाउनलोड करने का कड़क और फिक्स तरीका (UTF-8 BOM के साथ)
+    // 📥 एक्सेल फाइल डाउनलोडर स्क्रिप्ट (100% फिक्स)
     function downloadPlannerExcel() {
         const targetCode = document.getElementById('prodMainCode').value.trim().toUpperCase();
         const batchQty = document.getElementById('prodBatchQty').value;
@@ -286,13 +297,14 @@
             if(cols.length === 0) continue;
             
             for (let j = 0; j < cols.length; j++) {
+                // क्लीन टेक्स्ट को एक्सेल में भेजने के लिए इमोजी या एचटीएमएल फ़ॉर्मेट को साफ करना
                 let text = cols[j].innerText.replace(/,/g, ';').replace(/\n/g, ' '); 
                 row.push(text);
             }
             csv.push(row.join(','));
         }
 
-        // 🌟 यह स्पेशल कोड (\uFEFF) एक्सेल को मजबूर करेगा कि वो इमोजी और अक्षरों को बिल्कुल सही दिखाए!
+        // UTF-8 BOM के साथ एकदम टकाटक एक्सेल जनरेशन गियर
         let csvContent = "\uFEFF" + csv.join('\n');
         let csvFile = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         
