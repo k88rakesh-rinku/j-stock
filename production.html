@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Production Kitting Planner - GVM Rail</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+    <style>
+        .planner-card { background: #f0f9ff; border: 1px solid #bae6fd; padding: 20px; border-radius: 8px; margin-bottom: 25px; }
+        .btn-check-plan { background-color: #16a34a; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: bold; transition: background 0.2s; }
+        .btn-check-plan:hover { background-color: #15803d; }
+        
+        .status-badge-ok { background-color: #dcfce7; color: #15803d; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; display: inline-block; border: 1px solid #bbf7d0; }
+        .status-badge-short { background-color: #fee2e2; color: #b91c1c; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; display: inline-block; border: 1px solid #fecaca; }
+        
+        .active-production { background-color: #1e3a8a !important; color: white !important; font-weight: bold; }
+        .info-summary-box { background: #fff; padding: 12px; border: 1px solid #cbd5e1; border-radius: 4px; margin-top: 10px; font-size: 13px; display: none; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="erp-header">
+        <h1>Material Lifecycle Control & Inventory Ledger Systems <span style="font-size:12px; color:#4ade80;">● CLOUD LIVE</span></h1>
+        <button class="logout-btn" onclick="logout()">Logout</button>
+    </div>
+    
+    <div class="tabs-nav">
+        <a href="index.html" class="tab-link">📦 New Entry (Fresh)</a>
+        <a href="rework.html" class="tab-link">🛠️ Gate In (Rework)</a>
+        <a href="gateout.html" class="tab-link">🚪 Gate Out (Dispatch)</a>
+        <a href="debit.html" class="tab-link">🧾 Debit Note (Vendor)</a>
+        <a href="code.html" class="tab-link">🆕 Generate Code</a>
+        <a href="ledger.html" class="tab-link">📊 Master Ledger & History</a>
+        <a href="users.html" class="tab-link">👥 Manage Users</a>
+        <a href="bom.html" class="tab-link">🔗 BOM Master</a>
+        <a href="failure.html" class="tab-link">🛠️ Failure Defect Log</a>
+        <a href="production.html" class="tab-link active-production">🏭 Production Planner</a>
+    </div>
+
+    <h3 style="color:#1e3a8a; margin: 15px 0 10px 0;">🏭 Production Batch Kitting & Shortage Planner</h3>
+    <p style="font-size: 13px; color: #64748b; margin-top: 0; margin-bottom: 15px;">Note: This is a simulation panel. Checking or loading formulas here will NOT deduct any live stock from database.</p>
+
+    <div class="planner-card">
+        <h4 style="margin: 0 0 12px 0; color:#0369a1;">🛠️ Simulate New Production Batch Plan</h4>
+        <form id="productionPlannerForm" onsubmit="calculateProductionShortage(e)">
+            <div style="display: flex; gap: 15px; flex-wrap: wrap; align-items: flex-end;">
+                <div class="form-group" style="flex: 1; min-width: 160px;">
+                    <label>Target Model Code <span>*</span></label>
+                    <input type="text" id="prodMainCode" placeholder="e.g. GRPL 000-001" required style="text-transform:uppercase;" oninput="autoFillProdModelName()">
+                </div>
+                <div class="form-group" style="flex: 2; min-width: 220px;">
+                    <label>Product Description / Name</label>
+                    <input type="text" id="prodMainName" placeholder="Auto-fill Name" readonly style="background:#f1f5f9; text-transform:uppercase; padding:8px; width:100%; box-sizing:border-box;">
+                </div>
+                <div class="form-group" style="flex: 1; min-width: 120px;">
+                    <label>Batch Plan Qty <span>*</span></label>
+                    <input type="number" id="prodBatchQty" placeholder="e.g. 15" min="1" required style="padding:8px; width:100%; box-sizing:border-box;">
+                </div>
+                <div>
+                    <button type="submit" class="btn-check-plan">🔍 Check Production Feasibility</button>
+                </div>
+            </div>
+        </form>
+        <div id="infoSummary" class="info-summary-box"></div>
+    </div>
+
+    <div class="table-responsive" style="margin-top: 15px;">
+        <h3 style="color:#1e3a8a; margin: 0 0 10px 0;">📋 Required Components & Live Shortage Status Report</h3>
+        <table class="history-table">
+            <thead style="background-color: #475569; color: white;">
+                <tr>
+                    <th style="width: 8%;">S.N</th>
+                    <th>Component Item Code</th>
+                    <th>Component Description / Specification</th>
+                    <th>Total Required Qty</th>
+                    <th>Live Stock Available</th>
+                    <th>Shortage / Availability Status</th>
+                </tr>
+            </thead>
+            <tbody id="plannerTableBody">
+                <tr><td colspan="6" style="text-align:center; padding:15px; color:#64748b;">Enter target model and batch quantity above to run feasibility simulation report.</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    const firebaseConfig = {
+        apiKey: "AIzaSyCAOXbPwuFR3wh1QSLBXWsodupKWoRYmqs",
+        databaseURL: "https://gvm-stock-control-default-rtdb.firebaseio.com",
+        projectId: "gvm-stock-control"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+
+    const session = JSON.parse(localStorage.getItem('activeSession'));
+    if(!session) { window.location.href = 'login.html'; }
+    function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
+
+    let stockData = []; 
+    let gateoutData = [];
+    let bomFormulaList = []; 
+    let masterCatalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
+
+    const cleanStr = (str) => String(str || "").trim().toUpperCase().replace(/\s+/g, '');
+
+    function safeConvertToArray(rawVal) {
+        if (!rawVal) return [];
+        return Array.isArray(rawVal) ? rawVal : Object.values(rawVal);
+    }
+
+    // डेटा सिंक इंजन्स
+    database.ref('bomMasterData').on('value', (snapshot) => {
+        bomFormulaList = safeConvertToArray(snapshot.val());
+    });
+
+    database.ref('freshStockVouchers').on('value', (snapshot) => {
+        stockData = safeConvertToArray(snapshot.val());
+    });
+
+    database.ref('gateoutStockData').on('value', (snapshot) => {
+        gateoutData = [];
+        const data = snapshot.val();
+        if(data) { for(let key in data) { gateoutData.push({ fbKey: key, ...data[key] }); } }
+    });
+
+    function autoFillProdModelName() {
+        let code = cleanStr(document.getElementById('prodMainCode').value);
+        let foundName = "";
+        for(let company in masterCatalog) {
+            const m = masterCatalog[company].find(i => cleanStr(i.code) === code);
+            if(m) foundName = m.name;
+        }
+        document.getElementById('prodMainName').value = foundName;
+    }
+
+    // लाइव फ्रेश मटीरियल स्टॉक रूम कैलकुलेटर (Decimal Friendly)
+    function calculateLiveFreshStock(targetCode) {
+        let totalIn = 0; let totalOut = 0; let cleanedTarget = cleanStr(targetCode);
+        
+        stockData.forEach(v => {
+            if(!v) return;
+            let items = safeConvertToArray(v.gridItems);
+            if(items.length === 0 && v.modelCode) { items.push({ modelCode: v.modelCode, qty: v.qty || v.receiveQty || 0 }); }
+            items.forEach(item => { if(item && cleanStr(item.modelCode) === cleanedTarget) { totalIn += parseFloat(item.qty || item.receiveQty || 0); } });
+        });
+
+        gateoutData.forEach(g => {
+            if(!g) return;
+            let items = safeConvertToArray(g.gridItems);
+            items.forEach(item => { 
+                if(!item) return;
+                if(item.pool === 'FRESH' && cleanStr(item.code) === cleanedTarget) { totalOut += parseFloat(item.qty || 0); }
+                
+                let mainItemBOM = bomFormulaList.find(b => b && cleanStr(b.mainCode) === cleanStr(item.code));
+                if(mainItemBOM && mainItemBOM.accessories) {
+                    let accs = safeConvertToArray(mainItemBOM.accessories);
+                    accs.forEach(acc => {
+                        if(acc && cleanStr(acc.code) === cleanedTarget) { totalOut += (parseFloat(acc.qty) * parseFloat(item.qty || 0)); }
+                    });
+                }
+            });
+        });
+        return (totalIn - totalOut);
+    }
+
+    // 🚀 मेन कैलकुलेटर इंजन (BOM vs Live Stock Formula)
+    document.getElementById('productionPlannerForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const targetCode = document.getElementById('prodMainCode').value.trim().toUpperCase();
+        const batchQty = parseFloat(document.getElementById('prodBatchQty').value) || 0;
+        const tbody = document.getElementById('plannerTableBody');
+        const summaryBox = document.getElementById('infoSummary');
+
+        if(!targetCode || batchQty <= 0) { alert("Please enter valid Product Code and Batch Qty!"); return; }
+
+        // लक्षित BOM खोजना
+        let targetBOM = bomFormulaList.find(b => b && cleanStr(b.mainCode) === cleanStr(targetCode));
+        
+        if(!targetBOM) {
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:15px; color:#dc2626; font-weight:bold;">🚫 BOM Formula Missing! Please first create BOM formula for [${targetCode}] in BOM Master Tab.</td></tr>`;
+            summaryBox.style.display = 'none';
+            return;
+        }
+
+        let accessoriesList = safeConvertToArray(targetBOM.accessories);
+        if(accessoriesList.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:15px; color:#b45309; font-weight:bold;">⚠️ Empty BOM! No components are linked to this main model formula.</td></tr>`;
+            summaryBox.style.display = 'none';
+            return;
+        }
+
+        tbody.innerHTML = '';
+        let totalShortageItemsCount = 0;
+
+        accessoriesList.forEach((acc, index) => {
+            if(!acc) return;
+            
+            let reqPerUnit = parseFloat(acc.qty) || 0;
+            let totalRequiredQty = reqPerUnit * batchQty; // कुल आवश्यक मात्रा
+            let liveAvailableStock = calculateLiveFreshStock(acc.code); // वर्तमान स्टॉक रूम बैलेंस
+            let uLabel = acc.unit ? acc.unit : "NOS";
+
+            let statusHtml = "";
+            if(liveAvailableStock >= totalRequiredQty) {
+                statusHtml = `<span class="status-badge-ok">🟢 AVAILABLE</span>`;
+            } else {
+                let deficitAmt = totalRequiredQty - liveAvailableStock;
+                statusHtml = `<span class="status-badge-short">🔴 SHORT BY ${deficitAmt.toFixed(3)} ${uLabel}</span>`;
+                totalShortageItemsCount++;
+            }
+
+            tbody.innerHTML += `<tr>
+                <td style="text-align:center;">${index + 1}</td>
+                <td><code>${acc.code}</code></td>
+                <td style="text-align:left;"><b>${acc.name || 'Component Item'}</b></td>
+                <td><b style="color:#1e3a8a;">${totalRequiredQty.toFixed(3)} ${uLabel}</b></td>
+                <td><b style="color:#475569;">${liveAvailableStock.toFixed(3)} ${uLabel}</b></td>
+                <td style="text-align:center;">${statusHtml}</td>
+            </tr>`;
+        });
+
+        // समरी इन्फो बॉक्स रेंडर करना
+        summaryBox.style.display = 'block';
+        if(totalShortageItemsCount === 0) {
+            summaryBox.innerHTML = `<b style="color:#16a34a;">✅ PRODUCTION FEASIBLE:</b> All linked BOM components are fully available in live stock room for building <b>${batchQty} Sets</b> of <b>${targetCode}</b>. You can proceed with manufacturing.`;
+            summaryBox.style.background = '#f0fdf4';
+            summaryBox.style.borderColor = '#bbf7d0';
+        } else {
+            summaryBox.innerHTML = `<b style="color:#dc2626;">❌ SHORTAGE DETECTED:</b> Out of ${accessoriesList.length} required components, <b>${totalShortageItemsCount} items are falling short</b> in store room! Please check red status lines below and issue purchase PO packets to vendors.`;
+            summaryBox.style.background = '#fdf2f2';
+            summaryBox.style.borderColor = '#fecaca';
+        }
+    });
+</script>
+</body>
+</html>
