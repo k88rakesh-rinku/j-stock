@@ -503,22 +503,18 @@
 
     function closeHistoryModal() { document.getElementById('itemHistoryModal').style.display = 'none'; }
 
-    // 🚀 🌟 जादुई स्क्रीनशॉट मैच डाउनलोडर इंजन (image_a5a825.png के हुबहू लेआउट में) 🌟 🚀
+    // 🚀 🌟 सुधरा हुआ जादुई डाउनलोडर इंजन (NOS हटा दिया - शुद्ध नंबर फ़िक्स) 🌟 🚀
     function exportModalStatementToCSV() {
         let csvRows = [];
-        
-        // डेटाबेस से आइटम का नाम और पार्टी (वेंडर) ढूंढना
         let matchedItemName = "GENERIC ITEM";
         let matchedParties = [];
 
-        // 1. नाम ढूंढें
         catalogFlatList.forEach(c => {
             if(c && cleanStr(c.code) === currentActiveModalCode) {
                 matchedItemName = c.name;
             }
         });
 
-        // 2. इस पार्ट से जुड़े सारे वेंडर ढूंढें
         if(currentActiveModalPool === 'FRESH') {
             inboundVouchers.forEach(v => {
                 if(!v) return;
@@ -551,34 +547,32 @@
 
         let finalPartyString = matchedParties.length > 0 ? matchedParties.join(" / ") : "-";
 
-        // 📋 स्क्रीनशॉट के मुताबिक टॉप हेडर ब्लॉक डिज़ाइन करना भाई
         csvRows.push([`"Item Code:",,,"${currentActiveModalCode}"`].join(","));
         csvRows.push([`"Item Name:",,,"${matchedItemName.toUpperCase().replace(/"/g, '""')}"`].join(","));
         csvRows.push([`"Party Name:",,,"${finalPartyString.replace(/"/g, '""')}"`].join(","));
-        csvRows.push([]); // स्पेस के लिए खाली लाइन
+        csvRows.push([]); // खाली स्पेस लाइन
 
-        // 📥 टेबल का हेडर (आपके स्क्रीनशॉट के कॉलम के नाम)
+        // 📥 टेबल हेडर
         csvRows.push(['"Gate Id"', '"Gate in Date"', '"Bill No"', '"Bill Qty"', '"Bill Date"'].join(","));
         
-        // 📥 डेटाबेस से रिकॉर्ड्स को निकाल कर स्क्रीनशॉट की टेबल के हिसाब से अरेंज करना
         if(currentActiveModalPool === 'FRESH') {
             inboundVouchers.forEach((v, index) => {
                 if(!v) return;
                 let billDate = v.billDate || "-";
                 let gateInDate = v.gateInDate || v.date || "-";
                 let refNo = v.billNo || v.invoiceNo || "-";
-                let gateId = v.gateInNo || `G-${1000 + index}`; // अगर Gate ID न हो तो टेम्परेरी बनाना
+                let gateId = v.gateInNo || `G-${1000 + index}`;
 
                 safeConvertToArray(v.gridItems).forEach(item => {
                     if(item && cleanStr(item.modelCode) === currentActiveModalCode) {
-                        let qty = item.qty || item.receiveQty || 0;
-                        let unit = cleanStr(item.unit || "NOS");
+                        // 🌟 यहाँ सिर्फ़ शुद्ध नंबर भेज रहे हैं, ताकि एक्सेल में आसानी से SUM हो सके भाई
+                        let qtyNumberOnly = parseInt(item.qty || item.receiveQty || 0);
                         
                         let rData = [
                             '"' + gateId + '"',
                             '"' + gateInDate + '"',
                             '"' + refNo + '"',
-                            '"' + qty + ' ' + unit + '"',
+                            '"' + qtyNumberOnly + '"', 
                             '"' + billDate + '"'
                         ];
                         csvRows.push(rData.join(","));
@@ -586,7 +580,6 @@
                 });
             });
         } else {
-            // रीवर्क पूल के लिए डेटा अरेंजमेंट
             reworkInboundVouchers.forEach((v, index) => {
                 if(!v) return;
                 let gateInDate = v.date || "-";
@@ -597,14 +590,14 @@
                     let itemCode = cleanStr(item.itemShort || item.modelCode || item.code);
                     let rowPool = cleanStr(item.pool || 'REWORK');
                     if(itemCode === currentActiveModalCode && rowPool === currentActiveModalPool) {
-                        let qty = item.qty || item.receiveQty || 0;
-                        let unit = cleanStr(item.unit || "NOS");
+                        // 🌟 यहाँ भी सिर्फ़ नंबर भेज रहे हैं
+                        let qtyNumberOnly = parseInt(item.qty || item.receiveQty || 0);
                         
                         let rData = [
                             '"' + gateId + '"',
                             '"' + gateInDate + '"',
                             '"' + refNo + '"',
-                            '"' + qty + ' ' + unit + '"',
+                            '"' + qtyNumberOnly + '"',
                             '"' + gateInDate + '"'
                         ];
                         csvRows.push(rData.join(","));
@@ -613,12 +606,10 @@
             });
         }
 
-        // अगर नीचे कोई एंट्री न मिले तो खाली मैसेज रो डालना
         if(csvRows.length === 5) {
             csvRows.push(['"No transactions found for this item in database."', '""', '""', '""', '""'].join(","));
         }
 
-        // एक्सेल में फाइल जनरेट करके डाउनलोड करना
         const csvContent = "\uFEFF" + csvRows.join("\n");
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
@@ -632,7 +623,7 @@
         document.body.removeChild(link);
     }
 
-    // GLOBAL EXPORTERS
+    // GLOBAL TABLES EXPORTER ENGINE
     function downloadTableToCSV(tableId, filename) {
         const table = document.getElementById(tableId);
         if(!table) return;
@@ -677,7 +668,7 @@
                 if (!item) return;
                 let pCode = cleanStr(item.modelCode || "-");
                 let pName = String(item.modelName || "GENERIC ITEM").toUpperCase().replace(/"/g, '""');
-                let qty = item.qty || item.receiveQty || item.quantity || 0;
+                let qty = parseInt(item.qty || item.receiveQty || item.quantity || 0); // शुद्ध नंबर फ़िक्स
                 let unit = cleanStr(item.unit || "NOS");
                 csvRows.push(['"' + billDate + '"', '"' + billNo + '"', '"' + vendorName + '"', '"' + pCode + '"', '"' + pName + '"', '"' + qty + '"', '"' + unit + '"'].join(","));
             });
