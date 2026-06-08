@@ -1,71 +1,379 @@
-/* 🎨 Unified Industrial Theme */
+/* 🎨 Unified Industrial Theme - Upgraded Premium Corporate Look */
 :root {
     --primary: #1e3a8a;
     --primary-dark: #0f172a;
+    --primary-light: #2563eb;
     --neutral-dark: #334155;
     --neutral-light: #f8fafc;
     --border-color: #cbd5e1;
+    --border-focus: #3b82f6;
     --error-red: #dc3545;
     --error-bg: #f8d7da;
     --success-green: #28a745;
+    --transition: all 0.2s ease-in-out;
 }
 
-body { font-family: 'Segoe UI', Arial, sans-serif; background-color: #f1f5f9; margin: 0; padding: 10px; color: #1e293b; }
-.container { max-width: 100%; margin: 0 auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+body { 
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Arial, sans-serif; 
+    background-color: #f1f5f9; 
+    margin: 0; 
+    padding: 15px; 
+    color: #1e293b; 
+    -webkit-font-smoothing: antialiased;
+}
 
-/* 🚄 Header Layout */
-.erp-header { background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%); padding: 15px; border-radius: 6px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-left: 6px solid var(--primary); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; }
-.erp-header h1 { color: #ffffff; margin: 0; font-size: 20px; letter-spacing: 0.5px; font-weight: bold; }
-.logout-btn { background-color: #64748b; color: white; border: none; padding: 8px 16px; font-weight: bold; cursor: pointer; border-radius: 4px; font-size: 13px; transition: background 0.2s; }
-.logout-btn:hover { background-color: var(--error-red); }
+.container { 
+    max-width: 100%; 
+    margin: 0 auto; 
+    background: #fff; 
+    padding: 25px; 
+    border-radius: 8px; 
+    box-shadow: 0 4px 20px rgba(15, 23, 42, 0.05); 
+}
 
-/* 🗂️ Unified Navigation Tabs */
-.tabs-nav { display: flex; gap: 6px; margin-bottom: 20px; border-bottom: 3px solid #e2e8f0; padding-bottom: 10px; flex-wrap: wrap; }
-.tab-link { display: block; padding: 10px 16px; font-size: 13px; font-weight: bold; text-decoration: none; border-radius: 4px; background-color: #e2e8f0; color: #475569; transition: all 0.2s; }
-/* सभी एक्टिव टैब का रंग अब एक जैसा ब्लू रहेगा */
-.tab-link.active-fresh, .tab-link.active-rework, .tab-link.active-gateout, .tab-link.active-debit, .tab-link.active-code, .tab-link.active-users { background-color: var(--primary); color: white; }
+/* 🚄 Header Layout - Sleek Gradient */
+.erp-header { 
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%); 
+    padding: 18px 24px; 
+    border-radius: 6px; 
+    margin-bottom: 25px; 
+    box-shadow: 0 4px 15px rgba(0,0,0,0.15); 
+    border-left: 6px solid var(--primary-light); 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    flex-wrap: wrap; 
+    gap: 15px; 
+}
+.erp-header h1 { 
+    color: #ffffff; 
+    margin: 0; 
+    font-size: 22px; 
+    letter-spacing: 0.5px; 
+    font-weight: 700; 
+}
+.logout-btn { 
+    background-color: rgba(255, 255, 255, 0.15); 
+    color: white; 
+    border: 1px solid rgba(255, 255, 255, 0.3); 
+    padding: 8px 18px; 
+    font-weight: bold; 
+    cursor: pointer; 
+    border-radius: 4px; 
+    font-size: 13px; 
+    transition: var(--transition); 
+}
+.logout-btn:hover { 
+    background-color: var(--error-red); 
+    border-color: var(--error-red);
+    box-shadow: 0 0 10px rgba(220, 53, 69, 0.4);
+}
 
-/* 📝 Form Layouts */
-.form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 20px; background: var(--neutral-light); padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0; }
+/* 🗂️ Unified Navigation Tabs - Clean & Modern */
+.tabs-nav { 
+    display: flex; 
+    gap: 8px; 
+    margin-bottom: 25px; 
+    border-bottom: 3px solid #e2e8f0; 
+    padding-bottom: 12px; 
+    flex-wrap: wrap; 
+}
+.tab-link { 
+    display: block; 
+    padding: 10px 18px; 
+    font-size: 13px; 
+    font-weight: 600; 
+    text-decoration: none; 
+    border-radius: 6px; 
+    background-color: #e2e8f0; 
+    color: #475569; 
+    transition: var(--transition); 
+}
+.tab-link:hover {
+    background-color: #cbd5e1;
+    color: var(--primary-dark);
+}
+/* सभी एक्टिव टैब का रंग अब एक जैसा ब्लू और प्रीमियम रहेगा */
+.tab-link.active-fresh, 
+.tab-link.active-rework, 
+.tab-link.active-gateout, 
+.tab-link.active-debit, 
+.tab-link.active-code, 
+.tab-link.active-users,
+.tab-link.active-production { 
+    background-color: var(--primary); 
+    color: white; 
+    box-shadow: 0 4px 10px rgba(30, 58, 138, 0.25);
+}
+
+/* 📝 Form Layouts with Focus Glow Effect */
+.form-grid { 
+    display: grid; 
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); 
+    gap: 15px; 
+    margin-bottom: 25px; 
+    background: var(--neutral-light); 
+    padding: 20px; 
+    border-radius: 8px; 
+    border: 1px solid #e2e8f0; 
+}
 .form-group { display: flex; flex-direction: column; }
-.form-group label { font-size: 12px; font-weight: bold; margin-bottom: 4px; color: #344054; }
-.form-group input, .form-group select { padding: 8px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 14px; background-color: white; height: 38px; box-sizing: border-box; color: #1e293b; }
-.form-group input[readonly] { background-color: #e2e8f0; cursor: not-allowed; font-weight: bold; }
+.form-group label { 
+    font-size: 12px; 
+    font-weight: 700; 
+    margin-bottom: 6px; 
+    color: #475569; 
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+.form-group input, .form-group select { 
+    padding: 8px 12px; 
+    border: 1px solid var(--border-color); 
+    border-radius: 6px; 
+    font-size: 14px; 
+    background-color: white; 
+    height: 40px; 
+    box-sizing: border-box; 
+    color: #1e293b; 
+    transition: var(--transition);
+}
+/* 🌟 नया जोड़ा: डिब्बों पर क्लिक करते ही ग्लोइंग इफेक्ट */
+.form-group input:focus, .form-group select:focus {
+    outline: none;
+    border-color: var(--border-focus);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+.form-group input[readonly] { 
+    background-color: #e2e8f0; 
+    cursor: not-allowed; 
+    font-weight: bold; 
+    color: #64748b;
+}
 
-/* 🔘 Uniform Action Buttons */
-.btn-submit { padding: 12px 24px; color: white; border: none; border-radius: 4px; font-size: 14px; cursor: pointer; font-weight: bold; width: 100%; grid-column: 1/-1; background-color: var(--primary); transition: background 0.2s; }
-.btn-submit:hover { background-color: var(--primary-dark); }
-.btn-excel { background-color: var(--success-green); color: white; border: none; padding: 8px 14px; font-weight: bold; border-radius: 4px; cursor: pointer; margin-bottom: 10px; font-size: 12px; float: right; }
-.btn-row-add { background-color: #fff; border: 1px solid var(--primary); color: var(--primary); padding: 5px 15px; cursor: pointer; font-weight: bold; font-size: 18px; margin-top: 5px; border-radius: 4px; transition: all 0.2s; }
-.btn-row-add:hover { background-color: var(--primary); color: white; }
-.btn-row-remove { background: none; border: none; color: var(--error-red); font-size: 18px; cursor: pointer; font-weight: bold; }
-.btn-print-receipt { background-color: #0284c7; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; }
+/* 🔘 Uniform Action Buttons Styling */
+.btn-submit { 
+    padding: 12px 24px; 
+    color: white; 
+    border: none; 
+    border-radius: 6px; 
+    font-size: 14px; 
+    cursor: pointer; 
+    font-weight: bold; 
+    width: 100%; 
+    grid-column: 1/-1; 
+    background-color: var(--primary); 
+    transition: var(--transition); 
+    box-shadow: 0 4px 10px rgba(30, 58, 138, 0.15);
+}
+.btn-submit:hover { 
+    background-color: var(--primary-dark); 
+    box-shadow: 0 4px 15px rgba(15, 23, 42, 0.2);
+}
+.btn-excel { 
+    background-color: var(--success-green); 
+    color: white; 
+    border: none; 
+    padding: 10px 16px; 
+    font-weight: bold; 
+    border-radius: 6px; 
+    cursor: pointer; 
+    margin-bottom: 15px; 
+    font-size: 12px; 
+    float: right; 
+    transition: var(--transition);
+    box-shadow: 0 4px 10px rgba(40, 167, 69, 0.15);
+}
+.btn-excel:hover {
+    background-color: #218838;
+    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.25);
+}
+.btn-row-add { 
+    background-color: #fff; 
+    border: 1px solid var(--primary); 
+    color: var(--primary); 
+    padding: 5px 20px; 
+    cursor: pointer; 
+    font-weight: bold; 
+    font-size: 18px; 
+    margin-top: 5px; 
+    border-radius: 6px; 
+    transition: var(--transition); 
+}
+.btn-row-add:hover { 
+    background-color: var(--primary); 
+    color: white; 
+}
+.btn-row-remove { 
+    background: none; 
+    border: none; 
+    color: var(--error-red); 
+    font-size: 18px; 
+    cursor: pointer; 
+    font-weight: bold; 
+    transition: var(--transition);
+}
+.btn-row-remove:hover { transform: scale(1.15); }
+.btn-print-receipt { 
+    background-color: #0284c7; 
+    color: white; 
+    border: none; 
+    padding: 6px 14px; 
+    border-radius: 4px; 
+    cursor: pointer; 
+    font-size: 12px; 
+    font-weight: bold; 
+    transition: var(--transition);
+}
+.btn-print-receipt:hover { background-color: #0369a1; }
 
-/* 📋 Uniform Tables Custom Grid */
-.table-responsive { overflow-x: auto; margin-top: 15px; clear: both; }
+/* 📋 Uniform Tables with Live Row Hover Highlight */
+.table-responsive { overflow-x: auto; margin-top: 15px; clear: both; border-radius: 6px; border: 1px solid #e2e8f0; }
 .history-table, .grid-table { width: 100%; border-collapse: collapse; background: #fff; }
-.history-table th, .grid-table th { background-color: var(--neutral-dark); color: white; font-weight: bold; padding: 12px; text-align: left; font-size: 14px; white-space: nowrap; }
-.history-table td, .grid-table td { padding: 10px; border-bottom: 1px solid #e2e8f0; font-size: 14px; }
-.grid-table input, .grid-table select { width: 100%; padding: 6px; border: 1px solid var(--border-color); border-radius: 4px; box-sizing: border-box; height: 34px; }
+.history-table th, .grid-table th { 
+    background-color: var(--neutral-dark); 
+    color: white; 
+    font-weight: 600; 
+    padding: 14px 12px; 
+    text-align: left; 
+    font-size: 13px; 
+    white-space: nowrap; 
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.history-table td, .grid-table td { 
+    padding: 12px; 
+    border-bottom: 1px solid #e2e8f0; 
+    font-size: 14px; 
+    color: #334155;
+}
+/* 🌟 नया जोड़ा: माउस ले जाते ही रो चमकने लगेगी */
+.history-table tbody tr:hover, .grid-table tbody tr:hover {
+    background-color: #f1f5f9;
+    transition: background-color 0.1s ease;
+}
+.grid-table input, .grid-table select { 
+    width: 100%; 
+    padding: 6px 10px; 
+    border: 1px solid var(--border-color); 
+    border-radius: 4px; 
+    box-sizing: border-box; 
+    height: 36px; 
+    transition: var(--transition);
+}
+.grid-table input:focus, .grid-table select:focus {
+    outline: none;
+    border-color: var(--border-focus);
+}
 
 /* 🛑 PURE ERROR STYLING - लाल रंग सिर्फ यहाँ दिखेगा */
-.error-message { grid-column: 1 / -1; background-color: var(--error-bg); color: #721c24; padding: 10px; border-radius: 4px; border: 1px solid #f5c6cb; margin-bottom: 10px; display: none; font-weight: bold; font-size: 13px; }
-.low-stock-badge { background-color: var(--error-bg); color: #721c24; border: 1px solid #f5c6cb; padding: 10px; border-radius: 4px; margin-bottom: 15px; font-weight: bold; display: none; }
-.btn-delete { background-color: var(--error-red); color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; }
+.error-message { 
+    grid-column: 1 / -1; 
+    background-color: var(--error-bg); 
+    color: #721c24; 
+    padding: 12px; 
+    border-radius: 6px; 
+    border: 1px solid #e3a8a8; 
+    margin-bottom: 15px; 
+    display: none; 
+    font-weight: bold; 
+    font-size: 13px; 
+}
+.low-stock-badge { 
+    background-color: var(--error-bg); 
+    color: #721c24; 
+    border: 1px solid #e3a8a8; 
+    padding: 12px; 
+    border-radius: 6px; 
+    margin-bottom: 20px; 
+    font-weight: bold; 
+    display: none; 
+}
+.btn-delete { 
+    background-color: var(--error-red); 
+    color: white; 
+    border: none; 
+    padding: 6px 10px; 
+    border-radius: 4px; 
+    cursor: pointer; 
+    font-size: 12px; 
+    font-weight: bold; 
+    transition: var(--transition);
+}
+.btn-delete:hover { background-color: #bd2130; }
 
-/* 🔐 Login Wrapper Styling */
-.login-wrapper { max-width: 360px; margin: 80px auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); border-top: 5px solid var(--primary); }
-.login-wrapper h2 { margin-top: 0; text-align: center; color: var(--primary); margin-bottom: 25px; font-size: 22px; font-weight: bold; }
-.login-btn { width: 100%; padding: 12px; background-color: var(--primary); color: white; border: none; border-radius: 4px; font-weight: bold; font-size: 16px; cursor: pointer; margin-top: 10px; }
+/* 🔐 Login Wrapper Styling - Premium Minimal Layout */
+.login-wrapper { 
+    max-width: 360px; 
+    margin: 100px auto; 
+    background: #fff; 
+    padding: 35px; 
+    border-radius: 8px; 
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08); 
+    border-top: 5px solid var(--primary); 
+}
+.login-wrapper h2 { 
+    margin-top: 0; 
+    text-align: center; 
+    color: var(--primary); 
+    margin-bottom: 30px; 
+    font-size: 24px; 
+    font-weight: 700; 
+    letter-spacing: -0.5px;
+}
+.login-btn { 
+    width: 100%; 
+    padding: 12px; 
+    background-color: var(--primary); 
+    color: white; 
+    border: none; 
+    border-radius: 4px; 
+    font-weight: bold; 
+    font-size: 16px; 
+    cursor: pointer; 
+    margin-top: 15px; 
+    transition: var(--transition);
+    box-shadow: 0 4px 10px rgba(30, 58, 138, 0.2);
+}
 .login-btn:hover { background-color: var(--primary-dark); }
 
-/* 📥 Modals Framework */
-.sn-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 3000; justify-content: center; align-items: center; }
-.modal-content { background: white; padding: 25px; border-radius: 8px; width: 100%; max-width: 700px; max-height: 85%; overflow-y: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
-.component-grid-row { display: grid; grid-template-columns: 40px repeat(5, 1fr); gap: 6px; margin-bottom: 8px; align-items: center;}
-.component-grid-row input { padding: 6px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; width: 100%; box-sizing: border-box; }
-.component-header { font-weight: bold; font-size: 11px; color: #475569; text-align: center; background: #e2e8f0; padding: 4px 0; border-radius: 2px;}
-.view-sn-link { color: var(--primary); text-decoration: underline; cursor: pointer; font-weight: bold; font-size: 12px; }
+/* 📥 Modals Framework - Popups Soft Layer */
+.sn-modal { 
+    display: none; 
+    position: fixed; 
+    top: 0; 
+    left: 0; 
+    width: 100%; 
+    height: 100%; 
+    background-color: rgba(15, 23, 42, 0.6); 
+    z-index: 3000; 
+    justify-content: center; 
+    align-items: center; 
+    backdrop-filter: blur(2px);
+}
+.modal-content { 
+    background: white; 
+    padding: 30px; 
+    border-radius: 8px; 
+    width: 100%; 
+    max-width: 700px; 
+    max-height: 85%; 
+    overflow-y: auto; 
+    box-shadow: 0 20px 40px rgba(15, 23, 42, 0.2); 
+}
+.component-grid-row { display: grid; grid-template-columns: 40px repeat(5, 1fr); gap: 8px; margin-bottom: 10px; align-items: center;}
+.component-grid-row input { 
+    padding: 6px 10px; 
+    border: 1px solid var(--border-color); 
+    border-radius: 4px; 
+    font-size: 12px; 
+    width: 100%; 
+    box-sizing: border-box; 
+    transition: var(--transition);
+}
+.component-grid-row input:focus { border-color: var(--border-focus); outline: none; }
+.component-header { font-weight: bold; font-size: 11px; color: #475569; text-align: center; background: #e2e8f0; padding: 6px 0; border-radius: 4px;}
+.view-sn-link { color: var(--primary-light); text-decoration: none; cursor: pointer; font-weight: bold; font-size: 12px; transition: var(--transition); }
+.view-sn-link:hover { color: var(--primary-dark); text-decoration: underline; }
 
 @media print {
     body * { visibility: hidden; }
