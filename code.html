@@ -3,95 +3,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fresh Entry - Pro Control System (Live Cloud)</title>
+    <title>Generate Master Code - Live Cloud</title>
     <link rel="stylesheet" href="style.css">
-    
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
-
     <style>
-        .grid-input-card { background: #f8fafc; border: 1px solid #cbd5e1; padding: 15px; border-radius: 6px; margin-bottom: 20px; }
-        .inner-table { width: 100%; border-collapse: collapse; margin-top: 10px; background: #fff; }
-        .inner-table th { background: #64748b; color: white; padding: 6px; font-size: 12px; }
-        .inner-table td { padding: 6px; border: 1px solid #e2e8f0; font-size: 12px; }
-        .btn-remove-row { background: #ef4444; color:white; border:none; padding: 4px 8px; border-radius:3px; cursor:pointer; font-weight:bold; }
-        .btn-modify-row { background: #0284c7; color:white; border:none; padding: 4px 8px; border-radius:3px; cursor:pointer; font-weight:bold; margin-right:4px; }
+        /* 📑 एक्शन कंट्रोल बटन्स (Edit & Delete) की सीएसएस स्टाइलिंग */
         .btn-edit-action { background-color: #0284c7; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
+        .btn-edit-action:hover { background-color: #0369a1; }
         .btn-delete-action { background-color: #dc2626; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; }
-        .btn-print-receipt { background-color: #007bff; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
+        .btn-delete-action:hover { background-color: #b91c1c; }
+        .active-code { background-color: #1e3a8a !important; color: white !important; font-weight: bold; }
         
-        .table-filter-panel {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: #f1f5f9;
-            padding: 10px 15px;
-            border-radius: 6px 6px 0 0;
-            border: 1px solid #cbd5e1;
-            border-bottom: none;
-            margin-top: 25px;
-            gap: 15px;
-            flex-wrap: wrap;
+        /* 📑 PO सब-फ़ॉर्म बॉक्स की सुंदर स्टाइलिंग */
+        .po-input-box {
+            background: #f8fafc;
+            border: 2px dashed #cbd5e1;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 15px;
+            display: none;
+            grid-column: span 1;
         }
-        .search-input-box {
-            padding: 8px 12px;
-            border: 1px solid #cbd5e1;
-            border-radius: 4px;
-            font-size: 13px;
-            width: 280px;
-            text-transform: uppercase;
-        }
-        .limit-dropdown-select {
-            padding: 7px 10px;
-            border: 1px solid #cbd5e1;
-            border-radius: 4px;
-            font-size: 13px;
-            cursor: pointer;
-            background: #fff;
-            font-weight: bold;
-        }
+        .po-box-open { display: block !important; border-color: #0284c7; background: #f0f9ff; }
+        .badge-po-yes { background: #0284c7; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+        .badge-po-no { background: #64748b; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+        
+        /* 🟢 PURCHASE और SALE टाइप के सुंदर Color बैज */
+        .badge-type-pur { background-color: #16a34a; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+        .badge-type-sal { background-color: #b45309; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; }
 
-        .po-dropdown-select {
-            padding: 10px;
-            border: 1px solid #0284c7;
-            border-radius: 4px;
-            font-size: 14px;
-            background: #f0f9ff;
-            font-weight: bold;
-            color: #1e3a8a;
-            cursor: pointer;
-            width: 100%;
-            box-sizing: border-box;
-        }
+        /* 🔍 सर्च और लिमिट बॉक्स की स्टाइलिंग */
+        .catalog-filter-panel { display: flex; justify-content: space-between; align-items: center; background: #f1f5f9; padding: 10px 15px; border-radius: 6px; border: 1px solid #cbd5e1; margin-bottom: 15px; flex-wrap: wrap; gap: 10px; }
+        .search-box-catalog { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; width: 320px; text-transform: uppercase; }
+        .limit-select-catalog { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; cursor: pointer; background: #fff; font-weight: bold; }
 
-        .secret-modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 9999; }
-        .secret-modal-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); text-align: center; width: 320px; }
-        .secret-modal-card h4 { margin: 0 0 12px 0; color: #dc2626; }
-        .secret-modal-input { width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #cbd5e1; border-radius: 4px; text-align: center; font-size: 16px; box-sizing: border-box; }
-        .secret-modal-btn-group { display: flex; gap: 10px; justify-content: center; }
-        .secret-modal-btn-confirm { background: #dc2626; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; }
-        .secret-modal-btn-cancel { background: #64748b; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; }
-
-        .grid-unit-select { padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; background: white; font-weight: bold; cursor: pointer; }
-
-        @media print {
-            body * { visibility: hidden; }
-            #printSection, #printSection * { visibility: visible; }
-            #printSection {
-                position: absolute;
-                left: 0; top: 0;
-                width: 210mm;
-                height: 74.25mm;
-                box-sizing: border-box;
-                padding: 4mm 6mm;
-                margin: 0;
-                background: #fff;
-                font-family: monospace;
-                font-size: 11px;
-                line-height: 1.3;
-            }
-            @page { size: A4 portrait; margin: 0; }
-        }
+        /* 🌟 यूनिट ड्रॉपडाउन की सुंदर स्टाइलिंग */
+        .po-unit-select { padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; background: white; font-weight: bold; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -102,138 +50,119 @@
     </div>
     
     <div class="tabs-nav">
-        <a href="index.html" class="tab-link" style="background-color: #1e3a8a; color: white; font-weight: bold;">📦 New Entry (Fresh)</a>
+        <a href="index.html" class="tab-link">📦 New Entry (Fresh)</a>
         <a href="rework.html" class="tab-link">🛠️ Gate In (Rework)</a>
         <a href="gateout.html" class="tab-link">🚪 Gate Out (Dispatch)</a>
         <a href="debit.html" class="tab-link">🧾 Debit Note (Vendor)</a>
-        <a href="code.html" class="tab-link">🆕 Generate Code</a>
+        <a href="code.html" class="tab-link active-code">🆕 Generate Code</a>
         <a href="ledger.html" class="tab-link">📊 Master Ledger & History</a>
         <a href="users.html" class="tab-link">👥 Manage Users</a>
         <a href="bom.html" class="tab-link">🔗 BOM Master</a>
         <a href="failure.html" class="tab-link">🛠️ Failure Defect Log</a>
     </div>
 
-    <div id="lowStockAlert" class="low-stock-badge" style="display:none;">⚠️ Warning: Some Items are running low in Stock! Check Master Ledger.</div>
-
-    <h3 id="formTitleIndex" style="color:var(--primary); margin: 0 0 10px 10px;">📦 Fresh Material Inward Controller</h3>
-
-    <form id="stockForm">
-        <input type="hidden" id="editRowIndex" value="-1">
+    <h3 id="formTitleCatalog" style="color:#1e3a8a; margin-top:0;">Generate Custom Item Code (Universal Master)</h3>
+    
+    <form id="codeGeneratorForm">
         <input type="hidden" id="editFirebaseKey" value="">
-
-        <div class="form-grid" style="margin-bottom: 15px;">
-            <div class="form-grid" style="display: contents;">
-                <div class="form-group">
-                    <label>Company Name <span>*</span></label>
-                    <input type="text" id="companyName" placeholder="e.g. SIEMENS, VINYAS, OWN" required autocomplete="off" style="text-transform:uppercase;" oninput="fetchPurchasePOOptions()">
-                </div>
-
-                <div class="form-group">
-                    <label>PO Number (Select Order) <span>*</span></label>
-                    <select id="poNo" class="po-dropdown-select" required>
-                        <option value="">-- PO NUMBER --</option>
-                    </select>
-                </div>
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Company Name <span>*</span></label>
+                <input type="text" id="newCompanyInput" placeholder="e.g., OWN PRODUCTION, VINYAS" required list="existingCompaniesList" style="text-transform:uppercase;">
+                <datalist id="existingCompaniesList"></datalist>
             </div>
-
-            <div class="form-group"><label>Bill / Invoice No.</label><input type="text" id="billNo" required autocomplete="off" style="text-transform:uppercase;"></div>
-            <div class="form-grid-inner" style="display: contents;">
-                <div class="form-group"><label>Bill Date</label><input type="date" id="billDate" required></div>
-                <div class="form-group"><label>Gate-In Date</label><input type="date" id="gateInDate" required></div>
+            <div class="form-group">
+                <label>New Item Part Code <span>*</span></label>
+                <input type="text" id="newPartCode" placeholder="e.g., GP0021" required style="text-transform:uppercase;">
             </div>
-            <div class="form-group"><label>Gate-In No.</label><input type="text" id="gateInNo" required autocomplete="off" style="text-transform:uppercase;"></div>
+            <div class="form-group">
+                <label>New Item Model Name <span>*</span></label>
+                <input type="text" id="newModelName" placeholder="e.g., NTC SENSOR" required style="text-transform:uppercase;">
+            </div>
+            
+            <div class="form-group">
+                <label>Has Purchase / Sale Order (PO)? <span>*</span></label>
+                <select id="hasPO" required onchange="togglePOFields()">
+                    <option value="NO">NO</option>
+                    <option value="YES">YES</option>
+                </select>
+            </div>
         </div>
 
-        <div class="grid-input-card">
-            <h4 style="margin: 0 0 12px 0; color: #1e3a8a; border-bottom: 1px solid #cbd5e1; padding-bottom: 5px;">📋 Material Inward Row Grid Section:</h4>
-            <div style="display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap;">
-                <div style="flex: 1; min-width: 140px;">
-                    <label style="font-size:12px; font-weight:bold;">Model Code</label>
-                    <input type="text" id="gridModelCode" placeholder="Code (e.g. GP0018, OWN)" oninput="autoFillGridItemName(this)" style="padding:8px; width:100%; box-sizing:border-box; text-transform:uppercase;">
+        <div id="poFormBox" class="po-input-box">
+            <h4 style="margin: 0 0 10px 0; color:#0369a1;">📋 Link Purchase / Sale Order (PO) Information</h4>
+            <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                
+                <div class="form-group" style="flex: 1; min-width: 160px;">
+                    <label>PO Route Type <span>*</span></label>
+                    <select id="poType">
+                        <option value="PURCHASE">PURCHASE PO (Incoming / Fresh In)</option>
+                        <option value="SALE">SALE PO (Outgoing / Gate Out)</option>
+                    </select>
                 </div>
-                <div style="flex: 2; min-width: 180px;">
-                    <label style="font-size:12px; font-weight:bold;">Model Description / Name</label>
-                    <input type="text" id="gridModelName" placeholder="Item Name" style="padding:8px; width:100%; box-sizing:border-box;">
+
+                <div class="form-group" style="flex: 1; min-width: 180px;">
+                    <label>PO Number <span>*</span></label>
+                    <input type="text" id="poNumber" placeholder="e.g., PO-2026-88" style="text-transform:uppercase;">
                 </div>
-                <div style="flex: 1; min-width: 90px;">
-                    <label style="font-size:12px; font-weight:bold;">Bill Qty</label>
-                    <input type="number" id="gridBillQty" min="0" step="0.001" placeholder="Enter Qty" style="padding:8px; width:100%; box-sizing:border-box;">
+                <div class="form-group" style="flex: 1; min-width: 110px;">
+                    <label>PO Ordered Qty <span>*</span></label>
+                    <input type="number" min="1" id="poTotalQty" placeholder="e.g., 1000">
                 </div>
-                <div style="flex: 1; min-width: 90px;">
-                    <label style="font-size:12px; font-weight:bold;">Receive Qty</label>
-                    <input type="number" id="gridRecQty" min="0" step="0.001" placeholder="Enter Qty" style="padding:8px; width:100%; box-sizing:border-box;">
-                </div>
-                <div style="min-width: 90px;">
-                    <label style="font-size:12px; font-weight:bold;">Unit</label>
-                    <select id="gridUnit" class="grid-unit-select" style="width: 100%;">
+                <div class="form-group" style="min-width: 110px;">
+                    <label>PO Unit Type <span>*</span></label>
+                    <select id="poUnit" class="po-unit-select" style="width: 100%;">
                         <option value="NOS">NOS</option>
                         <option value="MTR">MTR</option>
                         <option value="SET">SET</option>
                     </select>
                 </div>
-                <button type="button" onclick="addItemToGridList()" style="background:#64748b; color:white; border:none; padding:9px 15px; font-weight:bold; border-radius:4px; cursor:pointer;">+ Add Row</button>
             </div>
-
-            <table class="inner-table">
-                <thead>
-                    <tr><th>Model Code</th><th>Description</th><th>Bill Qty</th><th>Receive Qty</th><th>Unit Type</th><th>Action</th></tr>
-                </thead>
-                <tbody id="gridItemsBody"></tbody>
-            </table>
         </div>
-        
-        <button type="submit" id="btnSubmitForm" class="btn-submit fresh-btn" style="width: 100%;">Final Save Inward Voucher</button>
-        <button type="button" id="btnCancelEdit" class="btn-submit" style="background-color:#64748b; display:none; margin-top:10px; width:100%;" onclick="cancelEditMode()">Cancel Update</button>
+
+        <div style="margin-top: 15px;">
+            <button type="submit" id="btnSubmitCatalog" class="btn-submit" style="background-color: #1e3a8a;">Generate & Linked Code</button>
+            <button type="button" id="btnCancelCatalogEdit" class="btn-submit" style="background-color:#64748b; display:none; margin-top:10px;" onclick="cancelCatalogEditMode()">Cancel Update</button>
+        </div>
     </form>
 
-    <div class="date-export-panel" style="margin-top: 30px;">
-        <label>From:</label> <input type="date" id="freshFromDate">
-        <label>To:</label> <input type="date" id="freshToDate">
-        <button class="btn-excel" onclick="exportFreshToExcel()">Download Excel</button>
-    </div>
-
-    <div class="table-filter-panel">
-        <div>
-            <input type="text" id="liveTableSearchBox" class="search-input-box" placeholder="🔍 Search Bill No, Code or Item Name..." autocomplete="off" oninput="triggerTableRender()" data-block-refocus="true">
+    <div class="table-responsive" style="margin-top: 30px;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 10px;">
+            <h3 style="color:#1e3a8a; margin: 0;">📋 Generated Codes & PO Master Catalog List</h3>
         </div>
-        <div>
-            <label style="font-weight: bold; font-size: 13px; color:#475569;">Show Records:</label>
-            <select id="liveTableLimitSelect" class="limit-dropdown-select" onchange="triggerTableRender()">
-                <option value="5" selected>5 Bills (Default)</option>
-                <option value="10">10 Bills</option>
-                <option value="15">15 Rows</option>
-                <option value="ALL">Show All Bills</option>
-            </select>
+        
+        <div class="catalog-filter-panel">
+            <input type="text" id="catalogSearchBox" class="search-box-catalog" placeholder="🔍 Search Company, Code, Name or PO..." autocomplete="off" oninput="renderCatalogTable()">
+            <div>
+                <label style="font-weight: bold; font-size: 13px; color: #475569; margin-right: 5px;">Show Records:</label>
+                <select id="catalogLimitSelect" class="limit-select-catalog" onchange="renderCatalogTable()">
+                    <option value="5" selected>5 Rows</option>
+                    <option value="10">10 Rows</option>
+                    <option value="15">15 Rows</option>
+                    <option value="ALL">Show All</option>
+                </select>
+            </div>
         </div>
-    </div>
 
-    <div class="table-responsive" style="margin-top: 0;">
-        <table class="history-table" style="border-top: none;">
-            <thead style="background-color: #007bff; color: white;">
+        <table class="history-table">
+            <thead style="background-color: #1e3a8a; color: white;">
                 <tr>
-                    <th>Company</th><th>Bill / PO Info</th><th>Dates</th><th>Gate-In No</th><th>Items Inwarded Details</th><th>Action</th>
+                    <th>Company Name</th>
+                    <th>Model Part Code</th>
+                    <th>Model Item Description / Name</th>
+                    <th>PO Linked?</th>
+                    <th>PO Type</th>
+                    <th>PO Number</th>
+                    <th>Total PO Qty & Unit</th>
+                    <th style="width: 15%;">Action Controls</th>
                 </tr>
             </thead>
-            <tbody id="tableBody">
-                <tr><td colspan="6" style="text-align:center; padding:15px; color:#64748b;">Loading Live Cloud Records...</td></tr>
+            <tbody id="catalogTableBody">
+                <tr><td colspan="8" style="text-align:center; padding:15px; color:#64748b;">Connecting Cloud Database...</td></tr>
             </tbody>
         </table>
     </div>
 </div>
-
-<div id="secretPasswordModal" class="secret-modal-overlay">
-    <div class="secret-modal-card">
-        <h4>🔑 Security Check</h4>
-        <p style="font-size: 12px; color: #64748b; margin-bottom: 10px;">Enter Secret Password to Delete this Cloud Record:</p>
-        <input type="password" id="secretModalPasswordField" class="secret-modal-input" placeholder="••••" autocomplete="off">
-        <div class="secret-modal-btn-group">
-            <button type="button" class="secret-modal-btn-confirm" onclick="submitSecretDeletePassword()">Wipe Record</button>
-            <button type="button" class="secret-modal-btn-cancel" onclick="closeSecretPasswordModal()">Cancel</button>
-        </div>
-    </div>
-</div>
-
-<div id="printSection"></div>
 
 <script>
     const firebaseConfig = {
@@ -252,488 +181,257 @@
     if(!session) { window.location.href = 'login.html'; }
     function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
 
-    let stockData = [];
-    let masterCatalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
-    let flatPOList = []; 
-    let tempGridItems = [];
-    let lastActiveFocusedInputId = "companyName";
-    let activeDeleteRowIdx = null; 
+    let flatCatalogList = [];
+    const defaultCatalog = { "VINYAS": [{ code: "ACV 002", name: "SIEMENS" }], "HEX MOTO": [{ code: "T18 545", name: "INVERTER" }] };
 
     database.ref('systemMasterCatalogFlat').on('value', (snapshot) => {
-        flatPOList = [];
+        flatCatalogList = [];
         const data = snapshot.val();
+        let oldStructuredSync = {};
+
         if(data) {
             for(let key in data) {
-                flatPOList.push({ fbKey: key, ...data[key] });
+                const record = { fbKey: key, ...data[key] };
+                flatCatalogList.push(record);
+                if(!oldStructuredSync[record.company]) { oldStructuredSync[record.company] = []; }
+                oldStructuredSync[record.company].push({ code: record.code, name: record.name });
             }
-        }
-        fetchPurchasePOOptions();
-    });
-
-    database.ref('freshStockVouchers').on('value', (snapshot) => {
-        stockData = [];
-        const data = snapshot.val();
-        if(data) {
-            for(let key in data) {
-                stockData.push({ fbKey: key, ...data[key] });
-            }
-        }
-        stockData.reverse();
-        renderTable();
-    });
-
-    function updatePODropdownOptions(filteredPOs, currentEditingPONo = null) {
-        const selectBox = document.getElementById('poNo');
-        selectBox.innerHTML = '';
-
-        selectBox.innerHTML = '<option value="WITHOUT PO">WITHOUT PO (NO PO LINKED)</option>';
-
-        let validPOs = filteredPOs.filter(p => {
-            // 🌟 सुधार 1: यहाँ p.hasPO === "NO" को चेक करने के साथ-साथ यह पक्का किया कि असली PO फ़िल्टर न हों
-            if(p.hasPO === "NO" || !p.poNumber || p.poNumber === "-") return false;
-            if(p.poType !== "PURCHASE") return false; // सिर्फ परचेज PO फ्रेश इनवर्ड में लोड होंगे
-            
-            let poNum = p.poNumber.trim().toUpperCase();
-            let pCode = p.code.trim().toUpperCase();
-            let totalOrdered = parseInt(p.qty || p.poTotalQty || 0);
-            
-            if(currentEditingPONo && poNum === currentEditingPONo.trim().toUpperCase()) {
-                return true;
-            }
-
-            let totalReceivedAlready = 0;
-            stockData.forEach(f => {
-                if (f.poNo && f.poNo.trim().toUpperCase() === poNum) {
-                    if (f.gridItems) {
-                        f.gridItems.forEach(gi => {
-                            if ((gi.modelCode || "").trim().toUpperCase() === pCode) {
-                                totalReceivedAlready += parseFloat(gi.qty || gi.receiveQty || 0);
-                            }
-                        });
-                    }
-                }
-            });
-
-            return totalReceivedAlready < totalOrdered;
-        });
-
-        let uniquePOs = [...new Set(validPOs.map(x => x.poNumber.trim().toUpperCase()))];
-        uniquePOs.forEach(po => {
-            let selectedAttr = (currentEditingPONo && po === currentEditingPONo.trim().toUpperCase()) ? 'selected' : '';
-            selectBox.innerHTML += `<option value="${po}" ${selectedAttr}>${po}</option>`;
-        });
-    }
-
-    function fetchPurchasePOOptions() {
-        const compName = document.getElementById('companyName').value.trim().toUpperCase();
-        if(!compName) { 
-            document.getElementById('poNo').innerHTML = '<option value="WITHOUT PO">WITHOUT PO (NO PO LINKED)</option>'; 
-            return; 
-        }
-        
-        // 🌟 सुधार 2: यहाँ x.companyName की जगह x.company कर दिया है ताकि code.html के डेटाबेस नोड से सटीक मैच हो सके!
-        let matches = flatPOList.filter(x => x.company === compName);
-        updatePODropdownOptions(matches);
-    }
-
-    function autoFillGridItemName(input) {
-        let code = input.value.trim().toUpperCase(); 
-        let foundName = ""; let foundCompany = "";
-        for(let company in masterCatalog) {
-            const match = masterCatalog[company].find(x => x.code.trim().toUpperCase() === code);
-            if(match) { foundName = match.name; foundCompany = company; }
-        }
-        if(foundName) {
-            document.getElementById('gridModelName').value = foundName;
-            if(!document.getElementById('companyName').value) { 
-                document.getElementById('companyName').value = foundCompany.toUpperCase(); 
-                fetchPurchasePOOptions();
-            }
-        }
-    }
-
-    function addItemToGridList() {
-        const code = document.getElementById('gridModelCode').value.trim().toUpperCase();
-        const name = document.getElementById('gridModelName').value.trim();
-        
-        let valBill = document.getElementById('gridBillQty').value;
-        let valRec = document.getElementById('gridRecQty').value;
-        const unit = document.getElementById('gridUnit').value;
-        
-        let bQty = parseFloat(valBill);
-        let rQty = parseFloat(valRec);
-
-        if(!code || !name || isNaN(bQty) || isNaN(rQty)) { alert("Please enter valid Model Details and Quantities!"); return; }
-        if(bQty !== rQty) { alert("Error: Bill Qty and Receive Qty must match!"); return; }
-
-        tempGridItems.push({ modelCode: code, modelName: name, qty: bQty, receiveQty: rQty, unit: unit });
-        renderTempGrid();
-        
-        document.getElementById('gridModelCode').value = '';
-        document.getElementById('gridModelName').value = '';
-        document.getElementById('gridBillQty').value = '';
-        document.getElementById('gridRecQty').value = '';
-        document.getElementById('gridUnit').value = 'NOS';
-        
-        lastActiveFocusedInputId = 'gridModelCode';
-        document.getElementById('gridModelCode').focus();
-    }
-
-    function removeTempRow(index) { tempAccItems.splice(index, 1); renderTempGrid(); }
-
-    function editTempRow(index) {
-        let item = tempGridItems[index];
-        document.getElementById('gridModelCode').value = item.modelCode;
-        document.getElementById('gridModelName').value = item.modelName;
-        document.getElementById('gridBillQty').value = item.qty;
-        document.getElementById('gridRecQty').value = item.receiveQty;
-        document.getElementById('gridUnit').value = item.unit || 'NOS';
-        
-        tempGridItems.splice(index, 1);
-        renderTempGrid();
-        
-        lastActiveFocusedInputId = 'gridBillQty';
-        document.getElementById('gridBillQty').focus();
-    }
-
-    function renderTempGrid() {
-        const tbody = document.getElementById('gridItemsBody'); tbody.innerHTML = '';
-        tempGridItems.forEach((item, index) => {
-            let uText = item.unit ? item.unit : "NOS";
-            tbody.innerHTML += `<tr>
-                <td><code>${item.modelCode}</code></td>
-                <td>${item.modelName}</td>
-                <td><b>${item.qty}</b></td>
-                <td>${item.receiveQty}</td>
-                <td><span style="color:#0284c7; font-weight:bold;">${uText}</span></td>
-                <td>
-                    <button type="button" class="btn-modify-row" onclick="editTempRow(${index})">📝 Edit</button>
-                    <button type="button" class="btn-remove-row" onclick="removeTempRow(${index})">X</button>
-                </td>
-            </tr>`;
-        });
-    }
-
-    document.getElementById('stockForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-
-        const idx = parseInt(document.getElementById('editRowIndex').value);
-        const fbKey = document.getElementById('editFirebaseKey').value;
-
-        const currentBillNo = document.getElementById('billNo').value.trim().toUpperCase();
-        const currentGateInNo = document.getElementById('gateInNo').value.trim().toUpperCase();
-        const currentBillDate = document.getElementById('billDate').value;
-
-        const code = document.getElementById('gridModelCode').value.trim().toUpperCase();
-        if (code) {
-            const name = document.getElementById('gridModelName').value.trim();
-            let valBill = document.getElementById('gridBillQty').value || "";
-            let valRec = document.getElementById('gridRecQty').value || "";
-            const unit = document.getElementById('gridUnit').value;
-            let bQty = parseFloat(valBill);
-            let rQty = parseFloat(valRec);
-
-            if(code && name && !isNaN(bQty) && !isNaN(rQty)) {
-                if(bQty !== rQty) { alert("Error: Bill Qty and Receive Qty must match!"); return; }
-                tempGridItems.push({ modelCode: code, modelName: name, qty: bQty, receiveQty: rQty, unit: unit });
-            }
-        }
-
-        if(tempGridItems.length === 0) { alert("Please enter at least one item with valid quantities!"); return; }
-
-        if (idx === -1) {
-            let matchingVouchers = stockData.filter(v => v.billNo === currentBillNo && v.gateInNo === currentGateInNo);
-            if (matchingVouchers.length > 0) {
-                let hasSameModel = matchingVouchers.some(v => {
-                    let items = v.gridItems || [];
-                    return items.some(item => tempGridItems.some(t => t.modelCode === item.modelCode.toUpperCase()));
+            localStorage.setItem('systemMasterCatalog', JSON.stringify(oldStructuredSync));
+        } else {
+            localStorage.setItem('systemMasterCatalog', JSON.stringify(defaultCatalog));
+            for(let key in defaultCatalog) {
+                defaultCatalog[key].forEach(x => {
+                    database.ref('systemMasterCatalogFlat').push({ company: key, code: x.code, name: x.name, hasPO: "NO", poType: "-", poNumber: "", poTotalQty: 0, poUnit: "NOS" });
                 });
-
-                if (hasSameModel) {
-                    alert(`🚨 ERROR: Duplicate Entry Blocked!\n\nThis Bill No. [ ${currentBillNo} ] with Gate-In No. [ ${currentGateInNo} ] already has this Model Code registered on Cloud!`);
-                    return;
-                } else {
-                    let confirmSave = confirm(`⚠️ ALERT: Bill Found!\n\nThis Bill No. [ ${currentBillNo} ] & Gate-In No. [ ${currentGateInNo} ] is already entered in system with another item!\n\nDo you want to add this new model to this existing bill?`);
-                    if (!confirmSave) { return; }
-                }
             }
         }
+        renderDatalist();
+        renderCatalogTable();
+    });
 
-        let originalCreator = (idx !== -1 && stockData[idx]) ? (stockData[idx].createdBy || "k88rakesh") : session.userId;
+    function renderDatalist() {
+        const list = document.getElementById('existingCompaniesList'); 
+        list.innerHTML = '';
+        let uniqueCompanies = [...new Set(flatCatalogList.map(item => item.company))];
+        uniqueCompanies.forEach(comp => { list.innerHTML += `<option value="${comp}">`; });
+    }
 
-        const masterVoucher = {
-            companyName: document.getElementById('companyName').value.trim().toUpperCase(), 
-            poNo: document.getElementById('poNo').value.trim().toUpperCase(),
-            billNo: currentBillNo, 
-            billDate: currentBillDate,
-            gateInDate: document.getElementById('gateInDate').value, 
-            gateInNo: currentGateInNo,
-            gridItems: [...tempGridItems],
-            createdBy: originalCreator
+    function togglePOFields() {
+        const hasPO = document.getElementById('hasPO').value;
+        const box = document.getElementById('poFormBox');
+        if(hasPO === "YES") {
+            box.classList.add('po-box-open');
+            document.getElementById('poType').required = true;
+            document.getElementById('poNumber').required = true;
+            document.getElementById('poTotalQty').required = true;
+            document.getElementById('poUnit').required = true;
+        } else {
+            box.classList.remove('po-box-open');
+            document.getElementById('poType').required = false;
+            document.getElementById('poNumber').required = false;
+            document.getElementById('poTotalQty').required = false;
+            document.getElementById('poUnit').required = false;
+            document.getElementById('poType').value = 'PURCHASE';
+            document.getElementById('poNumber').value = '';
+            document.getElementById('poTotalQty').value = '';
+            document.getElementById('poUnit').value = 'NOS';
+        }
+    }
+
+    document.getElementById('codeGeneratorForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const fbKey = document.getElementById('editFirebaseKey').value;
+        const comp = document.getElementById('newCompanyInput').value.trim().toUpperCase();
+        const code = document.getElementById('newPartCode').value.trim().toUpperCase();
+        const name = document.getElementById('newModelName').value.trim().toUpperCase();
+        const poStatus = document.getElementById('hasPO').value;
+        
+        let pType = "-";
+        let pNum = "";
+        let pQty = 0;
+        let pUnit = "NOS";
+
+        if(poStatus === "YES") {
+            pType = document.getElementById('poType').value;
+            pNum = document.getElementById('poNumber').value.trim().toUpperCase();
+            pQty = parseInt(document.getElementById('poTotalQty').value) || 0;
+            pUnit = document.getElementById('poUnit').value;
+            if(!pNum || pQty <= 0) { alert("Please enter valid PO configuration details!"); return; }
+        }
+
+        const modelData = { 
+            company: comp, 
+            code: code, 
+            name: name,
+            hasPO: poStatus,
+            poType: pType, 
+            poNumber: pNum,
+            poTotalQty: pQty,
+            poUnit: pUnit,
+            lastUpdatedBy: session.userId
         };
 
-        if(idx === -1) {
-            database.ref('freshStockVouchers').push(masterVoucher);
-            alert("🎉 Material Inward Entry Saved to Cloud!");
-        } else {
-            database.ref('freshStockVouchers/' + fbKey).set(masterVoucher);
-            alert("🎯 Entry Voucher Updated on Cloud!");
+        // 🌟 महा सुरक्षा चक्र इंजन (Validation Guard Logic)
+        // १. बिना PO वाला कड़ा चेकर नियम
+        if (poStatus === "NO") {
+            let isDuplicateNoPO = flatCatalogList.some(x => x.company === comp && x.code === code && x.hasPO === "NO" && x.fbKey !== fbKey);
+            if (isDuplicateNoPO) {
+                alert(`🚨 DUPLICATE BLOCK ERROR:\n\nThis Part Code [ ${code} ] already exists without PO in Company [ ${comp} ]!\n\nSystem has permanently locked this code config.`);
+                return;
+            }
+        }
+        
+        // २. PO नंबर कड़ा चेकर नियम (केवल तब ब्लॉक करेगा जब सेम कंपनी, सेम कोड और सेम PO नंबर मिल जाए)
+        if (poStatus === "YES") {
+            let isDuplicateWithSamePO = flatCatalogList.some(x => x.company === comp && x.code === code && x.poNumber === pNum && x.fbKey !== fbKey);
+            if (isDuplicateWithSamePO) {
+                alert(`🚨 DUPLICATE PO ERROR:\n\nThis Part Code [ ${code} ] is already registered under this company with the exact same PO No. [ ${pNum} ]!`);
+                return;
+            }
         }
 
-        cancelEditMode(); 
+        if(fbKey === "") {
+            database.ref('systemMasterCatalogFlat').push(modelData).then(() => {
+                alert("🎉 Success! Code generated & Routed PO Saved.");
+                resetCatalogForm();
+            });
+        } else {
+            database.ref('systemMasterCatalogFlat/' + fbKey).set(modelData).then(() => {
+                alert("🎯 Item Configuration Updated Successfully!");
+                resetCatalogForm();
+            });
+        }
     });
 
-    function triggerTableRender() { renderTable(); }
-
-    function renderTable() {
-        const body = document.getElementById('tableBody'); body.innerHTML = '';
-        document.getElementById('lowStockAlert').style.display = 'none';
-
-        if(stockData.length === 0) {
-            body.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:15px; color:#64748b;">No records found on Cloud.</td></tr>`;
+    function renderCatalogTable() {
+        const tbody = document.getElementById('catalogTableBody');
+        tbody.innerHTML = '';
+        if(flatCatalogList.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:15px; color:#64748b;">No items registered.</td></tr>`;
             return;
         }
+        
+        const searchStr = document.getElementById('catalogSearchBox').value.trim().toUpperCase();
+        const limitVal = document.getElementById('catalogLimitSelect').value;
 
-        const searchStr = document.getElementById('liveTableSearchBox').value.trim().toUpperCase();
-        const limitVal = document.getElementById('liveTableLimitSelect').value;
-
-        let filteredList = stockData.filter(i => {
-            const matchBill = i.billNo ? i.billNo.toUpperCase().includes(searchStr) : false;
-            const matchComp = i.companyName ? i.companyName.toUpperCase().includes(searchStr) : false;
-            let itemsList = i.gridItems || [{ modelCode: i.modelCode, modelName: i.modelName }];
-            const matchItems = itemsList.some(item => {
-                const matchCode = item.modelCode ? item.modelCode.toUpperCase().includes(searchStr) : false;
-                const matchName = item.modelName ? item.modelName.toUpperCase().includes(searchStr) : false;
-                return matchCode || matchName;
-            });
-            return matchBill || matchComp || matchItems;
+        let filteredList = flatCatalogList.filter(item => {
+            const matchComp = item.company ? item.company.toUpperCase().includes(searchStr) : false;
+            const matchCode = item.code ? item.code.toUpperCase().includes(searchStr) : false;
+            const matchName = item.name ? item.name.toUpperCase().includes(searchStr) : false;
+            const matchPoNo = item.poNumber ? item.poNumber.toUpperCase().includes(searchStr) : false;
+            
+            return matchComp || matchCode || matchName || matchPoNo;
         });
 
-        if(filteredList.length === 0) {
-            body.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:15px; color:#64748b;">No matching search records found.</td></tr>`;
+        let sortedList = [...filteredList].reverse();
+
+        if (limitVal !== "ALL") {
+            sortedList = sortedList.slice(0, parseInt(limitVal));
+        }
+
+        if (sortedList.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:15px; color:#dc2626; font-weight:bold;">No matching search records found!</td></tr>`;
             return;
         }
 
-        let viewList = filteredList;
-        if (limitVal !== "ALL") { viewList = filteredList.slice(0, parseInt(limitVal)); }
-
-        viewList.forEach((i) => {
-            let origIdx = stockData.findIndex(x => x.fbKey === i.fbKey);
-            let itemsHtml = "";
-            let itemsList = i.gridItems || [];
+        sortedList.forEach((item) => {
+            let origIdx = flatCatalogList.findIndex(x => x.fbKey === item.fbKey);
+            let poBadge = item.hasPO === "YES" ? `<span class="badge-po-yes">YES</span>` : `<span class="badge-po-no">NO</span>`;
             
-            if (itemsList.length === 0 && i.modelCode) {
-                itemsList.push({ modelCode: i.modelCode, modelName: i.modelName, qty: i.qty || i.receiveQty || 0, unit: i.unit || 'NOS' });
+            let typeBadge = "-";
+            if(item.hasPO === "YES") {
+                typeBadge = item.poType === "PURCHASE" ? `<span class="badge-type-pur">PURCHASE</span>` : `<span class="badge-type-sal">SALE</span>`;
             }
 
-            itemsList.forEach(item => {
-                let currentQty = parseFloat(item.qty || item.receiveQty || 0);
-                let currentUnit = item.unit ? item.unit : "NOS";
-                itemsHtml += `• <code>${item.modelCode || i.modelCode}</code> - ${item.modelName || i.modelName} (<b>${currentQty} ${currentUnit}</b>)<br>`;
-                if(currentQty < 5 && currentUnit === 'NOS') document.getElementById('lowStockAlert').style.display = 'block';
-            });
+            let displayPoNo = item.poNumber ? item.poNumber : "-";
+            let currentUnit = item.poUnit ? item.poUnit : "NOS";
+            let displayPoQty = item.poTotalQty ? `${item.poTotalQty} ${currentUnit}` : "-";
 
-            let adminBadgeHtml = "";
-            if (session.userId === "k88rakesh") {
-                let creator = i.createdBy ? i.createdBy : "System";
-                adminBadgeHtml = `<div style="margin-bottom:5px;"><span style="font-size:10px; color:#16a34a; background:#f0fdf4; padding:2px 6px; border-radius:3px; border:1px solid #bbf7d0; font-weight:bold;">👤 User: ${creator}</span></div>`;
-            }
-
-            body.innerHTML += `<tr>
-                <td><b>${i.companyName}</b></td><td>Bill: ${i.billNo}<br>PO: ${i.poNo}</td><td>Bill: ${i.billDate}<br>Gate-In: ${i.gateInDate}</td><td>${i.gateInNo}</td><td style="text-align:left;">${itemsHtml}</td>
+            tbody.innerHTML += `<tr>
+                <td><b>${item.company}</b></td>
+                <td><code>${item.code}</code></td>
+                <td>${item.name}</td>
+                <td>${poBadge}</td>
+                <td>${typeBadge}</td>
+                <td><b>${displayPoNo}</b></td>
+                <td><b style="color:#1e3a8a;">${displayPoQty}</b></td>
                 <td>
-                    ${adminBadgeHtml}
-                    <button type="button" class="btn-print-receipt" onclick='triggerGateInReceipt(${JSON.stringify(i)})'>🖨️ Print</button>
-                    <button type="button" class="btn-edit-action" onclick="editFreshRow(${origIdx})">Edit</button>
-                    <button type="button" class="btn-delete-action" onclick="deleteFreshRow(${origIdx})">Delete</button>
+                    <button type="button" class="btn-edit-action" onclick="editCatalogItem(${origIdx})">Edit</button>
+                    <button type="button" class="btn-delete-action" onclick="deleteCatalogItem('${item.fbKey}', '${item.code}')">Delete</button>
                 </td>
             </tr>`;
         });
     }
 
-    function editFreshRow(idx) {
-        const d = stockData[idx]; 
-        document.getElementById('editRowIndex').value = idx;
-        document.getElementById('editFirebaseKey').value = d.fbKey;
-        document.getElementById('companyName').value = d.companyName; 
+    function editCatalogItem(idx) {
+        const item = flatCatalogList[idx];
+        document.getElementById('editFirebaseKey').value = item.fbKey;
         
-        let matches = flatPOList.filter(x => x.company === d.companyName.toUpperCase());
-        updatePODropdownOptions(matches, d.poNo);
-        document.getElementById('poNo').value = d.poNo;
+        // 🌟 कड़क अपग्रेड: अब एडिट करते समय इनपुट डिब्बे पूरी तरह अनलॉक (Editable) रहेंगे भाई
+        document.getElementById('newCompanyInput').value = item.company;
+        document.getElementById('newPartCode').value = item.code;
+        document.getElementById('newCompanyInput').removeAttribute('readonly');
+        document.getElementById('newCompanyInput').style.background = '#fff';
+        document.getElementById('newPartCode').removeAttribute('readonly');
+        document.getElementById('newPartCode').style.background = '#fff';
+        
+        document.getElementById('newModelName').value = item.name;
+        
+        const pStatus = item.hasPO ? item.hasPO : "NO";
+        document.getElementById('hasPO').value = pStatus;
+        togglePOFields();
+        
+        if(pStatus === "YES") {
+            document.getElementById('poType').value = item.poType || "PURCHASE";
+            document.getElementById('poNumber').value = item.poNumber || "";
+            document.getElementById('poTotalQty').value = item.poTotalQty || "";
+            document.getElementById('poUnit').value = item.poUnit || "NOS";
+        }
 
-        document.getElementById('billNo').value = d.billNo;
-        document.getElementById('billDate').value = d.billDate; 
-        document.getElementById('gateInDate').value = d.gateInDate; 
-        document.getElementById('gateInNo').value = d.gateInNo;
-
-        tempGridItems = d.gridItems ? [...d.gridItems] : [{ modelCode: d.modelCode, modelName: d.modelName, qty: d.qty, receiveQty: d.receiveQty, unit: d.unit || 'NOS' }];
-        renderTempGrid();
-
-        document.getElementById('btnSubmitForm').innerText = "Update Entire Material Inward Bill";
-        document.getElementById('btnCancelEdit').style.display = "inline-block";
-        document.getElementById('stockForm').scrollIntoView({ behavior: 'smooth' });
+        document.getElementById('formTitleCatalog').innerText = "🛠️ Modify Item Model & PO Configuration";
+        document.getElementById('btnSubmitCatalog').innerText = "Update Configuration";
+        document.getElementById('btnCancelCatalogEdit').style.display = "inline-block";
+        document.getElementById('codeGeneratorForm').scrollIntoView({ behavior: 'smooth' });
     }
 
-    function cancelEditMode() {
-        document.getElementById('editRowIndex').value = "-1"; 
-        document.getElementById('editFirebaseKey').value = ""; 
-        document.getElementById('stockForm').reset(); 
-        document.getElementById('poNo').innerHTML = '<option value="WITHOUT PO">WITHOUT PO (NO PO LINKED)</option>';
-        tempGridItems = []; 
-        renderTempGrid();
-        document.getElementById('btnSubmitForm').innerText = "Final Save Inward Voucher"; 
-        document.getElementById('btnCancelEdit').style.display = "none";
-        applyLiveDateRestrictions();
-        lastActiveFocusedInputId = "companyName";
-    }
+    function deleteCatalogItem(fbKey, code) {
+        const passwordInput = prompt(`🔑 Security Check:\nEnter Secret Password to Delete Code/PO Master "${code}":`);
+        if (passwordInput === null) return;
 
-    function deleteFreshRow(idx) {
-        activeDeleteRowIdx = idx;
-        document.getElementById('secretModalPasswordField').value = "";
-        document.getElementById('secretPasswordModal').style.display = "flex";
-        document.getElementById('secretModalPasswordField').focus();
-    }
-
-    function closeSecretPasswordModal() {
-        document.getElementById('secretPasswordModal').style.display = "none";
-        activeDeleteRowIdx = null;
-    }
-
-    function submitSecretDeletePassword() {
-        const pass = document.getElementById('secretModalPasswordField').value;
-        if (pass === "7004") {
-            const fbKey = stockData[activeDeleteRowIdx].fbKey;
-            database.ref('freshStockVouchers/' + fbKey).remove().then(() => {
-                alert("🗑️ Success: Cloud Record completely wiped out.");
-                closeSecretPasswordModal();
-                cancelEditMode(); 
-            });
+        if (passwordInput === "7004") {
+            let doubleCheck = confirm(`⚠️ ALERT: Are you absolutely sure you want to permanently delete the Master Code [ ${code} ] and all its linked PO configurations from Cloud?`);
+            
+            if (doubleCheck) {
+                database.ref('systemMasterCatalogFlat/' + fbKey).remove().then(() => {
+                    alert("🗑️ Master Code and linked PO data completely wiped out.");
+                    resetCatalogForm();
+                });
+            } else {
+                alert("🔒 Cancelled: Record is completely safe!");
+            }
         } else {
-            alert("❌ Access Denied: Incorrect Password! Record is safe.");
-            closeSecretPasswordModal();
+            alert("❌ Access Denied: Incorrect Password!");
         }
     }
 
-    function triggerGateInReceipt(i) {
-        const shell = document.getElementById('printSection');
-        let itemsList = i.gridItems || [{ modelCode: i.modelCode, modelName: i.modelName, qty: i.qty, receiveQty: i.receiveQty, unit: i.unit || 'NOS' }];
-        let rowsHtml = "";
-        itemsList.forEach(item => {
-            let uText = item.unit ? item.unit : "NOS";
-            rowsHtml += `<tr>
-                <td style="border:1px solid #000; padding:3px;">${item.modelCode}</td>
-                <td style="border:1px solid #000; padding:3px;">${item.modelName}</td>
-                <td style="border:1px solid #000; padding:3px; text-align:center; font-weight:bold;">${item.qty}</td>
-                <td style="border:1px solid #000; padding:3px; text-align:center; font-weight:bold;">${item.receiveQty}</td>
-                <td style="border:1px solid #000; padding:3px; text-align:center;">${uText}</td>
-            </tr>`;
-        });
-
-        shell.innerHTML = `
-            <div style="border:1px solid #000; padding:6px; height:100%; box-sizing:border-box; display:flex; flex-direction:column; justify-content:space-between;">
-                <div style="text-align:center; font-weight:bold; font-size:12px; border-bottom:1px solid #000; padding-bottom:2px; text-transform:uppercase;">GVM RAIL PVT LTD - MATERIAL INWARD</div>
-                <table style="width:100%; font-size:11px; margin-top:2px; line-height:1.2;">
-                    <tr><td><b>Gate In Date:</b> ${i.gateInDate}</td><td><b>Gate In No:</b> ${i.gateInNo}</td></tr>
-                    <tr><td><b>Bill No:</b> ${i.billNo}</td><td><b>Company Name:</b> ${i.companyName}</td></tr>
-                    <tr><td colspan="2"><b>PO No:</b> ${i.poNo || 'WITHOUT PO'} | <b>Bill Date:</b> ${i.billDate}</td></tr>
-                </table>
-                <table style="width:100%; border-collapse:collapse; margin-top:4px; font-size:10px;">
-                    <thead>
-                        <tr style="background:#eee;">
-                            <th style="border:1px solid #000; padding:3px; text-align:left;">Model Code</th>
-                            <th style="border:1px solid #000; padding:3px; text-align:left;">Description</th>
-                            <th style="border:1px solid #000; padding:3px;">Bill Qty</th>
-                            <th style="border:1px solid #000; padding:3px;">Receive Qty</th>
-                            <th style="border:1px solid #000; padding:3px;">Unit</th>
-                        </tr>
-                    </thead>
-                    <tbody>${rowsHtml}</tbody>
-                </table>
-                <div style="text-align:right; font-weight:bold; font-size:9px; margin-top:2px;">Authorized Store Signature</div>
-            </div>`;
-        window.print();
+    function resetCatalogForm() {
+        document.getElementById('editFirebaseKey').value = "";
+        document.getElementById('codeGeneratorForm').reset();
+        document.getElementById('newCompanyInput').removeAttribute('readonly');
+        document.getElementById('newCompanyInput').style.background = '#fff';
+        document.getElementById('newPartCode').removeAttribute('readonly');
+        document.getElementById('newPartCode').style.background = '#fff';
+        document.getElementById('poFormBox').classList.remove('po-box-open');
+        document.getElementById('formTitleCatalog').innerText = "Generate Custom Item Code (Universal Master)";
+        document.getElementById('btnSubmitCatalog').innerText = "Generate & Linked Code";
+        document.getElementById('btnCancelCatalogEdit').style.display = "none";
     }
-
-    function applyLiveDateRestrictions() {
-        const todayStr = new Date().toISOString().split('T')[0];
-        document.getElementById('billDate').setAttribute('max', todayStr); document.getElementById('gateInDate').setAttribute('max', todayStr);
-        document.getElementById('billDate').value = todayStr; document.getElementById('gateInDate').value = todayStr;
-        document.getElementById('freshFromDate').value = todayStr; document.getElementById('freshToDate').value = todayStr;
-    }
-    
-    function exportFreshToExcel() {
-        let csv = "Company,Bill No,PO No,Bill Date,Gate-In Date,Gate-In No,Model Code,Model Name,Bill Qty,Receive Qty,Unit Type\n";
-        stockData.forEach(i => {
-            let itemsList = i.gridItems || [{ modelCode: i.modelCode, modelName: i.modelName, qty: i.qty, receiveQty: i.receiveQty, unit: i.unit || 'NOS' }];
-            itemsList.forEach(item => {
-                let uText = item.unit ? item.unit : "NOS";
-                csv += `"${i.companyName}","${i.billNo}","${i.poNo}","${i.billDate}","${i.gateInDate}","${i.gateInNo}","${item.modelCode}","${item.modelName}","${item.qty}","${item.receiveQty}","${uText}"\n`;
-            });
-        });
-        let blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
-        let link = document.createElement("a");
-        link.href = URL.createObjectURL(blob); link.setAttribute("download", "Fresh_Inward_Ledger_Clean.csv");
-        document.body.appendChild(link); link.click(); document.body.removeChild(link);
-    }
-
-    function trackInputFocusMemory() {
-        document.querySelectorAll('form input, form select').forEach(field => {
-            field.addEventListener('focus', function() { if (this.id) { lastActiveFocusedInputId = this.id; } });
-            field.addEventListener('mousedown', function() { if (this.id) { lastActiveFocusedInputId = this.id; } });
-        });
-    }
-
-    function applyBulletproofRefocusEngine() {
-        document.addEventListener('click', function(e) {
-            if(e.target.id === "liveTableSearchBox" || e.target.getAttribute('data-block-refocus') === "true") return;
-            if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'SELECT' && e.target.tagName !== 'BUTTON' && !e.target.closest('.secret-modal-card')) {
-                refocusLastElement();
-            }
-        });
-
-        document.addEventListener('visibilitychange', function() { if (document.visibilityState === 'visible') { refocusLastElement(); } });
-        window.addEventListener('focus', function() { refocusLastElement(); });
-        window.addEventListener('pageshow', function() { refocusLastElement(); });
-
-        document.addEventListener('paste', function(e) {
-            if (lastActiveFocusedInputId) {
-                const targetEl = document.getElementById(lastActiveFocusedInputId);
-                if (targetEl && document.activeElement !== targetEl) { targetEl.focus(); }
-                setTimeout(() => {
-                    let text = targetEl.value;
-                    if (text.length > 0 && text.length % 2 === 0 && text.substring(0, text.length/2) === text.substring(text.length/2)) {
-                        targetEl.value = text.substring(0, text.length/2);
-                    }
-                }, 10);
-            }
-        });
-    }
-
-    function refocusLastElement() {
-        if(document.getElementById('secretPasswordModal').style.display === "flex") return;
-        if(document.activeElement && document.activeElement.id === "liveTableSearchBox") return;
-        
-        if (lastActiveFocusedInputId) {
-            const targetEl = document.getElementById(lastActiveFocusedInputId);
-            if (targetEl && document.activeElement !== targetEl) {
-                setTimeout(() => { 
-                    targetEl.focus(); 
-                    if (targetEl.tagName === 'INPUT' && (targetEl.type === 'text' || targetEl.type === 'number')) {
-                        const val = targetEl.value; targetEl.value = ''; targetEl.value = val;
-                    }
-                }, 30);
-            }
-        }
-    }
+    function cancelCatalogEditMode() { resetCatalogForm(); }
 
     window.addEventListener('DOMContentLoaded', () => {
-        const box = document.getElementById('liveTableSearchBox');
+        const box = document.getElementById('catalogSearchBox');
         if (box) box.value = "";
     });
-
-    applyLiveDateRestrictions();
-    trackInputFocusMemory();
-    applyBulletproofRefocusEngine();
 </script>
 </body>
 </html>
