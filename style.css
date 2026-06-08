@@ -83,7 +83,7 @@ html {
     padding-bottom: 15px; 
     flex-wrap: wrap; 
     align-items: center;
-    line-height: 2.2; /* निचली लाइन को स्पेस देने के लिए */
+    line-height: 2.2; 
 }
 .tab-link { 
     display: inline-block; 
@@ -95,7 +95,7 @@ html {
     background-color: #e2e8f0; 
     color: #475569; 
     position: relative;
-    margin-bottom: 6px; /* 🌟 दो लाइनों के बीच दूरी बनाए रखने का लॉक */
+    margin-bottom: 6px; 
     transition: var(--transition); 
 }
 .tab-link:hover {
@@ -118,7 +118,7 @@ html {
     box-shadow: 0 4px 10px rgba(30, 58, 138, 0.25);
 }
 
-/* एक्टिव टैब के नीचे चमकीला डायनामिक पल्स ग्लो इफ़ेक्ट जो टैब के साथ घूमेगा */
+/* एक्टिव टैब के नीचे चमकीला डायनामिक पल्स ग्लो इफ़ेक्ट */
 .tabs-nav a[class*="active-"]::after, .tabs-nav a.active-code::after {
     content: '';
     position: absolute;
@@ -398,9 +398,8 @@ html {
 .view-sn-link { color: var(--primary-light); text-decoration: none; cursor: pointer; font-weight: bold; font-size: 12px; transition: var(--transition); }
 .view-sn-link:hover { color: var(--primary-dark); text-decoration: underline; }
 
-/* 🌟 100% फिक्स: 'गो-टू-टॉप' बटन को 'z-index' की महाशक्ति दी गई है ताकि यह कभी गायब न हो */
-body::after {
-    content: '↑';
+/* 🌟 100% फिक्स: 'गो-टू-टॉप' बटन क्लास जो अब हर एक पेज पर मजबूत लेयर के साथ लाइव काम करेगी */
+.scroll-to-top-btn {
     position: fixed;
     bottom: 25px;
     right: 25px;
@@ -414,22 +413,25 @@ body::after {
     line-height: 42px;
     border-radius: 50%;
     cursor: pointer;
-    box-shadow: 0 4px 15px rgba(15, 23, 42, 0.4);
-    z-index: 999999 !important; /* सभी एलीमेंट्स से ऊपर रहने के लिए सर्वोच्च प्राथमिकता */
+    box-shadow: 0 4px 15px rgba(15, 23, 42, 0.3);
+    z-index: 99999999 !important; /* सर्वोच्च प्राथमिकता ताकि कोई एलिमेंट इसे न छुपाए */
     transition: var(--transition);
     opacity: 0.8;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
-body:hover::after {
+.scroll-to-top-btn:hover {
     opacity: 1;
     background-color: var(--primary-light);
     transform: translateY(-3px);
-}
-body:active::after {
-    transform: translateY(0);
+    color: white;
 }
 
 @media print {
     body * { visibility: hidden; }
     #printSection, #printSection * { visibility: visible; }
     #printSection { position: absolute; left: 0; top: 0; width: 100%; padding: 20px; }
+    .scroll-to-top-btn { display: none !important; }
 }
