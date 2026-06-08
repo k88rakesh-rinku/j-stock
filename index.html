@@ -161,11 +161,11 @@
                 </div>
                 <div style="flex: 1; min-width: 90px;">
                     <label style="font-size:12px; font-weight:bold;">Bill Qty</label>
-                    <input type="text" id="gridBillQty" placeholder="Enter Qty" style="padding:8px; width:100%; box-sizing:border-box;">
+                    <input type="number" id="gridBillQty" min="0" step="0.001" placeholder="Enter Qty" style="padding:8px; width:100%; box-sizing:border-box;">
                 </div>
                 <div style="flex: 1; min-width: 90px;">
                     <label style="font-size:12px; font-weight:bold;">Receive Qty</label>
-                    <input type="text" id="gridRecQty" placeholder="Enter Qty" style="padding:8px; width:100%; box-sizing:border-box;">
+                    <input type="number" id="gridRecQty" min="0" step="0.001" placeholder="Enter Qty" style="padding:8px; width:100%; box-sizing:border-box;">
                 </div>
                 <div style="min-width: 90px;">
                     <label style="font-size:12px; font-weight:bold;">Unit</label>
@@ -268,7 +268,7 @@
         const data = snapshot.val();
         if(data) {
             for(let key in data) {
-                flatPOList.push(data[key]);
+                flatPOList.push({ fbKey: key, ...data[key] });
             }
         }
         fetchPurchasePOOptions();
@@ -290,11 +290,13 @@
         const selectBox = document.getElementById('poNo');
         selectBox.innerHTML = '';
 
-        // 🌟 कड़क अपग्रेड: बिना पीओ के आने वाले माल का हैंडलर "WITHOUT PO"
+        // 🌟 "WITHOUT PO" का विकल्प हमेशा टॉप पर फिक्स रहेगा
         selectBox.innerHTML = '<option value="WITHOUT PO">WITHOUT PO (NO PO LINKED)</option>';
 
         let validPOs = filteredPOs.filter(p => {
-            if(p.hasPO === "NO") return false;
+            // 🌟 सुधार: यहाँ 'NO' कंडीशंस को बाईपास होने से रोक दिया ताकि असली 'YES' वाले PO बाहर आ सकें
+            if(p.hasPO === "NO" || !p.poNumber || p.poNumber === "-") return false;
+            
             let poNum = p.poNumber.trim().toUpperCase();
             let pCode = p.code.trim().toUpperCase();
             let totalOrdered = parseInt(p.qty || p.poTotalQty || 0);
@@ -309,7 +311,7 @@
                     if (f.gridItems) {
                         f.gridItems.forEach(gi => {
                             if ((gi.modelCode || "").trim().toUpperCase() === pCode) {
-                                totalReceivedAlready += parseInt(gi.qty || gi.receiveQty || 0);
+                                totalReceivedAlready += parseFloat(gi.qty || gi.receiveQty || 0);
                             }
                         });
                     }
@@ -333,6 +335,7 @@
             return; 
         }
         
+        // कंपनी के सभी रिकॉर्ड्स को फ़िल्टर करके ड्रॉपडाउन इंजन को सौंपना
         let matches = flatPOList.filter(x => x.company === compName);
         updatePODropdownOptions(matches);
     }
@@ -361,16 +364,14 @@
         let valRec = document.getElementById('gridRecQty').value;
         const unit = document.getElementById('gridUnit').value;
         
-        let strBill = valBill ? valBill.toString().replace(/[^0-9]/g, '') : "";
-        let strRec = valRec ? valRec.toString().replace(/[^0-9]/g, '') : "";
-        
-        let bQty = parseInt(strBill);
-        let rQty = parseInt(strRec);
+        let bQty = parseFloat(valBill);
+        let rQty = parseFloat(valRec);
 
         if(!code || !name || isNaN(bQty) || isNaN(rQty)) { alert("Please enter valid Model Details and Quantities!"); return; }
         if(bQty !== rQty) { alert("Error: Bill Qty and Receive Qty must match!"); return; }
 
         tempGridItems.push({ modelCode: code, modelName: name, qty: bQty, receiveQty: rQty, unit: unit });
+        document.getElementById('gridItemsBody').innerHTML = ''; // रीसेट ग्रिड
         renderTempGrid();
         
         document.getElementById('gridModelCode').value = '';
@@ -385,7 +386,6 @@
 
     function removeTempRow(index) { tempGridItems.splice(index, 1); renderTempGrid(); }
 
-    // 🌟 महा-अपग्रेड: ग्रिड रो को लाइव एडिट/सुधार मोड में ऊपर लोड करने का इंजन
     function editTempRow(index) {
         let item = tempGridItems[index];
         document.getElementById('gridModelCode').value = item.modelCode;
@@ -435,8 +435,8 @@
             let valBill = document.getElementById('gridBillQty').value || "";
             let valRec = document.getElementById('gridRecQty').value || "";
             const unit = document.getElementById('gridUnit').value;
-            let bQty = parseInt(valBill.toString().replace(/[^0-9]/g, ''));
-            let rQty = parseInt(valRec.toString().replace(/[^0-9]/g, ''));
+            let bQty = parseFloat(valBill);
+            let rQty = parseFloat(valRec);
 
             if(code && name && !isNaN(bQty) && !isNaN(rQty)) {
                 if(bQty !== rQty) { alert("Error: Bill Qty and Receive Qty must match!"); return; }
@@ -532,7 +532,7 @@
             }
 
             itemsList.forEach(item => {
-                let currentQty = parseInt(item.qty || item.receiveQty || 0);
+                let currentQty = parseFloat(item.qty || item.receiveQty || 0);
                 let currentUnit = item.unit ? item.unit : "NOS";
                 itemsHtml += `• <code>${item.modelCode || i.modelCode}</code> - ${item.modelName || i.modelName} (<b>${currentQty} ${currentUnit}</b>)<br>`;
                 if(currentQty < 5 && currentUnit === 'NOS') document.getElementById('lowStockAlert').style.display = 'block';
@@ -690,7 +690,6 @@
 
     function applyBulletproofRefocusEngine() {
         document.addEventListener('click', function(e) {
-            // 🌟 सुरक्षा गियर: अगर लाइव सर्च बार पर क्लिक हुआ है, तो रिफोकस गियर को बाईपास करें
             if(e.target.id === "liveTableSearchBox" || e.target.getAttribute('data-block-refocus') === "true") return;
             if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'SELECT' && e.target.tagName !== 'BUTTON' && !e.target.closest('.secret-modal-card')) {
                 refocusLastElement();
@@ -717,7 +716,6 @@
 
     function refocusLastElement() {
         if(document.getElementById('secretPasswordModal').style.display === "flex") return;
-        // 🌟 सुरक्षा गियर: अगर एक्टिव एलिमेंट सर्च बार है, तो फोकस वहां से मत हटाओ
         if(document.activeElement && document.activeElement.id === "liveTableSearchBox") return;
         
         if (lastActiveFocusedInputId) {
