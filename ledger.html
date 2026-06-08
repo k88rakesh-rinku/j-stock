@@ -643,4 +643,56 @@
             const cols = rows[i].querySelectorAll("th, td");
             for (let j = 0; j < cols.length; j++) {
                 if((tableId === "freshStockTableHead" || tableId === "reworkStockTableHead") && j === cols.length - 1) continue; 
-                let cellText = cols[j].innerText.replace(/(\r\n|\n
+                let cellText = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, "").trim().replace(/"/g, '""');
+                rowData.push('景色' + cellText + '"');
+                rowData[rowData.length - 1] = '"' + cellText + '"';
+            }
+            csvRows.push(rowData.join(","));
+        }
+        const csvContent = "\uFEFF" + csvRows.join("\n");
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", filename);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    function exportPoLedgerToExcel() { downloadTableToCSV("poLedgerTableHead", "PO_Matrix_Ledger_Report.csv"); }
+    function exportReworkStockToExcel() { downloadTableToCSV("reworkStockTableHead", "Live_Rework_Inventory_Report.csv"); }
+    
+    function exportPhysicalStockToExcel() { 
+        if (inboundVouchers.length === 0) { alert("डेटाबेस में कोई रिकॉर्ड नहीं मिला!"); return; }
+        let csvRows = [];
+        csvRows.push(['"Inward Date"', '"Bill No / Ref"', '"Vendor / Company Name"', '"Model Part Code"', '"Item Description"', '"Received Qty"', '"Unit"'].join(","));
+        inboundVouchers.forEach(v => {
+            if (!v) return;
+            let billDate = v.gateInDate || v.billDate || v.date || "-";
+            let billNo = (v.billNo || v.invoiceNo || "-").replace(/"/g, '""');
+            let vendorName = (v.companyName || v.vendorName || "-").replace(/"/g, '""');
+            safeConvertToArray(v.gridItems).forEach(item => {
+                if (!item) return;
+                let pCode = cleanStr(item.modelCode || "-");
+                let pName = String(item.modelName || "GENERIC ITEM").toUpperCase().replace(/"/g, '""');
+                let qty = item.qty || item.receiveQty || item.quantity || 0;
+                let unit = cleanStr(item.unit || "NOS");
+                csvRows.push(['"' + billDate + '"', '"' + billNo + '"', '"' + vendorName + '"', '"' + pCode + '"', '"' + pName + '"', '"' + qty + '"', '"' + unit + '"'].join(","));
+            });
+        });
+        const csvContent = "\uFEFF" + csvRows.join("\n");
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", "Detailed_Fresh_Inward_Bill_Report.csv");
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+</script>
+</body>
+</html>
