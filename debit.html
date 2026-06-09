@@ -1,510 +1,342 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Debit Note Management - Control System</title>
-    <link rel="stylesheet" href="style.css">
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
-    <style>
-        .btn-edit-action { background-color: #0284c7; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
-        .btn-edit-action:hover { background-color: #0369a1; }
-        .btn-delete-action { background-color: #dc2626; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; }
-        .btn-delete-action:hover { background-color: #b91c1c; }
-        .btn-print-receipt { background-color: #007bff; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
-        
-        .table-filter-panel { display: flex; justify-content: space-between; align-items: center; background: #f1f5f9; padding: 10px 15px; border-radius: 6px 6px 0 0; border: 1px solid #cbd5e1; border-bottom: none; margin-top: 25px; gap: 15px; flex-wrap: wrap; }
-        .search-input-box { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; width: 280px; text-transform: uppercase; }
-        .limit-dropdown-select { padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; cursor: pointer; background: #fff; font-weight: bold; }
-        
-        .db-pool-select { width: 100%; padding: 5px; border: 1px solid #cbd5e1; border-radius: 4px; font-weight: bold; background: #fff; cursor: pointer; }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debit Note Management - Control System</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+    <style>
+        .btn-edit-action { background-color: #0284c7; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
+        .btn-edit-action:hover { background-color: #0369a1; }
+        .btn-delete-action { background-color: #dc2626; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; }
+        .btn-delete-action:hover { background-color: #b91c1c; }
+        .btn-print-receipt { background-color: #007bff; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
+        
+        .table-filter-panel { display: flex; justify-content: space-between; align-items: center; background: #f1f5f9; padding: 10px 15px; border-radius: 6px 6px 0 0; border: 1px solid #cbd5e1; border-bottom: none; margin-top: 25px; gap: 15px; flex-wrap: wrap; }
+        .search-input-box { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; width: 280px; text-transform: uppercase; }
+        .limit-dropdown-select { padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; cursor: pointer; background: #fff; font-weight: bold; }
+        
+        /* 🌟 नए पूल सेलेक्ट ड्रॉपडाउन की सुंदर स्टाइलिंग */
+        .db-pool-select { width: 100%; padding: 5px; border: 1px solid #cbd5e1; border-radius: 4px; font-weight: bold; background: #fff; cursor: pointer; }
 
-        .pending-rej-panel { background: #fff5f5; border: 1px solid #fecaca; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: none; }
-        .rej-batch-row { display: flex; justify-content: space-between; align-items: center; padding: 10px; background: white; border: 1px solid #fee2e2; margin-top: 8px; border-radius: 6px; font-size: 13px; }
-        .btn-load-rej { background-color: #dc3545; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-weight: bold; cursor: pointer; transition: background 0.2s; }
-        .btn-load-rej:hover { background-color: #bd2130; }
-
-        /* 🧩 सब-असेंबली बॉक्स की सुंदर स्टाइलिंग */
-        .sn-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(15, 23, 42, 0.6); z-index: 9999; justify-content: center; align-items: center; backdrop-filter: blur(2px); }
-        .modal-content { background: white; padding: 25px; border-radius: 8px; width: 100%; max-width: 850px; max-height: 85%; overflow-y: auto; box-shadow: 0 20px 40px rgba(15, 23, 42, 0.2); }
-        .sub-set-row { display: grid; grid-template-columns: repeat(5, 1fr) 1.2fr 1fr; gap: 8px; padding: 8px 0; border-bottom: 1px solid #f1f5f9; }
-        .sub-set-row input { padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 12px; width: 100%; box-sizing: border-box; text-transform: uppercase; }
-        .sub-header-grid { display: grid; grid-template-columns: repeat(5, 1fr) 1.2fr 1fr; gap: 8px; background: #334155; color: white; padding: 6px 10px; border-radius: 4px; font-size: 11px; font-weight: bold; text-align: center; }
-
-        @media print {
-            body * { visibility: hidden; }
-            #printSection, #printSection * { visibility: visible; }
-            #printSection { position: absolute; left: 0; top: 0; width: 210mm; height: 74.25mm; box-sizing: border-box; padding: 4mm 6mm; background: #fff; font-family: monospace; font-size: 11px; line-height: 1.3; }
-            @page { size: A4 portrait; margin: 0; }
-        }
-    </style>
+        @media print {
+            body * { visibility: hidden; }
+            #printSection, #printSection * { visibility: visible; }
+            #printSection { position: absolute; left: 0; top: 0; width: 210mm; height: 74.25mm; box-sizing: border-box; padding: 4mm 6mm; background: #fff; font-family: monospace; font-size: 11px; line-height: 1.3; }
+            @page { size: A4 portrait; margin: 0; }
+        }
+    </style>
 </head>
 <body>
 <div class="container">
-    <div class="erp-header">
-        <h1>Material Lifecycle Control & Inventory Ledger Systems <span style="font-size:12px; color:#4ade80;">● CLOUD LIVE</span></h1>
-        <button class="logout-btn" onclick="logout()">Logout</button>
-    </div>
-    
-    <div class="tabs-nav">
-        <a href="index.html" class="tab-link">📦 New Entry (Fresh)</a>
-        <a href="rework.html" class="tab-link">🛠️ Gate In (Rework)</a>
-        <a href="gateout.html" class="tab-link">🚪 Gate Out (Dispatch)</a>
-        <a href="debit.html" class="tab-link" style="background-color: #1e3a8a; color: white; font-weight: bold;">🧾 Debit Note (Vendor)</a>
-        <a href="code.html" class="tab-link">🆕 Generate Code</a>
-        <a href="ledger.html" class="tab-link">📊 Master Ledger & History</a>
-        <a href="users.html" class="tab-link">👥 Manage Users</a>
-        <a href="bom.html" class="tab-link">🔗 BOM Master</a>
-        <a href="failure.html" class="tab-link">🛠️ Failure Defect Log</a>
-        <a href="production.html" class="tab-link">🏭 Production Planner</a>
-        <a href="reject_bin.html" class="tab-link">🗑️ Rejection Bin</a>
-    </div>
+    <div class="erp-header">
+        <h1>Material Lifecycle Control & Inventory Ledger Systems <span style="font-size:12px; color:#4ade80;">● CLOUD LIVE</span></h1>
+        <button class="logout-btn" onclick="logout()">Logout</button>
+    </div>
+    
+    <div class="tabs-nav">
+        <a href="index.html" class="tab-link">📦 New Entry (Fresh)</a>
+        <a href="rework.html" class="tab-link">🛠️ Gate In (Rework)</a>
+        <a href="gateout.html" class="tab-link">🚪 Gate Out (Dispatch)</a>
+        <a href="debit.html" class="tab-link" style="background-color: #1e3a8a; color: white; font-weight: bold;">🧾 Debit Note (Vendor)</a>
+        <a href="code.html" class="tab-link">🆕 Generate Code</a>
+        <a href="ledger.html" class="tab-link">📊 Master Ledger & History</a>
+        <a href="users.html" class="tab-link">👥 Manage Users</a>
+        <a href="bom.html" class="tab-link">🔗 BOM Master</a>
+        <a href="failure.html" class="tab-link">🛠️ Failure Defect Log</a>
+        <a href="production.html" class="tab-link">🏭 Production Planner</a>
+        <a href="reject_bin.html" class="tab-link">🗑️ Rejection Bin</a>
+    </div>
 
-    <h3 id="formTitleDebit" style="color:var(--primary); margin: 15px 0 10px 0;">🧾 Debit Note (Vendor Return) Ledger</h3>
+    <h3 id="formTitleDebit" style="color:var(--primary); margin: 15px 0 10px 0;">🧾 Debit Note (Vendor Return) Ledger</h3>
 
-    <div id="pendingRejPanel" class="pending-rej-panel">
-        <h5 style="margin: 0; color: #b91c1c; font-size: 14px;">🗑️ Pending Fresh Rejected Stock Found for this Vendor:</h5>
-        <div id="pendingRejRowsContainer"></div>
-    </div>
+    <form id="debitForm">
+        <input type="hidden" id="editRowIndex" value="-1">
+        <input type="hidden" id="editFirebaseKey" value="">
 
-    <form id="debitForm">
-        <input type="hidden" id="editRowIndex" value="-1">
-        <input type="hidden" id="editFirebaseKey" value="">
-        <input type="hidden" id="loadedRejectBinKey" value="">
+        <div class="form-grid">
+            <div class="form-group"><label>Debit Note Date <span>*</span></label><input type="date" id="dbDate" required></div>
+            <div class="form-group"><label>Debit Note No <span>*</span></label><input type="text" id="dbNoteNo" required autocomplete="off" style="text-transform:uppercase;"></div>
+            <div class="form-group"><label>Vendor Name (Return To) <span>*</span></label><input type="text" id="dbVendorName" required autocomplete="off" style="text-transform:uppercase;"></div>
+            <div class="form-group"><label>Original Bill / PO Ref</label><input type="text" id="dbRefInfo" autocomplete="off" style="text-transform:uppercase;"></div>
+        </div>
 
-        <div class="form-grid">
-            <div class="form-group"><label>Debit Note Date <span>*</span></label><input type="date" id="dbDate" required></div>
-            <div class="form-group"><label>Debit Note No <span>*</span></label><input type="text" id="dbNoteNo" required autocomplete="off" style="text-transform:uppercase;"></div>
-            <div class="form-group"><label>Vendor Name (Return To) <span>*</span></label><input type="text" id="dbVendorName" required autocomplete="off" style="text-transform:uppercase;" oninput="checkPendingRejections(this.value)"></div>
-            <div class="form-group"><label>Original Bill / PO Ref</label><input type="text" id="dbRefInfo" autocomplete="off" style="text-transform:uppercase;"></div>
-        </div>
+        <div style="overflow-x:auto; margin-top: 15px;">
+            <table class="grid-table">
+                <thead style="background-color: #ef4444; color: white;">
+                    <tr>
+                        <th style="width:15%;">Stock Pool Type</th>
+                        <th style="width:15%;">Item Code 🔍</th>
+                        <th style="width:30%;">Item Display Name</th>
+                        <th style="width:10%;">Qty</th>
+                        <th style="width:25%;">Reason for Debit / Return</th>
+                        <th style="width:5%;">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="debitItemsBody"></tbody>
+            </table>
+            <button type="button" class="btn-row-add" onclick="addDbRow()">+</button>
+        </div>
 
-        <div style="overflow-x:auto; margin-top: 15px;">
-            <table class="grid-table">
-                <thead style="background-color: #ef4444; color: white;">
-                    <tr>
-                        <th style="width:15%;">Stock Pool Type</th>
-                        <th style="width:15%;">Item Code 🔍</th>
-                        <th style="width:25%;">Item Display Name</th>
-                        <th style="width:10%;">Qty (Max 5)</th>
-                        <th style="width:30%;">Sub-Assembly Track & Serial Map Lock</th>
-                        <th style="width:5%;">Action</th>
-                    </tr>
-                </thead>
-                <tbody id="debitItemsBody"></tbody>
-            </table>
-            <button type="button" class="btn-row-add" onclick="addDbRow()">+</button>
-        </div>
+        <button type="submit" id="btnSubmitForm" class="btn-submit" style="margin-top:15px; width: 100%; background-color:#ef4444;">Save Debit Note Voucher</button>
+        <button type="button" id="btnCancelEdit" class="btn-submit" style="background-color:#64748b; display:none; margin-top:10px; width: 100%;" onclick="cancelEditMode()">Cancel Update</button>
+    </form>
 
-        <button type="submit" id="btnSubmitForm" class="btn-submit" style="margin-top:15px; width: 100%; background-color:#ef4444;">Save Debit Note Voucher</button>
-        <button type="button" id="btnCancelEdit" class="btn-submit" style="background-color:#64748b; display:none; margin-top:10px; width: 100%;" onclick="cancelEditMode()">Cancel Update</button>
-    </form>
+    <div class="table-filter-panel">
+        <div>
+            <input type="text" id="liveTableSearchBox" class="search-input-box" placeholder="🔍 Search Note No, Vendor, Code..." autocomplete="off" oninput="renderHistory()">
+        </div>
+        <div>
+            <label style="font-weight: bold; font-size: 13px; color:#475569;">Show Records:</label>
+            <select id="liveTableLimitSelect" class="limit-dropdown-select" onchange="renderHistory()">
+                <option value="5" selected>5 Records (Default)</option>
+                <option value="10">10 Records</option>
+                <option value="ALL">Show All</option>
+            </select>
+        </div>
+    </div>
 
-    <div class="table-filter-panel">
-        <div>
-            <input type="text" id="liveTableSearchBox" class="search-input-box" placeholder="🔍 Search Note No, Vendor, Code..." autocomplete="off" oninput="renderHistory()">
-        </div>
-        <div>
-            <label style="font-weight: bold; font-size: 13px; color:#475569;">Show Records:</label>
-            <select id="liveTableLimitSelect" class="limit-dropdown-select" onchange="renderHistory()">
-                <option value="5" selected>5 Records (Default)</option>
-                <option value="10">10 Records</option>
-                <option value="ALL">Show All</option>
-            </select>
-        </div>
-    </div>
-
-    <div class="table-responsive" style="margin-top: 0;">
-        <table class="history-table" style="border-top: none;">
-            <thead style="background-color: #ef4444; color: white;">
-                <tr><th>Date</th><th>Debit Note No</th><th>Vendor Name</th><th>Original Ref</th><th>Items Returned Details</th><th>Action Controls</th></tr>
-            </thead>
-            <tbody id="debitHistoryBody">
-                <tr><td colspan="6" style="text-align:center; padding:15px; color:#64748b;">Loading Live Records...</td></tr>
-            </tbody>
-        </table>
-    </div>
-</div>
-
-<div id="serialModal" class="sn-modal">
-    <div class="modal-content">
-        <h3 style="color:#ef4444; margin-top:0;">🧩 Enter Assembly Component Wise Serial, Barcodes, Problems & Testers</h3>
-        <p style="font-size:12px; color:#64748b;">कृपया प्रत्येक पीस का यूनिक सीरियल नंबर ट्रैक रिकॉर्ड दर्ज करें:</p>
-        <div class="sub-header-grid">
-            <div>Main Board SN</div>
-            <div>Top LED Board SN</div>
-            <div>CH1 LED Board SN</div>
-            <div>CH2 LED Board SN</div>
-            <div>Bar Code No</div>
-            <div>⚠️ Problem / Defect</div>
-            <div>👤 Tested By</div>
-        </div>
-        <div id="modalSerialInputsContainer" style="margin-top:10px;"></div>
-        <button class="btn-submit" style="margin-top:20px; background-color:#ef4444;" onclick="lockModalSerialsToRow()">💾 Lock Assembly Details to Row</button>
-    </div>
+    <div class="table-responsive" style="margin-top: 0;">
+        <table class="history-table" style="border-top: none;">
+            <thead style="background-color: #ef4444; color: white;">
+                <tr><th>Date</th><th>Debit Note No</th><th>Vendor Name</th><th>Original Ref</th><th>Items Returned Details</th><th>Action Controls</th></tr>
+            </thead>
+            <tbody id="debitHistoryBody">
+                <tr><td colspan="6" style="text-align:center; padding:15px; color:#64748b;">Loading Live Records...</td></tr>
+            </tbody>
+        </table>
+    </div>
 </div>
 
 <div id="printSection"></div>
 
 <script>
-    const firebaseConfig = {
-        apiKey: "AIzaSyCAOXbPwuFR3wh1QSLBXWsodupKWoRYmqs",
-        authDomain: "gvm-stock-control.firebaseapp.com",
-        databaseURL: "https://gvm-stock-control-default-rtdb.firebaseio.com",
-        projectId: "gvm-stock-control"
-    };
-    firebase.initializeApp(firebaseConfig);
-    const database = firebase.database();
+    const firebaseConfig = {
+        apiKey: "AIzaSyCAOXbPwuFR3wh1QSLBXWsodupKWoRYmqs",
+        authDomain: "gvm-stock-control.firebaseapp.com",
+        databaseURL: "https://gvm-stock-control-default-rtdb.firebaseio.com",
+        projectId: "gvm-stock-control"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
 
-    const session = JSON.parse(localStorage.getItem('activeSession'));
-    if(!session) { window.location.href = 'login.html'; }
-    function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
+    const session = JSON.parse(localStorage.getItem('activeSession'));
+    if(!session) { window.location.href = 'login.html'; }
+    function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
 
-    let debitData = [];
-    let rejectBinGlobalData = {}; 
-    let masterCatalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
-    
-    let currentActiveRowForSerials = null; // ट्रैक करने के लिए कि किस रो पर क्लिक हुआ है
+    let debitData = [];
+    let masterCatalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
 
-    database.ref('debitStockVouchers').on('value', (snapshot) => {
-        debitData = [];
-        const data = snapshot.val();
-        if(data) { for(let key in data) { debitData.push({ fbKey: key, ...data[key] }); } }
-        debitData.reverse();
-        renderHistory();
-    });
+    database.ref('debitStockVouchers').on('value', (snapshot) => {
+        debitData = [];
+        const data = snapshot.val();
+        if(data) {
+            for(let key in data) {
+                debitData.push({ fbKey: key, ...data[key] });
+            }
+        }
+        debitData.reverse();
+        renderHistory();
+    });
 
-    database.ref('freshRejectionBinData').on('value', (snapshot) => {
-        rejectBinGlobalData = snapshot.val() || {};
-        let currentVendor = document.getElementById('dbVendorName').value;
-        if(currentVendor) checkPendingRejections(currentVendor);
-    });
+    function addDbRow(preItem = {}) {
+        const body = document.getElementById('debitItemsBody');
+        const tr = document.createElement('tr');
+        const currentPool = preItem.pool || "FRESH";
 
-    function checkPendingRejections(vendorInput) {
-        const val = vendorInput.trim().toUpperCase();
-        const container = document.getElementById('pendingRejRowsContainer');
-        const panel = document.getElementById('pendingRejPanel');
-        container.innerHTML = "";
+        tr.innerHTML = `
+            <td>
+                <select class="db-pool-select">
+                    <option value="FRESH" ${currentPool === 'FRESH' ? 'selected' : ''}>FRESH</option>
+                    <option value="REWORK" ${currentPool === 'REWORK' ? 'selected' : ''}>REWORK</option>
+                </select>
+            </td>
+            <td><input type="text" required class="db-code" value="${preItem.code || ''}" oninput="autofillDebit(this)" style="text-transform:uppercase;"></td>
+            <td><input type="text" required class="db-name" value="${preItem.name || ''}"></td>
+            <td><input type="number" min="1" required class="db-qty" value="${preItem.qty || ''}"></td>
+            <td><input type="text" required class="db-reason" value="${preItem.reason || ''}" placeholder="e.g. Broken/Faulty Component"></td>
+            <td><button type="button" class="btn-row-remove" onclick="this.closest('tr').remove()">×</button></td>`;
+        body.appendChild(tr);
+    }
 
-        if(!val) { panel.style.display = "none"; return; }
+    function autofillDebit(input) {
+        let code = input.value.trim().toUpperCase().replace(/\s+/g, '');
+        let foundName = "";
+        for(let key in masterCatalog) {
+            const m = masterCatalog[key].find(i => i.code.trim().toUpperCase().replace(/\s+/g, '') === code);
+            if(m) foundName = m.name;
+        }
+        input.closest('tr').querySelector('.db-name').value = foundName;
+    }
 
-        let foundCount = 0;
-        for(let key in rejectBinGlobalData) {
-            const row = rejectBinGlobalData[key];
-            if(row.status === "PENDING_DEBIT_NOTE" && row.vendorName.toUpperCase().includes(val)) {
-                foundCount++;
-                container.innerHTML += `
-                    <div class="rej-batch-row">
-                        <div>📅 <b>${row.date}</b> | 📦 Code: <code>${row.itemCode}</code> | Qty: <b>${row.totalQty} Sets</b></div>
-                        <button type="button" class="btn-load-rej" onclick="loadRejectBinToForm('${key}')">⚡ Auto-Load to Grid</button>
-                    </div>`;
-            }
-        }
-        panel.style.display = foundCount > 0 ? "block" : "none";
-    }
+    document.getElementById('debitForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        let items = [];
+        let rows = document.querySelectorAll('#debitItemsBody tr');
+        
+        if(rows.length === 0) { alert("Please add at least one item row!"); return; }
 
-    function loadRejectBinToForm(binKey) {
-        const data = rejectBinGlobalData[binKey];
-        if(!data) return;
+        rows.forEach(row => {
+            items.push({ 
+                pool: row.querySelector('.db-pool-select').value,
+                code: row.querySelector('.db-code').value.trim().toUpperCase(), 
+                name: row.querySelector('.db-name').value.trim(), 
+                qty: parseInt(row.querySelector('.db-qty').value) || 0,
+                reason: row.querySelector('.db-reason').value.trim()
+            });
+        });
 
-        document.getElementById('dbVendorName').value = data.vendorName;
-        document.getElementById('loadedRejectBinKey').value = binKey; 
-        
-        const body = document.getElementById('debitItemsBody');
-        body.innerHTML = ""; 
+        const idx = parseInt(document.getElementById('editRowIndex').value);
+        const fbKey = document.getElementById('editFirebaseKey').value;
 
-        addDbRow({
-            pool: "FRESH",
-            code: data.itemCode,
-            name: data.itemName || "",
-            qty: data.totalQty,
-            serializedData: data.assemblyDetails // पूरा एरे सीधे ट्रांसफर
-        });
+        const voucher = {
+            date: document.getElementById('dbDate').value,
+            debitNoteNo: document.getElementById('dbNoteNo').value.trim().toUpperCase(),
+            vendorName: document.getElementById('dbVendorName').value.trim().toUpperCase(),
+            refInfo: document.getElementById('dbRefInfo').value.trim().toUpperCase(),
+            gridItems: items,
+            createdBy: idx === -1 ? session.userId : (debitData[idx].createdBy || "k88rakesh")
+        };
 
-        document.getElementById('pendingRejPanel').style.display = "none"; 
-        alert("🎉 Connected! Rejection Bin Sub-Assemblies Serial Map Loaded.");
-    }
+        if(idx === -1) {
+            database.ref('debitStockVouchers').push(voucher).then(() => {
+                alert("🎉 Debit Note Entry Saved to Cloud!");
+                resetDebitForm();
+            });
+        } else {
+            database.ref('debitStockVouchers/' + fbKey).set(voucher).then(() => {
+                alert("🎯 Cloud Debit Entry Updated Successfully!");
+                resetDebitForm();
+            });
+        }
+    });
 
-    function addDbRow(preItem = {}) {
-        const body = document.getElementById('debitItemsBody');
-        const tr = document.createElement('tr');
-        const currentPool = preItem.pool || "FRESH";
-        
-        // यूनिक आईडी जेनरेट करना ताकि डेटा उसी रो में लॉक हो
-        const rowId = 'row_' + Math.random().toString(36).substr(2, 9);
-        tr.setAttribute('id', rowId);
+    function renderHistory() {
+        const b = document.getElementById('debitHistoryBody'); b.innerHTML = '';
+        if(debitData.length === 0) {
+            b.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:15px; color:#64748b;">No debit notes found on Cloud.</td></tr>`;
+            return;
+        }
 
-        tr.innerHTML = `
-            <td>
-                <select class="db-pool-select">
-                    <option value="FRESH" ${currentPool === 'FRESH' ? 'selected' : ''}>FRESH</option>
-                    <option value="REWORK" ${currentPool === 'REWORK' ? 'selected' : ''}>REWORK</option>
-                </select>
-            </td>
-            <td><input type="text" required class="db-code" value="${preItem.code || ''}" oninput="autofillDebit(this)" style="text-transform:uppercase;"></td>
-            <td><input type="text" required class="db-name" value="${preItem.name || ''}"></td>
-            <td><input type="number" min="1" max="5" required class="db-qty" value="${preItem.qty || ''}" oninput="openSerialModalForRow('${rowId}')"></td>
-            <td>
-                <input type="text" readonly class="db-serialized-output" value='${preItem.serializedData ? JSON.stringify(preItem.serializedData) : ""}' required placeholder="Click Qty to enter Serials *" style="background:#f1f5f9; font-size:11px; cursor:pointer;" onclick="openSerialModalForRow('${rowId}')">
-            </td>
-            <td><button type="button" class="btn-row-remove" onclick="this.closest('tr').remove()">×</button></td>`;
-        body.appendChild(tr);
-    }
+        const searchStr = document.getElementById('liveTableSearchBox').value.trim().toUpperCase();
+        const limitVal = document.getElementById('liveTableLimitSelect').value;
 
-    // ⚡ कस्टमाइज्ड पॉपअप खोलना (Qty डालते ही या क्लिक करते ही)
-    function openSerialModalForRow(rowId) {
-        currentActiveRowForSerials = rowId;
-        const row = document.getElementById(rowId);
-        let qty = parseInt(row.querySelector('.db-qty').value) || 0;
-        
-        if(qty > 5) { alert("Max 5 Sets allowed at once!"); row.querySelector('.db-qty').value = 5; qty = 5; }
-        if(qty <= 0) return;
+        let filteredList = debitData.filter(d => {
+            const matchNote = d.debitNoteNo ? d.debitNoteNo.toUpperCase().includes(searchStr) : false;
+            const matchVendor = d.vendorName ? d.vendorName.toUpperCase().includes(searchStr) : false;
+            let itemsList = d.gridItems || [];
+            const matchItems = itemsList.some(item => (item.code && item.code.toUpperCase().includes(searchStr)) || (item.name && item.name.toUpperCase().includes(searchStr)));
+            return matchNote || matchVendor || matchItems;
+        });
 
-        const container = document.getElementById('modalSerialInputsContainer');
-        container.innerHTML = "";
+        if(filteredList.length === 0) {
+            b.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:15px; color:#64748b;">No matching search records found.</td></tr>`;
+            return;
+        }
 
-        // अगर पहले से कोई डेटा भरा हुआ है तो उसे लोड करना (नहीं तो खाली डिब्बे देना)
-        let existingDataRaw = row.querySelector('.db-serialized-output').value;
-        let existingData = existingDataRaw ? JSON.parse(existingDataRaw) : [];
+        let viewList = filteredList;
+        if (limitVal !== "ALL") { viewList = filteredList.slice(0, parseInt(limitVal)); }
 
-        for(let i=0; i<qty; i++) {
-            let d = existingData[i] || {};
-            container.innerHTML += `
-                <div class="sub-set-row" data-set="${i}">
-                    <input type="text" class="m-mb" placeholder="MAIN SN" value="${d.mainBoardSN || ''}" required>
-                    <input type="text" class="m-top" placeholder="TOP LED" value="${d.topLedSN || ''}" required>
-                    <input type="text" class="m-ch1" placeholder="CH1 SN" value="${d.ch1SN || ''}" required>
-                    <input type="text" class="m-ch2" placeholder="CH2 SN" value="${d.ch2SN || ''}" required>
-                    <input type="text" class="m-bar" placeholder="BARCODE" value="${d.barcodeNo || ''}" required>
-                    <input type="text" class="m-prob" placeholder="PROBLEM" value="${d.problem || 'REWORK RETURN'}" required>
-                    <input type="text" class="m-test" placeholder="TESTER" value="${d.testedBy || 'OPERATOR'}" required>
-                </div>`;
-        }
-        document.getElementById('serialModal').style.display = "flex";
-    }
+        viewList.forEach((d) => {
+            let origIdx = debitData.findIndex(x => x.fbKey === d.fbKey);
+            let desc = "";
+            (d.gridItems || []).forEach(i => {
+                desc += `• [<b>${i.pool || 'FRESH'}</b>] <code>${i.code}</code> - ${i.name} (<b>${i.qty} Nos</b>) <span style="color:#ef4444; font-size:11px;">[Reason: ${i.reason}]</span><br>`;
+            });
 
-    // 💾 पॉपअप का डेटा वापस रो (Row) के गुप्त इनपुट में सेव करना
-    function lockModalSerialsToRow() {
-        if(!currentActiveRowForSerials) return;
-        
-        let rows = document.querySelectorAll('#modalSerialInputsContainer .sub-set-row');
-        let setWiseDetailsArray = [];
-        let allFilled = true;
+            b.innerHTML += `<tr>
+                <td>${d.date}</td>
+                <td><b>${d.debitNoteNo}</b></td>
+                <td><b>${d.vendorName}</b></td>
+                <td>${d.refInfo || '-'}</td>
+                <td style="text-align:left; font-size:12px;">${desc}</td>
+                <td>
+                    <button type="button" class="btn-print-receipt" onclick='triggerPrintDebit(${JSON.stringify(d)})'>🖨️ Print</button>
+                    <button type="button" class="btn-edit-action" onclick="editDebitRow(${origIdx})">Edit</button>
+                    <button type="button" class="btn-delete-action" onclick="deleteDebitRow(${origIdx})">Delete</button>
+                </td>
+            </tr>`;
+        });
+    }
 
-        rows.forEach(row => {
-            let detail = {
-                mainBoardSN: row.querySelector('.m-mb').value.trim().toUpperCase(),
-                topLedSN: row.querySelector('.m-top').value.trim().toUpperCase(),
-                ch1SN: row.querySelector('.m-ch1').value.trim().toUpperCase(),
-                ch2SN: row.querySelector('.m-ch2').value.trim().toUpperCase(),
-                barcodeNo: row.querySelector('.m-bar').value.trim().toUpperCase(),
-                problem: row.querySelector('.m-prob').value.trim().toUpperCase(),
-                testedBy: row.querySelector('.m-test').value.trim().toUpperCase()
-            };
-            if(!detail.mainBoardSN || !detail.topLedSN) allFilled = false;
-            setWiseDetailsArray.push(detail);
-        });
+    function editDebitRow(idx) {
+        const d = debitData[idx];
+        document.getElementById('editRowIndex').value = idx;
+        document.getElementById('editFirebaseKey').value = d.fbKey;
+        
+        document.getElementById('dbDate').value = d.date;
+        document.getElementById('dbNoteNo').value = d.debitNoteNo;
+        document.getElementById('dbVendorName').value = d.vendorName;
+        document.getElementById('dbRefInfo').value = d.refInfo || '';
 
-        if(!allFilled) { alert("All Serial fields are compulsory!"); return; }
+        const body = document.getElementById('debitItemsBody'); body.innerHTML = '';
+        (d.gridItems || []).forEach(item => { addDbRow(item); });
 
-        const targetRow = document.getElementById(currentActiveRowForSerials);
-        targetRow.querySelector('.db-serialized-output').value = JSON.stringify(setWiseDetailsArray);
-        
-        document.getElementById('serialModal').style.display = "none";
-        currentActiveRowForSerials = null;
-    }
+        document.getElementById('formTitleDebit').innerText = "🛠️ Modify/Edit Debit Note Configuration Packet";
+        document.getElementById('btnSubmitForm').innerText = "Update Debit Voucher";
+        document.getElementById('btnCancelEdit').style.display = "inline-block";
+        document.getElementById('debitForm').scrollIntoView({ behavior: 'smooth' });
+    }
 
-    function autofillDebit(input) {
-        let code = input.value.trim().toUpperCase().replace(/\s+/g, '');
-        let foundName = "";
-        for(let key in masterCatalog) {
-            const m = masterCatalog[key].find(i => i.code.trim().toUpperCase().replace(/\s+/g, '') === code);
-            if(m) foundName = m.name;
-        }
-        input.closest('tr').querySelector('.db-name').value = foundName;
-    }
+    function resetDebitForm() {
+        document.getElementById('editRowIndex').value = "-1";
+        document.getElementById('editFirebaseKey').value = "";
+        document.getElementById('debitForm').reset();
+        document.getElementById('debitItemsBody').innerHTML = '';
+        document.getElementById('formTitleDebit').innerText = "🧾 Debit Note (Vendor Return) Ledger";
+        document.getElementById('btnSubmitForm').innerText = "Save Debit Note Voucher";
+        document.getElementById('btnCancelEdit').style.display = "none";
+        applyLiveDateRestrictions(); addDbRow();
+    }
 
-    // 🚨 फॉर्म सबमिशन - बिल्कुल फिक्स और बुलेटप्रूफ
-    document.getElementById('debitForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        let items = [];
-        let rows = document.querySelectorAll('#debitItemsBody tr');
-        
-        if(rows.length === 0) { alert("Please add at least one item row!"); return; }
+    function cancelEditMode() { resetDebitForm(); }
 
-        let verificationCheck = true;
-        rows.forEach(row => {
-            let serialJsonString = row.querySelector('.db-serialized-output').value;
-            if(!serialJsonString) { verificationCheck = false; return; }
+    function deleteDebitRow(idx) {
+        const passwordInput = prompt("🔑 Security Check:\nEnter Secret Password to Delete Debit Note:");
+        if (passwordInput === "7004") {
+            if(confirm("⚠️ ALERT: Are you sure you want to permanently delete this Debit Note voucher from Cloud?")) {
+                const fbKey = debitData[idx].fbKey;
+                database.ref('debitStockVouchers/' + fbKey).remove().then(() => {
+                    alert("🗑️ Success: Cloud Record wiped out completely.");
+                    resetDebitForm();
+                });
+            }
+        } else if(passwordInput !== null) { alert("❌ Access Denied: Incorrect Password!"); }
+    }
 
-            items.push({ 
-                pool: row.querySelector('.db-pool-select').value,
-                code: row.querySelector('.db-code').value.trim().toUpperCase(), 
-                name: row.querySelector('.db-name').value.trim(), 
-                qty: parseInt(row.querySelector('.db-qty').value) || 0,
-                assemblyDetails: JSON.parse(serialJsonString) // पूरा एरे ऑब्जेक्ट लाइव लोड
-            });
-        });
+    function triggerPrintDebit(d) {
+        const shell = document.getElementById('printSection');
+        let lines = '';
+        (d.gridItems || []).forEach(i => {
+            lines += `• [${i.pool || 'FRESH'}] <b>${i.name}</b> [${i.code}] - Qty: ${i.qty} NOS (Reason: ${i.reason})<br>`;
+        });
+        shell.innerHTML = `
+            <div style="border:1px solid #000; padding:6px; height:100%; box-sizing:border-box; display:flex; flex-direction:column; justify-content:space-between;">
+                <div style="text-align:center; font-weight:bold; font-size:12px; border-bottom:1px solid #000; padding-bottom:2px;">GVM RAIL PVT LTD - DEBIT NOTE VOUCHER</div>
+                <table style="width:100%; font-size:11px; margin-top:2px; line-height:1.2;">
+                    <tr><td><b>Date:</b> ${d.date}</td><td><b>Debit Note No:</b> ${d.debitNoteNo}</td></tr>
+                    <tr><td><b>Vendor Name:</b> ${d.vendorName}</td><td><b>Ref Invoice/PO:</b> ${d.refInfo || '-'}</td></tr>
+                </table>
+                <div style="margin-top:4px; font-size:10px; border-top:1px solid #eee; padding-top:2px; flex-grow:1;"><b>RETURN ITEMS DETAILS:</b><br>${lines}</div>
+                <div style="text-align:right; font-weight:bold; font-size:9px; margin-top:5px;">Authorized Controller Signature</div>
+            </div>`;
+        window.print();
+    }
 
-        if(!verificationCheck) { alert("Please input 5 Sub-Assembly serial details by clicking on row textbox!"); return; }
+    function applyLiveDateRestrictions() {
+        const todayStr = new Date().toISOString().split('T')[0];
+        document.getElementById('dbDate').setAttribute('max', todayStr);
+        document.getElementById('dbDate').value = todayStr;
+    }
 
-        const idx = parseInt(document.getElementById('editRowIndex').value);
-        const fbKey = document.getElementById('editFirebaseKey').value;
-        const binKeyToClear = document.getElementById('loadedRejectBinKey').value; 
+    window.addEventListener('DOMContentLoaded', () => {
+        const box = document.getElementById('liveTableSearchBox');
+        if (box) box.value = "";
+    });
 
-        const voucher = {
-            date: document.getElementById('dbDate').value,
-            debitNoteNo: document.getElementById('dbNoteNo').value.trim().toUpperCase(),
-            vendorName: document.getElementById('dbVendorName').value.trim().toUpperCase(),
-            refInfo: document.getElementById('dbRefInfo').value.trim().toUpperCase(),
-            gridItems: items,
-            createdBy: idx === -1 ? session.userId : (debitData[idx].createdBy || "k88rakesh")
-        };
-
-        if(idx === -1) {
-            database.ref('debitStockVouchers').push(voucher).then(() => {
-                if(binKeyToClear) {
-                    database.ref('freshRejectionBinData/' + binKeyToClear).update({ status: "DEBIT_NOTE_DONE" });
-                }
-                alert("🎉 Debit Note Entry Saved to Cloud & Instantly Visualized Below!");
-                resetDebitForm();
-            });
-        } else {
-            database.ref('debitStockVouchers/' + fbKey).set(voucher).then(() => {
-                alert("🎯 Cloud Debit Entry Updated Successfully!");
-                resetDebitForm();
-            });
-        }
-    });
-
-    // 📥 लाइव इतिहास रेंडर इंजन
-    function renderHistory() {
-        const b = document.getElementById('debitHistoryBody'); b.innerHTML = '';
-        if(debitData.length === 0) {
-            b.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:15px; color:#64748b;">No debit notes found on Cloud.</td></tr>`;
-            return;
-        }
-
-        const searchStr = document.getElementById('liveTableSearchBox').value.trim().toUpperCase();
-        const limitVal = document.getElementById('liveTableLimitSelect').value;
-
-        let filteredList = debitData.filter(d => {
-            const matchNote = d.debitNoteNo ? d.debitNoteNo.toUpperCase().includes(searchStr) : false;
-            const matchVendor = d.vendorName ? d.vendorName.toUpperCase().includes(searchStr) : false;
-            let itemsList = d.gridItems || [];
-            return matchNote || matchVendor || itemsList.some(item => (item.code && item.code.toUpperCase().includes(searchStr)));
-        });
-
-        let viewList = filteredList;
-        if (limitVal !== "ALL") { viewList = filteredList.slice(0, parseInt(limitVal)); }
-
-        viewList.forEach((d) => {
-            let origIdx = debitData.findIndex(x => x.fbKey === d.fbKey);
-            let desc = "";
-            
-            (d.gridItems || []).forEach(i => {
-                let innerSerialsText = "";
-                (i.assemblyDetails || []).forEach((p, idx) => {
-                    innerSerialsText += `<br>&nbsp;&nbsp;└─ <b>P${idx+1}:</b> [M:${p.mainBoardSN}] [T:${p.topLedSN}] [BC:${p.barcodeNo}] <span style="color:#ef4444;">[Prob: ${p.problem}]</span> <span style="color:#0284c7;">[Tester: ${p.testedBy}]</span>`;
-                });
-                desc += `• [<b>${i.pool || 'FRESH'}</b>] <code>${i.code}</code> - ${i.name} (<b>${i.qty} Nos</b>)${innerSerialsText}<br>`;
-            });
-
-            b.innerHTML += `<tr>
-                <td>${d.date}</td>
-                <td><b>${d.debitNoteNo}</b></td>
-                <td><b>${d.vendorName}</b></td>
-                <td>${d.refInfo || '-'}</td>
-                <td style="text-align:left; font-size:12px; line-height:1.5;">${desc}</td>
-                <td>
-                    <button type="button" class="btn-print-receipt" onclick='triggerPrintDebit(${JSON.stringify(d)})'>🖨️ Print</button>
-                    <button type="button" class="btn-edit-action" onclick="editDebitRow(${origIdx})">Edit</button>
-                    <button type="button" class="btn-delete-action" onclick="deleteDebitRow(${origIdx})">Delete</button>
-                </td>
-            </tr>`;
-        });
-    }
-
-    function editDebitRow(idx) {
-        const d = debitData[idx];
-        document.getElementById('editRowIndex').value = idx;
-        document.getElementById('editFirebaseKey').value = d.fbKey;
-        
-        document.getElementById('dbDate').value = d.date;
-        document.getElementById('dbNoteNo').value = d.debitNoteNo;
-        document.getElementById('dbVendorName').value = d.vendorName;
-        document.getElementById('dbRefInfo').value = d.refInfo || '';
-
-        const body = document.getElementById('debitItemsBody'); body.innerHTML = '';
-        (d.gridItems || []).forEach(item => {
-            addDbRow({
-                pool: item.pool,
-                code: item.code,
-                name: item.name,
-                qty: item.qty,
-                serializedData: item.assemblyDetails
-            });
-        });
-
-        document.getElementById('formTitleDebit').innerText = "🛠️ Modify/Edit Debit Note Configuration Packet";
-        document.getElementById('btnSubmitForm').innerText = "Update Debit Voucher";
-        document.getElementById('btnCancelEdit').style.display = "inline-block";
-    }
-
-    function resetDebitForm() {
-        document.getElementById('editRowIndex').value = "-1";
-        document.getElementById('editFirebaseKey').value = "";
-        document.getElementById('loadedRejectBinKey').value = "";
-        document.getElementById('debitForm').reset();
-        document.getElementById('debitItemsBody').innerHTML = '';
-        document.getElementById('formTitleDebit').innerText = "🧾 Debit Note (Vendor Return) Ledger";
-        document.getElementById('btnSubmitForm').innerText = "Save Debit Note Voucher";
-        document.getElementById('btnCancelEdit').style.display = "none";
-        document.getElementById('pendingRejPanel').style.display = "none";
-        applyLiveDateRestrictions(); addDbRow();
-    }
-
-    function cancelEditMode() { resetDebitForm(); }
-
-    function deleteDebitRow(idx) {
-        const passwordInput = prompt("🔑 Security Check:\nEnter Secret Password:");
-        if (passwordInput === "7004") {
-            if(confirm("Permanently delete this voucher?")) {
-                database.ref('debitStockVouchers/' + debitData[idx].fbKey).remove().then(() => { resetDebitForm(); });
-            }
-        } else if(passwordInput !== null) { alert("Wrong Password!"); }
-    }
-
-    function triggerPrintDebit(d) {
-        const shell = document.getElementById('printSection');
-        let lines = '';
-        (d.gridItems || []).forEach(i => {
-            let innerText = "";
-            (i.assemblyDetails || []).forEach((p, idx) => {
-                innerText += `<br>&nbsp;&nbsp;Piece ${idx+1}: M:${p.mainBoardSN} | T:${p.topLedSN} | Prob:${p.problem} | Tester:${p.testedBy}`;
-            });
-            lines += `• [${i.pool}] <b>${i.name}</b> [${i.code}] - Qty: ${i.qty} NOS${innerText}<br>`;
-        });
-        shell.innerHTML = `
-            <div style="border:1px solid #000; padding:10px; font-family:monospace; font-size:11px;">
-                <div style="text-align:center; font-weight:bold;">GVM RAIL PVT LTD - DEBIT NOTE VOUCHER</div>
-                <hr>
-                <b>Date:</b> ${d.date} | <b>Debit No:</b> ${d.debitNoteNo}<br>
-                <b>Vendor:</b> ${d.vendorName} | <b>Ref PO:</b> ${d.refInfo || '-'}<br>
-                <hr>
-                <b>RETURN ITEMS & SUB-ASSEMBLY DETAILS:</b><br>${lines}
-            </div>`;
-        window.print();
-    }
-
-    function applyLiveDateRestrictions() {
-        const todayStr = new Date().toISOString().split('T')[0];
-        document.getElementById('dbDate').setAttribute('max', todayStr);
-        document.getElementById('dbDate').value = todayStr;
-    }
-
-    applyLiveDateRestrictions(); addDbRow();
+    applyLiveDateRestrictions(); addDbRow();
 </script>
 </body>
 </html>
