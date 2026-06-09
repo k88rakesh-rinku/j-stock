@@ -15,7 +15,6 @@
         .status-cleared { background-color: #dcfce7; color: #15803d; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; display: inline-block; border: 1px solid #bbf7d0; }
         
         .sub-components-box { background: #fff; border: 1px solid #cbd5e1; padding: 15px; border-radius: 6px; margin-top: 15px; display: none; }
-        /* 🌟 ग्रिड को 7 कॉलम का किया ताकि प्रॉब्लम और टेस्टेड बाई दोनों फिट आ सकें */
         .sub-set-row { display: grid; grid-template-columns: repeat(5, 1fr) 1.2fr 1fr; gap: 10px; padding: 10px; border-bottom: 1px solid #f1f5f9; }
         .sub-set-row input { padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 12px; width: 100%; box-sizing: border-box; text-transform: uppercase; }
         .sub-header-grid { display: grid; grid-template-columns: repeat(5, 1fr) 1.2fr 1fr; gap: 10px; background: #334155; color: white; padding: 6px 10px; border-radius: 4px; font-size: 11px; font-weight: bold; text-align: center; }
@@ -43,7 +42,7 @@
     </div>
 
     <h3 style="color:#b91c1c; margin: 15px 0 10px 0;">🗑️ Fresh Stock Rejection Entry (Auto Balance Deductor)</h3>
-    <p style="font-size: 13px; color: #64748b; margin-top: 0; margin-bottom: 15px;"></p>
+    <p style="font-size: 13px; color: #64748b; margin-top: 0; margin-bottom: 15px;">नोट: यहाँ नया रिजेक्टेड माल डालने पर लाइव **FRESH** स्टॉक बैलेंस से क्वांटिटी अपने आप कट जाएगी और सीरियल नंबर डेटाबेस में लॉक हो जाएंगे।</p>
 
     <div class="reject-card">
         <h4 style="margin: 0 0 12px 0; color:#b91c1c;">📝 Report Fresh Component Defect & Deduct Stock</h4>
@@ -55,11 +54,11 @@
                 </div>
                 <div class="form-group">
                     <label>Vendor Name <span>*</span></label>
-                    <input type="text" id="rejVendor" placeholder="e.g. xxxx" required style="text-transform:uppercase;">
+                    <input type="text" id="rejVendor" placeholder="e.g. AMIT ENGINEERS" required style="text-transform:uppercase;">
                 </div>
                 <div class="form-group">
                     <label>Main Board Item Code <span>*</span></label>
-                    <input type="text" id="rejItemCode" placeholder="e.g. xxxx" required style="text-transform:uppercase;" oninput="autofillRejectItem(this)">
+                    <input type="text" id="rejItemCode" placeholder="e.g. GC0027" required style="text-transform:uppercase;" oninput="autofillRejectItem(this)">
                 </div>
                 <div class="form-group">
                     <label>Item Name</label>
@@ -149,7 +148,7 @@
         document.getElementById('rejItemName').value = foundName;
     }
 
-    // 🧩 5 सब-बोर्ड्स + प्रॉब्लम + टेस्टेड बाई इनपुट लाइव जनरेट करना (Set Wise)
+    // 🧩 5 सब-बोर्ड्स + प्रॉब्लम + टेस्टेड बाई इनपुट लाइव जनरेट करना
     function generateSubAssemblyInputs() {
         let qty = parseInt(document.getElementById('rejQty').value) || 0;
         const box = document.getElementById('subComponentsContainer');
@@ -177,7 +176,7 @@
         }
     }
 
-    // 🚨 फॉर्म सबमिट होने पर लाइव फ्रेश स्टॉक काटना और बिन में सेव करना
+    // 🚨 फॉर्म सबमिट होने पर लाइव फ्रेश स्टॉक काटना और बिन में सेव करना (की-मैचिंग फिक्स्ड)
     document.getElementById('freshRejectForm').addEventListener('submit', function(e) {
         e.preventDefault();
         
@@ -186,6 +185,8 @@
         const vendor = document.getElementById('rejVendor').value.trim().toUpperCase();
         const dateStr = document.getElementById('rejDate').value;
         const remarksStr = document.getElementById('rejRemarks').value.trim();
+
+        const cleanTargetCode = itemCode.replace(/\s+/g, '');
 
         let piecesDetails = [];
         let rows = document.querySelectorAll('#dynamicSetsBody .sub-set-row');
@@ -197,37 +198,81 @@
                 ch2SN: row.querySelector('.ch2-sn').value.trim().toUpperCase(),
                 barcodeNo: row.querySelector('.bar-sn').value.trim().toUpperCase(),
                 problem: row.querySelector('.prob-box').value.trim().toUpperCase(),
-                testedBy: row.querySelector('.tester-box').value.trim().toUpperCase() // 🌟 Tested By लोड लॉक
+                testedBy: row.querySelector('.tester-box').value.trim().toUpperCase()
             });
         });
 
+        // 🔄 लाइव वाуचर्स से ग्रिड के अंदर का सही स्टॉक ढूंढना
         database.ref('freshStockVouchers').once('value').then((snapshot) => {
             let stockRecords = snapshot.val();
-            let stockFoundKey = null;
-            let currentStockQty = 0;
+            let totalLiveAvailable = 0;
+            let lastVoucherKey = null;
+            let lastVoucherData = null;
+            let targetItemIndexInGrid = -1;
 
             if(stockRecords) {
                 for(let key in stockRecords) {
-                    if(stockRecords[key].modelCode && stockRecords[key].modelCode.trim().toUpperCase() === itemCode) {
-                        stockFoundKey = key;
-                        currentStockQty = parseInt(stockRecords[key].qty || stockRecords[key].receiveQty || 0);
-                        break;
+                    let v = stockRecords[key];
+                    if(!v) continue;
+
+                    // तरीका 1: अगर सीधे मेन वाउचर लेवल पर कोड है
+                    if(v.modelCode && v.modelCode.trim().toUpperCase().replace(/\s+/g, '') === cleanTargetCode) {
+                        totalLiveAvailable += parseInt(v.qty || v.receiveQty || 0);
+                        lastVoucherKey = key;
+                        lastVoucherData = v;
                     }
+
+                    // तरीका 2: अगर ग्रिड आइटम्स एरे के अंदर है (की-मैचिंग फिक्स)
+                    let items = v.gridItems ? (Array.isArray(v.gridItems) ? v.gridItems : Object.values(v.gridItems)) : [];
+                    items.forEach((item, idx) => {
+                        if(item) {
+                            let currentCode = item.modelCode || item.itemCode || item.code || "";
+                            if(currentCode.trim().toUpperCase().replace(/\s+/g, '') === cleanTargetCode) {
+                                totalLiveAvailable += parseInt(item.qty || item.receiveQty || 0);
+                                lastVoucherKey = key;
+                                lastVoucherData = v;
+                                targetItemIndexInGrid = idx;
+                            }
+                        }
+                    });
                 }
             }
 
-            if(!stockFoundKey || currentStockQty < qtyToReject) {
-                alert(`🚫 ERROR: Live Fresh Stock Room has insufficient balance! Available: ${currentStockQty} Nos. Cannot deduct ${qtyToReject} Nos.`);
+            // 🛑 अब पूरा अवेलेबल स्टॉक रीड होगा
+            if(totalLiveAvailable < qtyToReject) {
+                alert(`🚫 ERROR: Live Fresh Stock Room has insufficient balance!\n\nLedger Available: ${totalLiveAvailable} Nos.\nRequired to Reject: ${qtyToReject} Nos.`);
                 return;
             }
 
-            let updatedBalanceQty = currentStockQty - qtyToReject;
+            let updatePromise;
+            if(lastVoucherKey && lastVoucherData) {
+                if(lastVoucherData.gridItems) {
+                    let gridArray = Array.isArray(lastVoucherData.gridItems) ? lastVoucherData.gridItems : Object.values(lastVoucherData.gridItems);
+                    
+                    if(targetItemIndexInGrid !== -1 && gridArray[targetItemIndexInGrid]) {
+                        let oldQty = parseInt(gridArray[targetItemIndexInGrid].qty || 0);
+                        gridArray[targetItemIndexInGrid].qty = oldQty - qtyToReject;
+                        if(gridArray[targetItemIndexInGrid].receiveQty) {
+                            gridArray[targetItemIndexInGrid].receiveQty = gridArray[targetItemIndexInGrid].qty;
+                        }
+                    }
+                    updatePromise = database.ref('freshStockVouchers/' + lastVoucherKey).update({ gridItems: gridArray });
+                } else {
+                    let updatedQty = parseInt(lastVoucherData.qty || 0) - qtyToReject;
+                    updatePromise = database.ref('freshStockVouchers/' + lastVoucherKey).update({ qty: updatedQty, receiveQty: updatedQty });
+                }
+            } else {
+                updatePromise = database.ref('freshStockVouchers').push({
+                    modelCode: itemCode,
+                    qty: -qtyToReject,
+                    receiveQty: -qtyToReject,
+                    date: dateStr,
+                    remarks: "Auto Adjustment via Rejection Bin"
+                });
+            }
 
-            database.ref('freshStockVouchers/' + stockFoundKey).update({
-                qty: updatedBalanceQty,
-                receiveQty: updatedBalanceQty
-            }).then(() => {
-                
+            // 💾 स्टॉक डिडक्ट होने के बाद रीजेक्शन बिन में डेटा डालना
+            updatePromise.then(() => {
                 const rejectionPayload = {
                     date: dateStr,
                     vendorName: vendor,
@@ -241,7 +286,7 @@
                 };
 
                 database.ref('freshRejectionBinData').push(rejectionPayload).then(() => {
-                    alert(`🎉 SUCCESS:\n1. Live Fresh Stock deducted by ${qtyToReject} Nos.\n2. Serial Map & Tester Data locked into Rejection Bin.`);
+                    alert(`🎉 SUCCESS:\n1. Live Fresh Stock successfully deducted (New Available: ${totalLiveAvailable - qtyToReject} Nos).\n2. Serial Map & Tester Data locked into Rejection Bin.`);
                     document.getElementById('freshRejectForm').reset();
                     document.getElementById('subComponentsContainer').style.display = "none";
                     setLiveDate();
