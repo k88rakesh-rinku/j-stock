@@ -1,342 +1,341 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Debit Note Management - Control System</title>
-    <link rel="stylesheet" href="style.css">
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
-    <style>
-        .btn-edit-action { background-color: #0284c7; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
-        .btn-edit-action:hover { background-color: #0369a1; }
-        .btn-delete-action { background-color: #dc2626; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; }
-        .btn-delete-action:hover { background-color: #b91c1c; }
-        .btn-print-receipt { background-color: #007bff; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
-        
-        .table-filter-panel { display: flex; justify-content: space-between; align-items: center; background: #f1f5f9; padding: 10px 15px; border-radius: 6px 6px 0 0; border: 1px solid #cbd5e1; border-bottom: none; margin-top: 25px; gap: 15px; flex-wrap: wrap; }
-        .search-input-box { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; width: 280px; text-transform: uppercase; }
-        .limit-dropdown-select { padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; cursor: pointer; background: #fff; font-weight: bold; }
-        
-        /* 🌟 नए पूल सेलेक्ट ड्रॉपडाउन की सुंदर स्टाइलिंग */
-        .db-pool-select { width: 100%; padding: 5px; border: 1px solid #cbd5e1; border-radius: 4px; font-weight: bold; background: #fff; cursor: pointer; }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debit Note Management - Control System</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+    <style>
+        .btn-edit-action { background-color: #0284c7; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
+        .btn-edit-action:hover { background-color: #0369a1; }
+        .btn-delete-action { background-color: #dc2626; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; }
+        .btn-delete-action:hover { background-color: #b91c1c; }
+        .btn-print-receipt { background-color: #007bff; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
+        
+        .table-filter-panel { display: flex; justify-content: space-between; align-items: center; background: #f1f5f9; padding: 10px 15px; border-radius: 6px 6px 0 0; border: 1px solid #cbd5e1; border-bottom: none; margin-top: 25px; gap: 15px; flex-wrap: wrap; }
+        .search-input-box { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; width: 280px; text-transform: uppercase; }
+        .limit-dropdown-select { padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; cursor: pointer; background: #fff; font-weight: bold; }
+        
+        .db-pool-select { width: 100%; padding: 5px; border: 1px solid #cbd5e1; border-radius: 4px; font-weight: bold; background: #fff; cursor: pointer; }
 
-        @media print {
-            body * { visibility: hidden; }
-            #printSection, #printSection * { visibility: visible; }
-            #printSection { position: absolute; left: 0; top: 0; width: 210mm; height: 74.25mm; box-sizing: border-box; padding: 4mm 6mm; background: #fff; font-family: monospace; font-size: 11px; line-height: 1.3; }
-            @page { size: A4 portrait; margin: 0; }
-        }
-    </style>
+        @media print {
+            body * { visibility: hidden; }
+            #printSection, #printSection * { visibility: visible; }
+            #printSection { position: absolute; left: 0; top: 0; width: 210mm; height: 74.25mm; box-sizing: border-box; padding: 4mm 6mm; background: #fff; font-family: monospace; font-size: 11px; line-height: 1.3; }
+            @page { size: A4 portrait; margin: 0; }
+        }
+    </style>
 </head>
 <body>
 <div class="container">
-    <div class="erp-header">
-        <h1>Material Lifecycle Control & Inventory Ledger Systems <span style="font-size:12px; color:#4ade80;">● CLOUD LIVE</span></h1>
-        <button class="logout-btn" onclick="logout()">Logout</button>
-    </div>
-    
-    <div class="tabs-nav">
-        <a href="index.html" class="tab-link">📦 New Entry (Fresh)</a>
-        <a href="rework.html" class="tab-link">🛠️ Gate In (Rework)</a>
-        <a href="gateout.html" class="tab-link">🚪 Gate Out (Dispatch)</a>
-        <a href="debit.html" class="tab-link" style="background-color: #1e3a8a; color: white; font-weight: bold;">🧾 Debit Note (Vendor)</a>
-        <a href="code.html" class="tab-link">🆕 Generate Code</a>
-        <a href="ledger.html" class="tab-link">📊 Master Ledger & History</a>
-        <a href="users.html" class="tab-link">👥 Manage Users</a>
-        <a href="bom.html" class="tab-link">🔗 BOM Master</a>
-        <a href="failure.html" class="tab-link">🛠️ Failure Defect Log</a>
-        <a href="production.html" class="tab-link">🏭 Production Planner</a>
-        <a href="reject_bin.html" class="tab-link">🗑️ Rejection Bin</a>
-    </div>
+    <div class="erp-header">
+        <h1>Material Lifecycle Control & Inventory Ledger Systems <span style="font-size:12px; color:#4ade80;">● CLOUD LIVE</span></h1>
+        <button class="logout-btn" onclick="logout()">Logout</button>
+    </div>
+    
+    <div class="tabs-nav">
+        <a href="index.html" class="tab-link">📦 New Entry (Fresh)</a>
+        <a href="rework.html" class="tab-link">🛠️ Gate In (Rework)</a>
+        <a href="gateout.html" class="tab-link">🚪 Gate Out (Dispatch)</a>
+        <a href="debit.html" class="tab-link" style="background-color: #1e3a8a; color: white; font-weight: bold;">🧾 Debit Note (Vendor)</a>
+        <a href="code.html" class="tab-link">🆕 Generate Code</a>
+        <a href="ledger.html" class="tab-link">📊 Master Ledger & History</a>
+        <a href="users.html" class="tab-link">👥 Manage Users</a>
+        <a href="bom.html" class="tab-link">🔗 BOM Master</a>
+        <a href="failure.html" class="tab-link">🛠️ Failure Defect Log</a>
+        <a href="production.html" class="tab-link">🏭 Production Planner</a>
+        <a href="reject_bin.html" class="tab-link">🗑️ Rejection Bin</a>
+    </div>
 
-    <h3 id="formTitleDebit" style="color:var(--primary); margin: 15px 0 10px 0;">🧾 Debit Note (Vendor Return) Ledger</h3>
+    <h3 id="formTitleDebit" style="color:var(--primary); margin: 15px 0 10px 0;">🧾 Debit Note (Vendor Return) Ledger</h3>
 
-    <form id="debitForm">
-        <input type="hidden" id="editRowIndex" value="-1">
-        <input type="hidden" id="editFirebaseKey" value="">
+    <form id="debitForm">
+        <input type="hidden" id="editRowIndex" value="-1">
+        <input type="hidden" id="editFirebaseKey" value="">
 
-        <div class="form-grid">
-            <div class="form-group"><label>Debit Note Date <span>*</span></label><input type="date" id="dbDate" required></div>
-            <div class="form-group"><label>Debit Note No <span>*</span></label><input type="text" id="dbNoteNo" required autocomplete="off" style="text-transform:uppercase;"></div>
-            <div class="form-group"><label>Vendor Name (Return To) <span>*</span></label><input type="text" id="dbVendorName" required autocomplete="off" style="text-transform:uppercase;"></div>
-            <div class="form-group"><label>Original Bill / PO Ref</label><input type="text" id="dbRefInfo" autocomplete="off" style="text-transform:uppercase;"></div>
-        </div>
+        <div class="form-grid">
+            <div class="form-group"><label>Debit Note Date <span>*</span></label><input type="date" id="dbDate" required></div>
+            <div class="form-group"><label>Debit Note No <span>*</span></label><input type="text" id="dbNoteNo" required autocomplete="off" style="text-transform:uppercase;"></div>
+            <div class="form-group"><label>Vendor Name (Return To) <span>*</span></label><input type="text" id="dbVendorName" required autocomplete="off" style="text-transform:uppercase;"></div>
+            <div class="form-group"><label>Original Bill / PO Ref</label><input type="text" id="dbRefInfo" autocomplete="off" style="text-transform:uppercase;"></div>
+        </div>
 
-        <div style="overflow-x:auto; margin-top: 15px;">
-            <table class="grid-table">
-                <thead style="background-color: #ef4444; color: white;">
-                    <tr>
-                        <th style="width:15%;">Stock Pool Type</th>
-                        <th style="width:15%;">Item Code 🔍</th>
-                        <th style="width:30%;">Item Display Name</th>
-                        <th style="width:10%;">Qty</th>
-                        <th style="width:25%;">Reason for Debit / Return</th>
-                        <th style="width:5%;">Action</th>
-                    </tr>
-                </thead>
-                <tbody id="debitItemsBody"></tbody>
-            </table>
-            <button type="button" class="btn-row-add" onclick="addDbRow()">+</button>
-        </div>
+        <div style="overflow-x:auto; margin-top: 15px;">
+            <table class="grid-table">
+                <thead style="background-color: #ef4444; color: white;">
+                    <tr>
+                        <th style="width:15%;">Stock Pool Type</th>
+                        <th style="width:15%;">Item Code 🔍</th>
+                        <th style="width:30%;">Item Display Name</th>
+                        <th style="width:10%;">Qty</th>
+                        <th style="width:25%;">Reason for Debit / Return</th>
+                        <th style="width:5%;">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="debitItemsBody"></tbody>
+            </table>
+            <button type="button" class="btn-row-add" onclick="addDbRow()">+</button>
+        </div>
 
-        <button type="submit" id="btnSubmitForm" class="btn-submit" style="margin-top:15px; width: 100%; background-color:#ef4444;">Save Debit Note Voucher</button>
-        <button type="button" id="btnCancelEdit" class="btn-submit" style="background-color:#64748b; display:none; margin-top:10px; width: 100%;" onclick="cancelEditMode()">Cancel Update</button>
-    </form>
+        <button type="submit" id="btnSubmitForm" class="btn-submit" style="margin-top:15px; width: 100%; background-color:#ef4444;">Save Debit Note Voucher</button>
+        <button type="button" id="btnCancelEdit" class="btn-submit" style="background-color:#64748b; display:none; margin-top:10px; width: 100%;" onclick="cancelEditMode()">Cancel Update</button>
+    </form>
 
-    <div class="table-filter-panel">
-        <div>
-            <input type="text" id="liveTableSearchBox" class="search-input-box" placeholder="🔍 Search Note No, Vendor, Code..." autocomplete="off" oninput="renderHistory()">
-        </div>
-        <div>
-            <label style="font-weight: bold; font-size: 13px; color:#475569;">Show Records:</label>
-            <select id="liveTableLimitSelect" class="limit-dropdown-select" onchange="renderHistory()">
-                <option value="5" selected>5 Records (Default)</option>
-                <option value="10">10 Records</option>
-                <option value="ALL">Show All</option>
-            </select>
-        </div>
-    </div>
+    <div class="table-filter-panel">
+        <div>
+            <input type="text" id="liveTableSearchBox" class="search-input-box" placeholder="🔍 Search Note No, Vendor, Code..." autocomplete="off" oninput="renderHistory()">
+        </div>
+        <div>
+            <label style="font-weight: bold; font-size: 13px; color:#475569;">Show Records:</label>
+            <select id="liveTableLimitSelect" class="limit-dropdown-select" onchange="renderHistory()">
+                <option value="5" selected>5 Records (Default)</option>
+                <option value="10">10 Records</option>
+                <option value="ALL">Show All</option>
+            </select>
+        </div>
+    </div>
 
-    <div class="table-responsive" style="margin-top: 0;">
-        <table class="history-table" style="border-top: none;">
-            <thead style="background-color: #ef4444; color: white;">
-                <tr><th>Date</th><th>Debit Note No</th><th>Vendor Name</th><th>Original Ref</th><th>Items Returned Details</th><th>Action Controls</th></tr>
-            </thead>
-            <tbody id="debitHistoryBody">
-                <tr><td colspan="6" style="text-align:center; padding:15px; color:#64748b;">Loading Live Records...</td></tr>
-            </tbody>
-        </table>
-    </div>
+    <div class="table-responsive" style="margin-top: 0;">
+        <table class="history-table" style="border-top: none;">
+            <thead style="background-color: #ef4444; color: white;">
+                <tr><th>Date</th><th>Debit Note No</th><th>Vendor Name</th><th>Original Ref</th><th>Items Returned Details</th><th>Action Controls</th></tr>
+            </thead>
+            <tbody id="debitHistoryBody">
+                <tr><td colspan="6" style="text-align:center; padding:15px; color:#64748b;">Loading Live Records...</td></tr>
+            </tbody>
+        </table>
+    </div>
 </div>
 
 <div id="printSection"></div>
 
 <script>
-    const firebaseConfig = {
-        apiKey: "AIzaSyCAOXbPwuFR3wh1QSLBXWsodupKWoRYmqs",
-        authDomain: "gvm-stock-control.firebaseapp.com",
-        databaseURL: "https://gvm-stock-control-default-rtdb.firebaseio.com",
-        projectId: "gvm-stock-control"
-    };
-    firebase.initializeApp(firebaseConfig);
-    const database = firebase.database();
+    const firebaseConfig = {
+        apiKey: "AIzaSyCAOXbPwuFR3wh1QSLBXWsodupKWoRYmqs",
+        authDomain: "gvm-stock-control.firebaseapp.com",
+        databaseURL: "https://gvm-stock-control-default-rtdb.firebaseio.com",
+        projectId: "gvm-stock-control"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
 
-    const session = JSON.parse(localStorage.getItem('activeSession'));
-    if(!session) { window.location.href = 'login.html'; }
-    function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
+    const session = JSON.parse(localStorage.getItem('activeSession'));
+    if(!session) { window.location.href = 'login.html'; }
+    function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
 
-    let debitData = [];
-    let masterCatalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
+    let debitData = [];
+    let masterCatalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
 
-    database.ref('debitStockVouchers').on('value', (snapshot) => {
-        debitData = [];
-        const data = snapshot.val();
-        if(data) {
-            for(let key in data) {
-                debitData.push({ fbKey: key, ...data[key] });
-            }
-        }
-        debitData.reverse();
-        renderHistory();
-    });
+    database.ref('debitStockVouchers').on('value', (snapshot) => {
+        debitData = [];
+        const data = snapshot.val();
+        if(data) {
+            for(let key in data) {
+                debitData.push({ fbKey: key, ...data[key] });
+            }
+        }
+        debitData.reverse();
+        renderHistory();
+    });
 
-    function addDbRow(preItem = {}) {
-        const body = document.getElementById('debitItemsBody');
-        const tr = document.createElement('tr');
-        const currentPool = preItem.pool || "FRESH";
+    function addDbRow(preItem = {}) {
+        const body = document.getElementById('debitItemsBody');
+        const tr = document.createElement('tr');
+        const currentPool = preItem.pool || "FRESH";
 
-        tr.innerHTML = `
-            <td>
-                <select class="db-pool-select">
-                    <option value="FRESH" ${currentPool === 'FRESH' ? 'selected' : ''}>FRESH</option>
-                    <option value="REWORK" ${currentPool === 'REWORK' ? 'selected' : ''}>REWORK</option>
-                </select>
-            </td>
-            <td><input type="text" required class="db-code" value="${preItem.code || ''}" oninput="autofillDebit(this)" style="text-transform:uppercase;"></td>
-            <td><input type="text" required class="db-name" value="${preItem.name || ''}"></td>
-            <td><input type="number" min="1" required class="db-qty" value="${preItem.qty || ''}"></td>
-            <td><input type="text" required class="db-reason" value="${preItem.reason || ''}" placeholder="e.g. Broken/Faulty Component"></td>
-            <td><button type="button" class="btn-row-remove" onclick="this.closest('tr').remove()">×</button></td>`;
-        body.appendChild(tr);
-    }
+        tr.innerHTML = `
+            <td>
+                <select class="db-pool-select">
+                    <option value="FRESH" ${currentPool === 'FRESH' ? 'selected' : ''}>FRESH</option>
+                    <option value="REWORK" ${currentPool === 'REWORK' ? 'selected' : ''}>REWORK</option>
+                </select>
+            </td>
+            <td><input type="text" required class="db-code" value="${preItem.code || ''}" oninput="autofillDebit(this)" style="text-transform:uppercase;"></td>
+            <td><input type="text" required class="db-name" value="${preItem.name || ''}"></td>
+            <td><input type="number" min="1" required class="db-qty" value="${preItem.qty || ''}"></td>
+            <td><input type="text" required class="db-reason" value="${preItem.reason || ''}" placeholder="e.g. Broken/Faulty Component"></td>
+            <td><button type="button" class="btn-row-remove" onclick="this.closest('tr').remove()">×</button></td>`;
+        body.appendChild(tr);
+    }
 
-    function autofillDebit(input) {
-        let code = input.value.trim().toUpperCase().replace(/\s+/g, '');
-        let foundName = "";
-        for(let key in masterCatalog) {
-            const m = masterCatalog[key].find(i => i.code.trim().toUpperCase().replace(/\s+/g, '') === code);
-            if(m) foundName = m.name;
-        }
-        input.closest('tr').querySelector('.db-name').value = foundName;
-    }
+    function autofillDebit(input) {
+        let code = input.value.trim().toUpperCase().replace(/\s+/g, '');
+        let foundName = "";
+        for(let key in masterCatalog) {
+            const m = masterCatalog[key].find(i => i.code.trim().toUpperCase().replace(/\s+/g, '') === code);
+            if(m) foundName = m.name;
+        }
+        input.closest('tr').querySelector('.db-name').value = foundName;
+    }
 
-    document.getElementById('debitForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        let items = [];
-        let rows = document.querySelectorAll('#debitItemsBody tr');
-        
-        if(rows.length === 0) { alert("Please add at least one item row!"); return; }
+    document.getElementById('debitForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        let items = [];
+        let rows = document.querySelectorAll('#debitItemsBody tr');
+        
+        if(rows.length === 0) { alert("Please add at least one item row!"); return; }
 
-        rows.forEach(row => {
-            items.push({ 
-                pool: row.querySelector('.db-pool-select').value,
-                code: row.querySelector('.db-code').value.trim().toUpperCase(), 
-                name: row.querySelector('.db-name').value.trim(), 
-                qty: parseInt(row.querySelector('.db-qty').value) || 0,
-                reason: row.querySelector('.db-reason').value.trim()
-            });
-        });
+        rows.forEach(row => {
+            items.push({ 
+                pool: row.querySelector('.db-pool-select').value,
+                code: row.querySelector('.db-code').value.trim().toUpperCase(), 
+                name: row.querySelector('.db-name').value.trim(), 
+                qty: parseInt(row.querySelector('.db-qty').value) || 0,
+                reason: row.querySelector('.db-reason').value.trim()
+            });
+        });
 
-        const idx = parseInt(document.getElementById('editRowIndex').value);
-        const fbKey = document.getElementById('editFirebaseKey').value;
+        const idx = parseInt(document.getElementById('editRowIndex').value);
+        const fbKey = document.getElementById('editFirebaseKey').value;
 
-        const voucher = {
-            date: document.getElementById('dbDate').value,
-            debitNoteNo: document.getElementById('dbNoteNo').value.trim().toUpperCase(),
-            vendorName: document.getElementById('dbVendorName').value.trim().toUpperCase(),
-            refInfo: document.getElementById('dbRefInfo').value.trim().toUpperCase(),
-            gridItems: items,
-            createdBy: idx === -1 ? session.userId : (debitData[idx].createdBy || "k88rakesh")
-        };
+        const voucher = {
+            date: document.getElementById('dbDate').value,
+            debitNoteNo: document.getElementById('dbNoteNo').value.trim().toUpperCase(),
+            vendorName: document.getElementById('dbVendorName').value.trim().toUpperCase(),
+            refInfo: document.getElementById('dbRefInfo').value.trim().toUpperCase(),
+            gridItems: items,
+            createdBy: idx === -1 ? session.userId : (debitData[idx].createdBy || "k88rakesh")
+        };
 
-        if(idx === -1) {
-            database.ref('debitStockVouchers').push(voucher).then(() => {
-                alert("🎉 Debit Note Entry Saved to Cloud!");
-                resetDebitForm();
-            });
-        } else {
-            database.ref('debitStockVouchers/' + fbKey).set(voucher).then(() => {
-                alert("🎯 Cloud Debit Entry Updated Successfully!");
-                resetDebitForm();
-            });
-        }
-    });
+        if(idx === -1) {
+            database.ref('debitStockVouchers').push(voucher).then(() => {
+                alert("🎉 Debit Note Entry Saved to Cloud!");
+                resetDebitForm();
+            });
+        } else {
+            database.ref('debitStockVouchers/' + fbKey).set(voucher).then(() => {
+                alert("🎯 Cloud Debit Entry Updated Successfully!");
+                resetDebitForm();
+            });
+        }
+    });
 
-    function renderHistory() {
-        const b = document.getElementById('debitHistoryBody'); b.innerHTML = '';
-        if(debitData.length === 0) {
-            b.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:15px; color:#64748b;">No debit notes found on Cloud.</td></tr>`;
-            return;
-        }
+    function renderHistory() {
+        const b = document.getElementById('debitHistoryBody'); b.innerHTML = '';
+        if(debitData.length === 0) {
+            b.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:15px; color:#64748b;">No debit notes found on Cloud.</td></tr>`;
+            return;
+        }
 
-        const searchStr = document.getElementById('liveTableSearchBox').value.trim().toUpperCase();
-        const limitVal = document.getElementById('liveTableLimitSelect').value;
+        const searchStr = document.getElementById('liveTableSearchBox').value.trim().toUpperCase();
+        const limitVal = document.getElementById('liveTableLimitSelect').value;
 
-        let filteredList = debitData.filter(d => {
-            const matchNote = d.debitNoteNo ? d.debitNoteNo.toUpperCase().includes(searchStr) : false;
-            const matchVendor = d.vendorName ? d.vendorName.toUpperCase().includes(searchStr) : false;
-            let itemsList = d.gridItems || [];
-            const matchItems = itemsList.some(item => (item.code && item.code.toUpperCase().includes(searchStr)) || (item.name && item.name.toUpperCase().includes(searchStr)));
-            return matchNote || matchVendor || matchItems;
-        });
+        let filteredList = debitData.filter(d => {
+            const matchNote = d.debitNoteNo ? d.debitNoteNo.toUpperCase().includes(searchStr) : false;
+            const matchVendor = d.vendorName ? d.vendorName.toUpperCase().includes(searchStr) : false;
+            let itemsList = d.gridItems || [];
+            const matchItems = itemsList.some(item => (item.code && item.code.toUpperCase().includes(searchStr)) || (item.name && item.name.toUpperCase().includes(searchStr)));
+            return matchNote || matchVendor || matchItems;
+        });
 
-        if(filteredList.length === 0) {
-            b.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:15px; color:#64748b;">No matching search records found.</td></tr>`;
-            return;
-        }
+        if(filteredList.length === 0) {
+            b.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:15px; color:#64748b;">No matching search records found.</td></tr>`;
+            return;
+        }
 
-        let viewList = filteredList;
-        if (limitVal !== "ALL") { viewList = filteredList.slice(0, parseInt(limitVal)); }
+        let viewList = filteredList;
+        if (limitVal !== "ALL") { viewList = filteredList.slice(0, parseInt(limitVal)); }
 
-        viewList.forEach((d) => {
-            let origIdx = debitData.findIndex(x => x.fbKey === d.fbKey);
-            let desc = "";
-            (d.gridItems || []).forEach(i => {
-                desc += `• [<b>${i.pool || 'FRESH'}</b>] <code>${i.code}</code> - ${i.name} (<b>${i.qty} Nos</b>) <span style="color:#ef4444; font-size:11px;">[Reason: ${i.reason}]</span><br>`;
-            });
+        viewList.forEach((d) => {
+            let origIdx = debitData.findIndex(x => x.fbKey === d.fbKey);
+            let desc = "";
+            (d.gridItems || []).forEach(i => {
+                desc += `• [<b>${i.pool || 'FRESH'}</b>] <code>${i.code}</code> - ${i.name} (<b>${i.qty} Nos</b>) <span style="color:#ef4444; font-size:11px;">[Reason: ${i.reason}]</span><br>`;
+            });
 
-            b.innerHTML += `<tr>
-                <td>${d.date}</td>
-                <td><b>${d.debitNoteNo}</b></td>
-                <td><b>${d.vendorName}</b></td>
-                <td>${d.refInfo || '-'}</td>
-                <td style="text-align:left; font-size:12px;">${desc}</td>
-                <td>
-                    <button type="button" class="btn-print-receipt" onclick='triggerPrintDebit(${JSON.stringify(d)})'>🖨️ Print</button>
-                    <button type="button" class="btn-edit-action" onclick="editDebitRow(${origIdx})">Edit</button>
-                    <button type="button" class="btn-delete-action" onclick="deleteDebitRow(${origIdx})">Delete</button>
-                </td>
-            </tr>`;
-        });
-    }
+            b.innerHTML += `<tr>
+                <td>${d.date}</td>
+                <td><b>${d.debitNoteNo}</b></td>
+                <td><b>${d.vendorName}</b></td>
+                <td>${d.refInfo || '-'}</td>
+                <td style="text-align:left; font-size:12px;">${desc}</td>
+                <td>
+                    <button type="button" class="btn-print-receipt" onclick='triggerPrintDebit(${JSON.stringify(d)})'>🖨️ Print</button>
+                    <button type="button" class="btn-edit-action" onclick="editDebitRow(${origIdx})">Edit</button>
+                    <button type="button" class="btn-delete-action" onclick="deleteDebitRow(${origIdx})">Delete</button>
+                </td>
+            </tr>`;
+        });
+    }
 
-    function editDebitRow(idx) {
-        const d = debitData[idx];
-        document.getElementById('editRowIndex').value = idx;
-        document.getElementById('editFirebaseKey').value = d.fbKey;
-        
-        document.getElementById('dbDate').value = d.date;
-        document.getElementById('dbNoteNo').value = d.debitNoteNo;
-        document.getElementById('dbVendorName').value = d.vendorName;
-        document.getElementById('dbRefInfo').value = d.refInfo || '';
+    function editDebitRow(idx) {
+        const d = debitData[idx];
+        document.getElementById('editRowIndex').value = idx;
+        document.getElementById('editFirebaseKey').value = d.fbKey;
+        
+        document.getElementById('dbDate').value = d.date;
+        document.getElementById('dbNoteNo').value = d.debitNoteNo;
+        document.getElementById('dbVendorName').value = d.vendorName;
+        document.getElementById('dbRefInfo').value = d.refInfo || '';
 
-        const body = document.getElementById('debitItemsBody'); body.innerHTML = '';
-        (d.gridItems || []).forEach(item => { addDbRow(item); });
+        const body = document.getElementById('debitItemsBody'); body.innerHTML = '';
+        (d.gridItems || []).forEach(item => { addDbRow(item); });
 
-        document.getElementById('formTitleDebit').innerText = "🛠️ Modify/Edit Debit Note Configuration Packet";
-        document.getElementById('btnSubmitForm').innerText = "Update Debit Voucher";
-        document.getElementById('btnCancelEdit').style.display = "inline-block";
-        document.getElementById('debitForm').scrollIntoView({ behavior: 'smooth' });
-    }
+        document.getElementById('formTitleDebit').innerText = "🛠️ Modify/Edit Debit Note Configuration Packet";
+        document.getElementById('btnSubmitForm').innerText = "Update Debit Voucher";
+        document.getElementById('btnCancelEdit').style.display = "inline-block";
+        document.getElementById('debitForm').scrollIntoView({ behavior: 'smooth' });
+    }
 
-    function resetDebitForm() {
-        document.getElementById('editRowIndex').value = "-1";
-        document.getElementById('editFirebaseKey').value = "";
-        document.getElementById('debitForm').reset();
-        document.getElementById('debitItemsBody').innerHTML = '';
-        document.getElementById('formTitleDebit').innerText = "🧾 Debit Note (Vendor Return) Ledger";
-        document.getElementById('btnSubmitForm').innerText = "Save Debit Note Voucher";
-        document.getElementById('btnCancelEdit').style.display = "none";
-        applyLiveDateRestrictions(); addDbRow();
-    }
+    function resetDebitForm() {
+        document.getElementById('editRowIndex').value = "-1";
+        document.getElementById('editFirebaseKey').value = "";
+        document.getElementById('debitForm').reset();
+        document.getElementById('debitItemsBody').innerHTML = '';
+        document.getElementById('formTitleDebit').innerText = "🧾 Debit Note (Vendor Return) Ledger";
+        document.getElementById('btnSubmitForm').innerText = "Save Debit Note Voucher";
+        document.getElementById('btnCancelEdit').style.display = "none";
+        applyLiveDateRestrictions(); addDbRow();
+    }
 
-    function cancelEditMode() { resetDebitForm(); }
+    function cancelEditMode() { resetDebitForm(); }
 
-    function deleteDebitRow(idx) {
-        const passwordInput = prompt("🔑 Security Check:\nEnter Secret Password to Delete Debit Note:");
-        if (passwordInput === "7004") {
-            if(confirm("⚠️ ALERT: Are you sure you want to permanently delete this Debit Note voucher from Cloud?")) {
-                const fbKey = debitData[idx].fbKey;
-                database.ref('debitStockVouchers/' + fbKey).remove().then(() => {
-                    alert("🗑️ Success: Cloud Record wiped out completely.");
-                    resetDebitForm();
-                });
-            }
-        } else if(passwordInput !== null) { alert("❌ Access Denied: Incorrect Password!"); }
-    }
+    function deleteDebitRow(idx) {
+        const passwordInput = prompt("🔑 Security Check:\nEnter Secret Password to Delete Debit Note:");
+        if (passwordInput === "7004") {
+            if(confirm("⚠️ ALERT: Are you sure you want to permanently delete this Debit Note voucher from Cloud?")) {
+                const fbKey = debitData[idx].fbKey;
+                database.ref('debitStockVouchers/' + fbKey).remove().then(() => {
+                    alert("🗑️ Success: Cloud Record wiped out completely.");
+                    resetDebitForm();
+                });
+            }
+        } else if(passwordInput !== null) { alert("❌ Access Denied: Incorrect Password!"); }
+    }
 
-    function triggerPrintDebit(d) {
-        const shell = document.getElementById('printSection');
-        let lines = '';
-        (d.gridItems || []).forEach(i => {
-            lines += `• [${i.pool || 'FRESH'}] <b>${i.name}</b> [${i.code}] - Qty: ${i.qty} NOS (Reason: ${i.reason})<br>`;
-        });
-        shell.innerHTML = `
-            <div style="border:1px solid #000; padding:6px; height:100%; box-sizing:border-box; display:flex; flex-direction:column; justify-content:space-between;">
-                <div style="text-align:center; font-weight:bold; font-size:12px; border-bottom:1px solid #000; padding-bottom:2px;">GVM RAIL PVT LTD - DEBIT NOTE VOUCHER</div>
-                <table style="width:100%; font-size:11px; margin-top:2px; line-height:1.2;">
-                    <tr><td><b>Date:</b> ${d.date}</td><td><b>Debit Note No:</b> ${d.debitNoteNo}</td></tr>
-                    <tr><td><b>Vendor Name:</b> ${d.vendorName}</td><td><b>Ref Invoice/PO:</b> ${d.refInfo || '-'}</td></tr>
-                </table>
-                <div style="margin-top:4px; font-size:10px; border-top:1px solid #eee; padding-top:2px; flex-grow:1;"><b>RETURN ITEMS DETAILS:</b><br>${lines}</div>
-                <div style="text-align:right; font-weight:bold; font-size:9px; margin-top:5px;">Authorized Controller Signature</div>
-            </div>`;
-        window.print();
-    }
+    function triggerPrintDebit(d) {
+        const shell = document.getElementById('printSection');
+        let lines = '';
+        (d.gridItems || []).forEach(i => {
+            lines += `• [${i.pool || 'FRESH'}] <b>${i.name}</b> [${i.code}] - Qty: ${i.qty} NOS (Reason: ${i.reason})<br>`;
+        });
+        shell.innerHTML = `
+            <div style="border:1px solid #000; padding:6px; height:100%; box-sizing:border-box; display:flex; flex-direction:column; justify-content:space-between;">
+                <div style="text-align:center; font-weight:bold; font-size:12px; border-bottom:1px solid #000; padding-bottom:2px;">GVM RAIL PVT LTD - DEBIT NOTE VOUCHER</div>
+                <table style="width:100%; font-size:11px; margin-top:2px; line-height:1.2;">
+                    <tr><td><b>Date:</b> ${d.date}</td><td><b>Debit Note No:</b> ${d.debitNoteNo}</td></tr>
+                    <tr><td><b>Vendor Name:</b> ${d.vendorName}</td><td><b>Ref Invoice/PO:</b> ${d.refInfo || '-'}</td></tr>
+                </table>
+                <div style="margin-top:4px; font-size:10px; border-top:1px solid #eee; padding-top:2px; flex-grow:1;"><b>RETURN ITEMS DETAILS:</b><br>${lines}</div>
+                <div style="text-align:right; font-weight:bold; font-size:9px; margin-top:5px;">Authorized Controller Signature</div>
+            </div>`;
+        window.print();
+    }
 
-    function applyLiveDateRestrictions() {
-        const todayStr = new Date().toISOString().split('T')[0];
-        document.getElementById('dbDate').setAttribute('max', todayStr);
-        document.getElementById('dbDate').value = todayStr;
-    }
+    function applyLiveDateRestrictions() {
+        const todayStr = new Date().toISOString().split('T')[0];
+        document.getElementById('dbDate').setAttribute('max', todayStr);
+        document.getElementById('dbDate').value = todayStr;
+    }
 
-    window.addEventListener('DOMContentLoaded', () => {
-        const box = document.getElementById('liveTableSearchBox');
-        if (box) box.value = "";
-    });
+    window.addEventListener('DOMContentLoaded', () => {
+        const box = document.getElementById('liveTableSearchBox');
+        if (box) box.value = "";
+    });
 
-    applyLiveDateRestrictions(); addDbRow();
+    applyLiveDateRestrictions(); addDbRow();
 </script>
 </body>
 </html>
