@@ -113,19 +113,6 @@ body {
     box-shadow: 0 4px 10px rgba(30, 58, 138, 0.25);
 }
 
-/* एक्टिव टैब के नीचे चमकीला डायनामिक पल्स ग्लो इफ़ेक्ट */
-.tabs-nav a[class*="active-"]::after, .tabs-nav a.active-code::after {
-    content: '';
-    position: absolute;
-    bottom: -10px;
-    left: 15%;
-    width: 70%;
-    height: 4px;
-    background-color: var(--primary-light);
-    border-radius: 4px;
-    box-shadow: 0 0 8px var(--primary-light);
-}
-
 /* 📝 Form Layouts with Focus Glow Effect */
 .form-grid { 
     display: grid; 
