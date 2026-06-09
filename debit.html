@@ -18,8 +18,13 @@
         .search-input-box { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; width: 280px; text-transform: uppercase; }
         .limit-dropdown-select { padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; cursor: pointer; background: #fff; font-weight: bold; }
         
-        /* 🌟 नए पूल सेलेक्ट ड्रॉपडाउन की सुंदर स्टाइलिंग */
         .db-pool-select { width: 100%; padding: 5px; border: 1px solid #cbd5e1; border-radius: 4px; font-weight: bold; background: #fff; cursor: pointer; }
+
+        /* 🌟 नया जोड़ा: पेंडिंग रिजेक्शन बैच अलर्ट बॉक्स */
+        .pending-rej-panel { background: #fff5f5; border: 1px solid #fecaca; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: none; }
+        .rej-batch-row { display: flex; justify-content: space-between; align-items: center; padding: 10px; background: white; border: 1px solid #fee2e2; margin-top: 8px; border-radius: 6px; font-size: 13px; }
+        .btn-load-rej { background-color: #dc3545; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-weight: bold; cursor: pointer; transition: background 0.2s; }
+        .btn-load-rej:hover { background-color: #bd2130; }
 
         @media print {
             body * { visibility: hidden; }
@@ -52,14 +57,20 @@
 
     <h3 id="formTitleDebit" style="color:var(--primary); margin: 15px 0 10px 0;">🧾 Debit Note (Vendor Return) Ledger</h3>
 
+    <div id="pendingRejPanel" class="pending-rej-panel">
+        <h5 style="margin: 0; color: #b91c1c; font-size: 14px;">🗑️ Pending Fresh Rejected Stock Found for this Vendor:</h5>
+        <div id="pendingRejRowsContainer"></div>
+    </div>
+
     <form id="debitForm">
         <input type="hidden" id="editRowIndex" value="-1">
         <input type="hidden" id="editFirebaseKey" value="">
+        <input type="hidden" id="loadedRejectBinKey" value="">
 
         <div class="form-grid">
             <div class="form-group"><label>Debit Note Date <span>*</span></label><input type="date" id="dbDate" required></div>
             <div class="form-group"><label>Debit Note No <span>*</span></label><input type="text" id="dbNoteNo" required autocomplete="off" style="text-transform:uppercase;"></div>
-            <div class="form-group"><label>Vendor Name (Return To) <span>*</span></label><input type="text" id="dbVendorName" required autocomplete="off" style="text-transform:uppercase;"></div>
+            <div class="form-group"><label>Vendor Name (Return To) <span>*</span></label><input type="text" id="dbVendorName" required autocomplete="off" style="text-transform:uppercase;" oninput="checkPendingRejections(this.value)"></div>
             <div class="form-group"><label>Original Bill / PO Ref</label><input type="text" id="dbRefInfo" autocomplete="off" style="text-transform:uppercase;"></div>
         </div>
 
@@ -67,11 +78,12 @@
             <table class="grid-table">
                 <thead style="background-color: #ef4444; color: white;">
                     <tr>
-                        <th style="width:15%;">Stock Pool Type</th>
-                        <th style="width:15%;">Item Code 🔍</th>
-                        <th style="width:30%;">Item Display Name</th>
-                        <th style="width:10%;">Qty</th>
-                        <th style="width:25%;">Reason for Debit / Return</th>
+                        <th style="width:12%;">Stock Pool Type</th>
+                        <th style="width:13%;">Item Code 🔍</th>
+                        <th style="width:20%;">Item Display Name</th>
+                        <th style="width:8%;">Qty</th>
+                        <th style="width:32%;">Reason / Sub-Assembly Serial Numbers Track Log</th>
+                        <th style="width:10%;">Tested By</th>
                         <th style="width:5%;">Action</th>
                     </tr>
                 </thead>
@@ -127,6 +139,7 @@
     function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
 
     let debitData = [];
+    let rejectBinGlobalData = {}; // 🌟 रिजेक्शन बिन डेटा होल्डर एरे
     let masterCatalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
 
     database.ref('debitStockVouchers').on('value', (snapshot) => {
@@ -140,6 +153,69 @@
         debitData.reverse();
         renderHistory();
     });
+
+    // 🌟 लाइव रिजेक्शन बिन डेटा मॉनिटर गियर
+    database.ref('freshRejectionBinData').on('value', (snapshot) => {
+        rejectBinGlobalData = snapshot.val() || {};
+    });
+
+    // 🌟 वेंडर नेम डालते ही पेंडिंग फ्रेश रिजेक्शन खोजना
+    function checkPendingRejections(vendorInput) {
+        const val = vendorInput.trim().toUpperCase();
+        const container = document.getElementById('pendingRejRowsContainer');
+        const panel = document.getElementById('pendingRejPanel');
+        container.innerHTML = "";
+
+        if(!val) { panel.style.display = "none"; return; }
+
+        let foundCount = 0;
+        for(let key in rejectBinGlobalData) {
+            const row = rejectBinGlobalData[key];
+            if(row.status === "PENDING_DEBIT_NOTE" && row.vendorName.toUpperCase().includes(val)) {
+                foundCount++;
+                container.innerHTML += `
+                    <div class="rej-batch-row">
+                        <div>📅 <b>${row.date}</b> | 📦 Code: <code>${row.itemCode}</code> | Qty: <b>${row.totalQty} Sets</b></div>
+                        <button type="button" class="btn-load-rej" onclick="loadRejectBinToForm('${key}')">⚡ Auto-Load to Grid</button>
+                    </div>`;
+            }
+        }
+        panel.style.display = foundCount > 0 ? "block" : "none";
+    }
+
+    // ⚡ रिजेक्शन बिन का सारा सब-असेंबली डेटा ऑटोमैटिक ग्रिड में इंजेक्ट करना
+    function loadRejectBinToForm(binKey) {
+        const data = rejectBinGlobalData[binKey];
+        if(!data) return;
+
+        document.getElementById('dbVendorName').value = data.vendorName;
+        document.getElementById('loadedRejectBinKey').value = binKey; // की को सीक्रेट लॉक करना
+        
+        const body = document.getElementById('debitItemsBody');
+        body.innerHTML = ""; // पुराना ग्रिड खाली करना
+
+        let combinedReasonText = "";
+        let combinedTesters = [];
+        
+        // 5 सब-बोर्ड्स और प्रॉब्लम्स का कम्बाइंड टेक्स्ट तैयार करना
+        data.assemblyDetails.forEach((p, i) => {
+            combinedReasonText += `[Set${i+1} MB:${p.mainBoardSN}, T:${p.topLedSN}, CH1:${p.ch1SN}, CH2:${p.ch2SN}, BC:${p.barcodeNo} | Prob:${p.problem}] `;
+            if(p.testedBy && !combinedTesters.includes(p.testedBy)) { combinedTesters.push(p.testedBy); }
+        });
+
+        // ग्रिड रो में पूरा मटीरियल इंजेक्ट करना
+        addDbRow({
+            pool: "FRESH",
+            code: data.itemCode,
+            name: data.itemName || "",
+            qty: data.totalQty,
+            reason: combinedReasonText.trim(),
+            testedBy: combinedTesters.join(', ')
+        });
+
+        document.getElementById('pendingRejPanel').style.display = "none"; 
+        alert("🎉 Rejection Bin Data Connected! 5 Sub-Assemblies Serial Map, Defect & Tester details auto-filled into current row.");
+    }
 
     function addDbRow(preItem = {}) {
         const body = document.getElementById('debitItemsBody');
@@ -156,7 +232,8 @@
             <td><input type="text" required class="db-code" value="${preItem.code || ''}" oninput="autofillDebit(this)" style="text-transform:uppercase;"></td>
             <td><input type="text" required class="db-name" value="${preItem.name || ''}"></td>
             <td><input type="number" min="1" required class="db-qty" value="${preItem.qty || ''}"></td>
-            <td><input type="text" required class="db-reason" value="${preItem.reason || ''}" placeholder="e.g. Broken/Faulty Component"></td>
+            <td><input type="text" required class="db-reason" value="${preItem.reason || ''}" placeholder="Reason & Serial Numbers"></td>
+            <td><input type="text" required class="db-tester" value="${preItem.testedBy || ''}" placeholder="e.g. RAMESH"></td>
             <td><button type="button" class="btn-row-remove" onclick="this.closest('tr').remove()">×</button></td>`;
         body.appendChild(tr);
     }
@@ -184,12 +261,14 @@
                 code: row.querySelector('.db-code').value.trim().toUpperCase(), 
                 name: row.querySelector('.db-name').value.trim(), 
                 qty: parseInt(row.querySelector('.db-qty').value) || 0,
-                reason: row.querySelector('.db-reason').value.trim()
+                reason: row.querySelector('.db-reason').value.trim(),
+                testedBy: row.querySelector('.db-tester').value.trim().toUpperCase() // 🌟 टेस्टर सिंक लोड
             });
         });
 
         const idx = parseInt(document.getElementById('editRowIndex').value);
         const fbKey = document.getElementById('editFirebaseKey').value;
+        const binKeyToClear = document.getElementById('loadedRejectBinKey').value; // बिन की
 
         const voucher = {
             date: document.getElementById('dbDate').value,
@@ -202,6 +281,14 @@
 
         if(idx === -1) {
             database.ref('debitStockVouchers').push(voucher).then(() => {
+                
+                // 🌟 अगर रिजेक्शन बिन से डेटा आया था, तो बैकएंड स्टेटस क्लियर करना
+                if(binKeyToClear) {
+                    database.ref('freshRejectionBinData/' + binKeyToClear).update({
+                        status: "DEBIT_NOTE_DONE"
+                    });
+                }
+
                 alert("🎉 Debit Note Entry Saved to Cloud!");
                 resetDebitForm();
             });
@@ -243,7 +330,7 @@
             let origIdx = debitData.findIndex(x => x.fbKey === d.fbKey);
             let desc = "";
             (d.gridItems || []).forEach(i => {
-                desc += `• [<b>${i.pool || 'FRESH'}</b>] <code>${i.code}</code> - ${i.name} (<b>${i.qty} Nos</b>) <span style="color:#ef4444; font-size:11px;">[Reason: ${i.reason}]</span><br>`;
+                desc += `• [<b>${i.pool || 'FRESH'}</b>] <code>${i.code}</code> - ${i.name} (<b>${i.qty} Nos</b>) <br><span style="color:#ef4444; font-size:11px;">[Track: ${i.reason}]</span> <span style="color:#0284c7; font-size:11px; font-weight:bold;">[Tester: ${i.testedBy || '-'}]</span><br>`;
             });
 
             b.innerHTML += `<tr>
@@ -251,7 +338,7 @@
                 <td><b>${d.debitNoteNo}</b></td>
                 <td><b>${d.vendorName}</b></td>
                 <td>${d.refInfo || '-'}</td>
-                <td style="text-align:left; font-size:12px;">${desc}</td>
+                <td style="text-align:left; font-size:12px; line-height:1.4;">${desc}</td>
                 <td>
                     <button type="button" class="btn-print-receipt" onclick='triggerPrintDebit(${JSON.stringify(d)})'>🖨️ Print</button>
                     <button type="button" class="btn-edit-action" onclick="editDebitRow(${origIdx})">Edit</button>
@@ -283,11 +370,13 @@
     function resetDebitForm() {
         document.getElementById('editRowIndex').value = "-1";
         document.getElementById('editFirebaseKey').value = "";
+        document.getElementById('loadedRejectBinKey').value = "";
         document.getElementById('debitForm').reset();
         document.getElementById('debitItemsBody').innerHTML = '';
         document.getElementById('formTitleDebit').innerText = "🧾 Debit Note (Vendor Return) Ledger";
         document.getElementById('btnSubmitForm').innerText = "Save Debit Note Voucher";
         document.getElementById('btnCancelEdit').style.display = "none";
+        document.getElementById('pendingRejPanel').style.display = "none";
         applyLiveDateRestrictions(); addDbRow();
     }
 
@@ -310,7 +399,7 @@
         const shell = document.getElementById('printSection');
         let lines = '';
         (d.gridItems || []).forEach(i => {
-            lines += `• [${i.pool || 'FRESH'}] <b>${i.name}</b> [${i.code}] - Qty: ${i.qty} NOS (Reason: ${i.reason})<br>`;
+            lines += `• [${i.pool || 'FRESH'}] <b>${i.name}</b> [${i.code}] - Qty: ${i.qty} NOS<br>&nbsp;&nbsp;Track: ${i.reason}<br>&nbsp;&nbsp;Tester: ${i.testedBy || '-'}<br>`;
         });
         shell.innerHTML = `
             <div style="border:1px solid #000; padding:6px; height:100%; box-sizing:border-box; display:flex; flex-direction:column; justify-content:space-between;">
