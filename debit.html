@@ -20,7 +20,7 @@
         
         .db-pool-select { width: 100%; padding: 5px; border: 1px solid #cbd5e1; border-radius: 4px; font-weight: bold; background: #fff; cursor: pointer; }
 
-        /* 📥 जादुई सीरियल नंबर पॉपअप बॉक्स की स्टाइलिंग */
+        /* जादुई सीरियल नंबर पॉपअप बॉक्स की स्टाइलिंग */
         .sn-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(15, 23, 42, 0.6); z-index: 9999; justify-content: center; align-items: center; backdrop-filter: blur(2px); }
         .modal-content { background: white; padding: 25px; border-radius: 8px; width: 100%; max-width: 850px; max-height: 85%; overflow-y: auto; box-shadow: 0 20px 40px rgba(15, 23, 42, 0.2); position: relative; }
         .sub-set-row { display: grid; grid-template-columns: repeat(5, 1fr) 1.2fr 1fr; gap: 8px; padding: 8px 0; border-bottom: 1px solid #f1f5f9; }
@@ -249,7 +249,6 @@
         document.getElementById('serialModal').style.display = "flex";
     }
 
-    // ❌ क्रॉस बटन दबाने पर बिना सेव किए बंद करने का गियर
     function closeSerialModalWithoutSaving() {
         document.getElementById('serialModal').style.display = "none";
         currentActiveRowForSerials = null;
@@ -298,7 +297,7 @@
         input.closest('tr').querySelector('.db-name').value = foundName;
     }
 
-    // 🚨 फॉर्म सबमिशन - (क्रॉस करने पर ब्लॉक मारने का कड़क इंजन फिटेड)
+    // 🚨 फॉर्म सबमिशन - (इंग्लिश एरर मैसेज गियर अपडेटेड)
     document.getElementById('debitForm').addEventListener('submit', function(e) {
         e.preventDefault();
         let items = [];
@@ -311,7 +310,6 @@
             let trackVal = row.querySelector('.db-track-sr').value;
             let serialJsonString = row.querySelector('.db-serialized-output').value;
             
-            // 🔒 लॉजिक चेक: अगर YES है पर अंदर डेटा खाली/ब्लैंक है, तो ब्लॉक मारो!
             if(trackVal === "YES") {
                 if(!serialJsonString || serialJsonString === "[]" || serialJsonString === "") {
                     verificationCheck = false;
@@ -330,8 +328,9 @@
             });
         });
 
+        // 🌟 यहाँ एरर मैसेज को पूरी तरह इंग्लिश में लॉक कर दिया है राकेश भाई
         if(!verificationCheck) { 
-            alert("🚫 ERROR: आपने 'Track Serial No = YES' चुना हुआ है, लेकिन सीरियल नंबर बॉक्स को बिना सेव किए क्रॉस (×) कर दिया था!\n\nकृपया या तो सीरियल नंबर दर्ज करें या फिर ड्रॉपडाउन को वापस 'NO' पर सेट करें।"); 
+            alert("🚫 ERROR: You have selected 'Track Serial No = YES', but you closed the serial number box without saving!\n\nPlease either enter the serial numbers or set the dropdown back to 'NO'."); 
             return; 
         }
 
@@ -360,7 +359,6 @@
         }
     });
 
-    // 📥 एक्सेल एक्सपोर्ट इंजन (नया जोड़ा)
     function downloadDebitExcel() {
         const table = document.getElementById('masterDebitHistoryTable');
         let csv = [];
@@ -419,7 +417,7 @@
                 <td><b>${d.debitNoteNo}</b></td>
                 <td><b>${d.vendorName}</b></td>
                 <td>${d.refInfo || '-'}</td>
-                <td style="text-align:left; font-size:12px; line-height:1.5;">${desc}</td>
+                <td style="text-align:left; font-size:12px; line-height:1.4;">${desc}</td>
                 <td>
                     <button type="button" class="btn-print-receipt" onclick='triggerPrintDebit(${JSON.stringify(d)})'>🖨️ Print</button>
                     <button type="button" class="btn-edit-action" onclick="editDebitRow(${origIdx})">Edit</button>
