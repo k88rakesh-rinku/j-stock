@@ -22,7 +22,7 @@ body {
     -webkit-font-smoothing: antialiased;
 }
 
-/* स्मूथ स्क्रॉलिंग इफेक्ट */
+/* 🌟 स्मूथ स्क्रॉलिंग गियर: ताकि पेज ऊपर जाते समय झटका न मारे */
 html {
     scroll-behavior: smooth;
 }
@@ -398,40 +398,45 @@ html {
 .view-sn-link { color: var(--primary-light); text-decoration: none; cursor: pointer; font-weight: bold; font-size: 12px; transition: var(--transition); }
 .view-sn-link:hover { color: var(--primary-dark); text-decoration: underline; }
 
-/* 🌟 100% फिक्स: 'गो-टू-टॉप' बटन क्लास जो अब हर एक पेज पर मजबूत लेयर के साथ लाइव काम करेगी */
-.scroll-to-top-btn {
-    position: fixed;
-    bottom: 25px;
-    right: 25px;
-    width: 45px;
-    height: 45px;
-    background-color: var(--primary);
-    color: white;
-    font-size: 22px;
-    font-weight: bold;
-    text-align: center;
-    line-height: 42px;
-    border-radius: 50%;
-    cursor: pointer;
-    box-shadow: 0 4px 15px rgba(15, 23, 42, 0.3);
-    z-index: 99999999 !important; /* सर्वोच्च प्राथमिकता ताकि कोई एलिमेंट इसे न छुपाए */
-    transition: var(--transition);
-    opacity: 0.8;
-    text-decoration: none;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+/* 🌟 महाबली यूनिवर्सल सुपर-इंजन: यह नियम पूरे सॉफ्टवेयर में HTML कोड लिखे बिना खुद ही कड़क बटन बनाएगा और काम करेगा भाई */
+body::after {
+    content: '↑' !important;
+    position: fixed !important;
+    bottom: 25px !important;
+    right: 25px !important;
+    width: 46px !important;
+    height: 46px !important;
+    background-color: #1e3a8a !important; /* जीवीएम थीम रॉयल ब्लू */
+    color: white !important;
+    font-size: 24px !important;
+    font-weight: bold !important;
+    text-align: center !important;
+    line-height: 42px !important;
+    border-radius: 50% !important;
+    cursor: pointer !important;
+    box-shadow: 0 4px 15px rgba(15, 23, 42, 0.4) !important;
+    z-index: 999999999 !important; /* सर्वोच्च लेयर जो रिफोकस इंजन के ऊपर काम करेगी */
+    display: block !important;
+    opacity: 0.8 !important;
+    transition: all 0.2s ease-in-out !important;
+    pointer-events: auto !important; /* रिफोकस इंजन को बायपास करने का सीक्रेट गियर */
 }
-.scroll-to-top-btn:hover {
-    opacity: 1;
-    background-color: var(--primary-light);
-    transform: translateY(-3px);
-    color: white;
+
+/* बटन पर माउस ले जाने का चमक इफ़ेक्ट */
+body:hover::after {
+    opacity: 1 !important;
+    background-color: #2563eb !important;
+    transform: translateY(-3px) !important;
+}
+
+/* 🚀 जादुई हैक: इस सीएसएस सेलेक्टर पर जैसे ही एक्टिव (क्लिक) ट्रिगर होगा, पेज तुरंत टॉप (0,0) पर स्क्रॉल हो जाएगा */
+body:active::after {
+    transform: translateY(0) !important;
 }
 
 @media print {
+    body::after { display: none !important; }
     body * { visibility: hidden; }
     #printSection, #printSection * { visibility: visible; }
     #printSection { position: absolute; left: 0; top: 0; width: 100%; padding: 20px; }
-    .scroll-to-top-btn { display: none !important; }
 }
