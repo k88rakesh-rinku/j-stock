@@ -65,7 +65,7 @@
     </div>
 
     <h3 style="color:#b91c1c; margin: 15px 0 10px 0;">🗑️ Defect Tracking & Supplier Dispatch Hub</h3>
-    <p style="font-size: 13px; color: #64748b; margin-top: 0; margin-bottom: 15px;">नोट: यह पूल केवल रिजेक्टेड माल के सीरियल नंबर और डिफेक्ट्स ट्रैक करने के लिए है। इससे लाइव स्टॉक बैलेंस पर कोई असर नहीं पड़ेगा।</p>
+    <p style="font-size: 13px; color: #64748b; margin-top: 0; margin-bottom: 15px;">rejected materail only</p>
 
     <div class="reject-card">
         <h4 id="formTitleText" style="margin: 0 0 12px 0; color:#b91c1c;">📝 Log New Defective Component Record</h4>
@@ -74,8 +74,8 @@
             
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; align-items: flex-end;">
                 <div class="form-group"><label>Rejection Date <span>*</span></label><input type="date" id="rejDate" required></div>
-                <div class="form-group"><label>Vendor Name <span>*</span></label><input type="text" id="rejVendor" placeholder="e.g. AMIT ENGINEERS" required style="text-transform:uppercase;"></div>
-                <div class="form-group"><label>Main Board Item Code <span>*</span></label><input type="text" id="rejItemCode" placeholder="e.g. GC0027" required style="text-transform:uppercase;" oninput="autofillRejectItem(this)"></div>
+                <div class="form-group"><label>Vendor Name <span>*</span></label><input type="text" id="rejVendor" placeholder="e.g. xxxx" required style="text-transform:uppercase;"></div>
+                <div class="form-group"><label>Main Board Item Code <span>*</span></label><input type="text" id="rejItemCode" placeholder="e.g. abxxx" required style="text-transform:uppercase;" oninput="autofillRejectItem(this)"></div>
                 <div class="form-group"><label>Item Name</label><input type="text" id="rejItemName" placeholder="Auto-fill Name" readonly style="background:#e2e8f0;"></div>
                 <div class="form-group"><label>Reject Qty (Sets) <span>*</span></label><input type="number" id="rejQty" placeholder="Max 5 Sets" min="1" max="5" required oninput="generateSubAssemblyInputs()"></div>
             </div>
