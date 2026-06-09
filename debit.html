@@ -139,7 +139,7 @@
     function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
 
     let debitData = [];
-    let rejectBinGlobalData = {}; // 🌟 रिजेक्शन बिन डेटा होल्डर एरे
+    let rejectBinGlobalData = {}; 
     let masterCatalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
 
     database.ref('debitStockVouchers').on('value', (snapshot) => {
@@ -157,6 +157,9 @@
     // 🌟 लाइव रिजेक्शन बिन डेटा मॉनिटर गियर
     database.ref('freshRejectionBinData').on('value', (snapshot) => {
         rejectBinGlobalData = snapshot.val() || {};
+        // अगर पहले से वेंडर फील्ड भरा है, तो अलर्ट लिस्ट रिफ्रेश करें
+        let currentVendor = document.getElementById('dbVendorName').value;
+        if(currentVendor) checkPendingRejections(currentVendor);
     });
 
     // 🌟 वेंडर नेम डालते ही पेंडिंग फ्रेश रिजेक्शन खोजना
@@ -189,21 +192,19 @@
         if(!data) return;
 
         document.getElementById('dbVendorName').value = data.vendorName;
-        document.getElementById('loadedRejectBinKey').value = binKey; // की को सीक्रेट लॉक करना
+        document.getElementById('loadedRejectBinKey').value = binKey; 
         
         const body = document.getElementById('debitItemsBody');
-        body.innerHTML = ""; // पुराना ग्रिड खाली करना
+        body.innerHTML = ""; 
 
         let combinedReasonText = "";
         let combinedTesters = [];
         
-        // 5 सब-बोर्ड्स और प्रॉब्लम्स का कम्बाइंड टेक्स्ट तैयार करना
         data.assemblyDetails.forEach((p, i) => {
             combinedReasonText += `[Set${i+1} MB:${p.mainBoardSN}, T:${p.topLedSN}, CH1:${p.ch1SN}, CH2:${p.ch2SN}, BC:${p.barcodeNo} | Prob:${p.problem}] `;
             if(p.testedBy && !combinedTesters.includes(p.testedBy)) { combinedTesters.push(p.testedBy); }
         });
 
-        // ग्रिड रो में पूरा मटीरियल इंजेक्ट करना
         addDbRow({
             pool: "FRESH",
             code: data.itemCode,
@@ -262,13 +263,13 @@
                 name: row.querySelector('.db-name').value.trim(), 
                 qty: parseInt(row.querySelector('.db-qty').value) || 0,
                 reason: row.querySelector('.db-reason').value.trim(),
-                testedBy: row.querySelector('.db-tester').value.trim().toUpperCase() // 🌟 टेस्टर सिंक लोड
+                testedBy: row.querySelector('.db-tester').value.trim().toUpperCase() 
             });
         });
 
         const idx = parseInt(document.getElementById('editRowIndex').value);
         const fbKey = document.getElementById('editFirebaseKey').value;
-        const binKeyToClear = document.getElementById('loadedRejectBinKey').value; // बिन की
+        const binKeyToClear = document.getElementById('loadedRejectBinKey').value; 
 
         const voucher = {
             date: document.getElementById('dbDate').value,
@@ -282,7 +283,6 @@
         if(idx === -1) {
             database.ref('debitStockVouchers').push(voucher).then(() => {
                 
-                // 🌟 अगर रिजेक्शन बिन से डेटा आया था, तो बैकएंड स्टेटस क्लियर करना
                 if(binKeyToClear) {
                     database.ref('freshRejectionBinData/' + binKeyToClear).update({
                         status: "DEBIT_NOTE_DONE"
@@ -300,6 +300,7 @@
         }
     });
 
+    // 🌟 हिस्ट्री रेंडर फिक्स: अब डेटा सिंक होकर सही-सही ग्रिड टेबल में दिखेगा
     function renderHistory() {
         const b = document.getElementById('debitHistoryBody'); b.innerHTML = '';
         if(debitData.length === 0) {
