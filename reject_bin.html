@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rejection Bin & Allocation Control - GVM Rail</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+    <style>
+        .reject-card { background: #fff5f5; border: 1px solid #fecaca; padding: 20px; border-radius: 8px; margin-bottom: 25px; }
+        .btn-transfer { background-color: #dc3545; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: bold; transition: background 0.2s; }
+        .btn-transfer:hover { background-color: #bd2130; }
+        .status-pending { background-color: #fef3c7; color: #d97706; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; display: inline-block; border: 1px solid #fde68a; }
+        .status-cleared { background-color: #dcfce7; color: #15803d; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; display: inline-block; border: 1px solid #bbf7d0; }
+        .pool-badge { background-color: #e2e8f0; color: #475569; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="erp-header">
+        <h1>Material Lifecycle Control & Inventory Ledger Systems <span style="font-size:12px; color:#ef4444;">● REJECTION BIN ENGINE</span></h1>
+        <button class="logout-btn" onclick="logout()">Logout</button>
+    </div>
+    
+    <div class="tabs-nav">
+        <a href="index.html" class="tab-link">📦 New Entry (Fresh)</a>
+        <a href="rework.html" class="tab-link">🛠️ Gate In (Rework)</a>
+        <a href="gateout.html" class="tab-link">🚪 Gate Out (Dispatch)</a>
+        <a href="debit.html" class="tab-link">🧾 Debit Note (Vendor)</a>
+        <a href="code.html" class="tab-link">🆕 Generate Code</a>
+        <a href="ledger.html" class="tab-link">📊 Master Ledger & History</a>
+        <a href="users.html" class="tab-link">👥 Manage Users</a>
+        <a href="bom.html" class="tab-link">🔗 BOM Master</a>
+        <a href="failure.html" class="tab-link">🛠️ Failure Defect Log</a>
+        <a href="production.html" class="tab-link">🏭 Production Planner</a>
+        <a href="reject_bin.html" class="tab-link active-fresh" style="background-color: #dc3545 !important;">🗑️ Rejection Bin</a>
+    </div>
+
+    <h3 style="color:#b91c1c; margin: 15px 0 10px 0;">🗑️ Material Rejection Bin & Live Allocation Center</h3>
+    <p style="font-size: 13px; color: #64748b; margin-top: 0; margin-bottom: 15px;">नोट: यहाँ ट्रांसफर किया हुआ माल लाइव स्टॉक रूम (Fresh Stock) से कट होकर सीधे रीजेक्शन होल्डिंग पूल में लॉक हो जाता है।</p>
+
+    <div class="reject-card">
+        <h4 style="margin: 0 0 12px 0; color:#b91c1c;">🔄 Issue Stock Transfer Request to Recycle Bin</h4>
+        <form id="rejectBinForm">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; align-items: flex-end;">
+                <div class="form-group">
+                    <label>Select Source Pool <span>*</span></label>
+                    <select id="transferSource" required>
+                        <option value="">-- Choose Pool --</option>
+                        <option value="FRESH_IN">FRESH INWARD → RECYCLE BIN</option>
+                        <option value="FIELD_REWORK">FIELD / PRODUCTION → RECYCLE BIN</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Vendor Name <span>*</span></label>
+                    <input type="text" id="rejectVendor" placeholder="e.g. Amit Engineers" required style="text-transform:uppercase;">
+                </div>
+                <div class="form-group">
+                    <label>Item / Card Code <span>*</span></label>
+                    <input type="text" id="rejectItemCode" placeholder="e.g. GC0027" required style="text-transform:uppercase;">
+                </div>
+                <div class="form-group">
+                    <label>Reject Qty (Max 5) <span>*</span></label>
+                    <input type="number" id="rejectQty" placeholder="e.g. 5" min="1" max="5" required oninput="triggerSerialModalCheck()">
+                </div>
+                <div>
+                    <button type="submit" class="btn-transfer">🚨 Transfer to Rejection Bin</button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <div class="table-responsive">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 10px;">
+            <h3 style="color:#b91c1c; margin: 0;">📋 Items Awaiting Vendor Debit Note Clearance</h3>
+            <div>
+                <button class="btn-excel" onclick="downloadRejectExcel()">📥 Export Bin List</button>
+            </div>
+        </div>
+        
+        <table class="history-table" id="rejectMasterTable">
+            <thead>
+                <tr style="background-color: #334155;">
+                    <th style="width: 5%;">S.N</th>
+                    <th>Date</th>
+                    <th>Source Pool</th>
+                    <th>Vendor Name</th>
+                    <th>Item Code</th>
+                    <th>Qty</th>
+                    <th>Allocation Status</th>
+                    <th style="text-align:center;">Action</th>
+                </tr>
+            </thead>
+            <tbody id="rejectTableBody">
+                <tr><td colspan="8" style="text-align:center; padding:15px; color:#64748b;">Loading Rejection Bin Records from Firebase...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div id="serialModal" class="sn-modal">
+    <div class="modal-content" style="max-width: 450px;">
+        <h3 style="color:#b91c1c; margin-top:0;">📝 Enter Rejected Item Serial Numbers</h3>
+        <p style="font-size:12px; color:#64748b;">कृपया इस बैच के प्रत्येक पीस का यूनिक सीरियल नंबर लॉक करें:</p>
+        <div id="modalSerialInputsContainer"></div>
+        <button class="btn-submit" style="margin-top:15px; background-color:#dc3545;" onclick="closeSerialModal()">💾 Lock Serial Numbers</button>
+    </div>
+</div>
+
+<div id="viewDetailsModal" class="sn-modal">
+    <div class="modal-content" style="max-width: 450px;">
+        <h3 style="color:#1e3a8a; margin-top:0;">🔍 Rejection Audit Details</h3>
+        <div id="viewDetailsContent" style="font-size:14px; line-height:1.6; color:#334155;"></div>
+        <button class="btn-submit" style="margin-top:20px; background-color:#475569;" onclick="closeViewModal()">Close Window</button>
+    </div>
+</div>
+
+<script>
+    // 🔥 Firebase Config (वही लाइव डेटाबेस)
+    const firebaseConfig = {
+        apiKey: "AIzaSyCAOXbPwuFR3wh1QSLBXWsodupKWoRYmqs",
+        databaseURL: "https://gvm-stock-control-default-rtdb.firebaseio.com",
+        projectId: "gvm-stock-control"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+
+    const session = JSON.parse(localStorage.getItem('activeSession'));
+    if(!session) { window.location.href = 'login.html'; }
+    function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
+
+    let lockedSerialsArray = [];
+
+    // 🔢 क्वांटिटी के हिसाब से सीरियल नंबर डिब्बे खोलना
+    function triggerSerialModalCheck() {
+        let qty = parseInt(document.getElementById('rejectQty').value) || 0;
+        if(qty > 5) { alert("Max 5 pieces can be transferred at a time!"); document.getElementById('rejectQty').value = 5; qty = 5; }
+        
+        if(qty > 0) {
+            const container = document.getElementById('modalSerialInputsContainer');
+            container.innerHTML = "";
+            for(let i=0; i<qty; i++) {
+                container.innerHTML += `
+                    <div style="margin-bottom:10px;">
+                        <label style="font-size:12px; font-weight:bold;">Piece ${i+1} Serial No. *</label>
+                        <input type="text" class="modal-sn-field" placeholder="e.g. SN-REJ-00${i+1}" required style="width:100%; padding:8px; box-sizing:border-box; text-transform:uppercase; margin-top:4px; border:1px solid #cbd5e1; border-radius:4px;">
+                    </div>`;
+            }
+            document.getElementById('serialModal').style.display = "flex";
+        }
+    }
+
+    function closeSerialModal() {
+        lockedSerialsArray = [];
+        const fields = document.querySelectorAll('.modal-sn-field');
+        let allFilled = true;
+        fields.forEach(f => {
+            if(!f.value.trim()) allFilled = false;
+            lockedSerialsArray.push(f.value.trim().toUpperCase());
+        });
+        
+        if(!allFilled) { alert("All serial numbers are mandatory!"); return; }
+        document.getElementById('serialModal').style.display = "none";
+    }
+
+    // 💾 डेटाबेस में रिजेक्शन बिन एंट्री सेव करना
+    document.getElementById('rejectBinForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        let qty = parseInt(document.getElementById('rejectQty').value) || 0;
+        if(lockedSerialsArray.length !== qty) { alert("Please click on Quantity field to lock Serial Numbers first!"); return; }
+
+        const rejectPayload = {
+            date: new Date().toLocaleDateString('en-GB').replace(/\//g, '-'),
+            sourcePool: document.getElementById('transferSource').value,
+            vendorName: document.getElementById('rejectVendor').value.trim().toUpperCase(),
+            itemCode: document.getElementById('rejectItemCode').value.trim().toUpperCase(),
+            qty: qty,
+            serials: lockedSerialsArray,
+            status: "PENDING_DEBIT_NOTE" // 🌟 डिफ़ॉल्ट स्टेटस पेंडिंग रहेगा
+        };
+
+        // क्लाउड डेटाबेस में पुश मारना
+        database.ref('rejectionBinData').push(rejectPayload, (err) => {
+            if(err) { alert("Firebase Write Error!"); } 
+            else {
+                alert("Stock Transferred to Rejection Bin successfully! Locked for Debit Note clearance.");
+                document.getElementById('rejectBinForm').reset();
+                lockedSerialsArray = [];
+            }
+        });
+    });
+
+    // 📥 लाइव डेटा सिंक और रेंडर
+    database.ref('rejectionBinData').on('value', (snapshot) => {
+        const tbody = document.getElementById('rejectTableBody');
+        tbody.innerHTML = "";
+        const data = snapshot.val();
+
+        if(!data) {
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:15px; color:#64748b;">No pending items in Rejection Bin! Store room is 100% cleared.</td></tr>`;
+            return;
+        }
+
+        let index = 1;
+        for(let key in data) {
+            const record = data[key];
+            let statusStyle = record.status === "PENDING_DEBIT_NOTE" ? "status-pending" : "status-cleared";
+            let cleanStatusText = record.status === "PENDING_DEBIT_NOTE" ? "⚠️ PENDING DEBIT NOTE" : "✅ CLEARED";
+
+            tbody.innerHTML += `<tr>
+                <td style="text-align:center;">${index++}</td>
+                <td>${record.date}</td>
+                <td><span class="pool-badge">${record.sourcePool}</span></td>
+                <td><b>${record.vendorName}</b></td>
+                <td><code>${record.itemCode}</code></td>
+                <td><b>${record.qty} NOS</b></td>
+                <td><span class="${statusStyle}">${cleanStatusText}</span></td>
+                <td style="text-align:center;">
+                    <button class="btn-print-receipt" style="background-color:#475569;" onclick="viewAuditRecord('${key}')">👁️ View Serials</button>
+                </td>
+            </tr>`;
+        }
+    });
+
+    // 👁️ व्यू सीरियल नंबर डिटेल्स पॉपअप
+    function viewAuditRecord(firebaseKey) {
+        database.ref('rejectionBinData/' + firebaseKey).once('value', (snapshot) => {
+            const val = snapshot.val();
+            if(!val) return;
+            
+            const contentDiv = document.getElementById('viewDetailsContent');
+            let serialsListHtml = val.serials.map((s, i) => `<li><b>Piece ${i+1}:</b> ${s}</li>`).join('');
+            
+            contentDiv.innerHTML = `
+                <p><b>Date of Entry:</b> ${val.date}</p>
+                <p><b>Vendor Name:</b> ${val.vendorName}</p>
+                <p><b>Item Code:</b> ${val.itemCode}</p>
+                <p><b>Total Quantity:</b> ${val.qty} NOS</p>
+                <hr style="border:0; border-top:1px solid #cbd5e1; margin:10px 0;">
+                <p><b>Locked Serial Numbers:</b></p>
+                <ul style="padding-left:20px; margin:0;">${serialsListHtml}</ul>
+            `;
+            document.getElementById('viewDetailsModal').style.display = "flex";
+        });
+    }
+
+    function closeViewModal() { document.getElementById('viewDetailsModal').style.display = "none"; }
+
+    // 📥 एक्सेल एक्सपोर्ट इंजन
+    function downloadRejectExcel() {
+        const table = document.getElementById('rejectMasterTable');
+        let csv = [];
+        let rows = table.querySelectorAll('tr');
+        for (let i = 0; i < rows.length; i++) {
+            let row = [], cols = rows[i].querySelectorAll('td, th');
+            for (let j = 0; j < cols.length - 1; j++) { row.push(cols[j].innerText.replace(/,/g, ';')); }
+            csv.push(row.join(','));
+        }
+        let csvContent = "data:text/csv;charset=utf-8,\uFEFF" + csv.join('\n');
+        let encodedUri = encodeURI(csvContent);
+        let link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "GVM_Rail_Rejection_Bin_Report.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+</script>
+</body>
+</html>
