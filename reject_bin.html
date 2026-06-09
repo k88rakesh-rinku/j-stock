@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fresh Rejection Bin Engine - GVM Rail</title>
+    <title>Defect Tracking & Supplier Hub - GVM Rail</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
@@ -11,19 +11,42 @@
         .reject-card { background: #fff5f5; border: 1px solid #fecaca; padding: 20px; border-radius: 8px; margin-bottom: 25px; }
         .btn-transfer { background-color: #dc3545; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: bold; transition: background 0.2s; }
         .btn-transfer:hover { background-color: #bd2130; }
-        .status-pending { background-color: #fef3c7; color: #d97706; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; display: inline-block; border: 1px solid #fde68a; }
+        
+        /* स्टेटस बैज स्टाइलिंग */
+        .status-pending { background-color: #fee2e2; color: #991b1b; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; display: inline-block; border: 1px solid #fca5a5; }
         .status-cleared { background-color: #dcfce7; color: #15803d; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; display: inline-block; border: 1px solid #bbf7d0; }
         
-        .sub-components-box { background: #fff; border: 1px solid #cbd5e1; padding: 15px; border-radius: 6px; margin-top: 15px; display: none; }
+        /* लाइव काउंटर टैब गियर */
+        .counter-tabs { display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; }
+        .tab-btn { padding: 10px 16px; border-radius: 6px; border: 1px solid #cbd5e1; background: #f8fafc; font-weight: bold; font-size: 13px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 8px; }
+        .tab-btn.active { background-color: #1e3a8a; color: white; border-color: #1e3a8a; }
+        .badge-count { background: #ef4444; color: white; padding: 2px 6px; border-radius: 10px; font-size: 11px; }
+        .tab-btn.active .badge-count { background: white; color: #1e3a8a; }
+
+        .sub-components-box { background: #fff; border: 1px solid #cbd5e1; padding: 15px; border-radius: 6px; margin-top: 15px; display: none; position: relative; }
         .sub-set-row { display: grid; grid-template-columns: repeat(5, 1fr) 1.2fr 1fr; gap: 10px; padding: 10px; border-bottom: 1px solid #f1f5f9; }
         .sub-set-row input { padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 12px; width: 100%; box-sizing: border-box; text-transform: uppercase; }
         .sub-header-grid { display: grid; grid-template-columns: repeat(5, 1fr) 1.2fr 1fr; gap: 10px; background: #334155; color: white; padding: 6px 10px; border-radius: 4px; font-size: 11px; font-weight: bold; text-align: center; }
+
+        /* पॉपअप मॉडल स्टाइल */
+        .sn-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(15, 23, 42, 0.6); z-index: 9999; justify-content: center; align-items: center; backdrop-filter: blur(2px); }
+        .modal-content { background: white; padding: 25px; border-radius: 8px; width: 100%; max-width: 400px; box-shadow: 0 20px 40px rgba(15, 23, 42, 0.2); text-align: center; }
+        
+        .btn-edit-action { background-color: #0284c7; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
+        .btn-delete-action { background-color: #dc2626; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; }
+        .btn-send-supplier { background-color: #16a34a; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
+
+        @media print {
+            body * { visibility: hidden; }
+            #printSection, #printSection * { visibility: visible; }
+            #printSection { position: absolute; left: 0; top: 0; width: 210mm; background: #fff; font-family: monospace; padding: 10px; }
+        }
     </style>
 </head>
 <body>
 <div class="container">
     <div class="erp-header">
-        <h1>Material Lifecycle Control & Inventory Ledger Systems <span style="font-size:12px; color:#f87171;">● FRESH REJECT STOCK AUTOMATION</span></h1>
+        <h1>Material Lifecycle Control & Inventory Ledger Systems <span style="font-size:12px; color:#f87171;">● DEFECT TRACKING ENGINE</span></h1>
         <button class="logout-btn" onclick="logout()">Logout</button>
     </div>
     
@@ -41,82 +64,98 @@
         <a href="reject_bin.html" class="tab-link" style="background-color: #1e3a8a !important; color: white !important;">🗑️ Rejection Bin</a>
     </div>
 
-    <h3 style="color:#b91c1c; margin: 15px 0 10px 0;">🗑️ Fresh Stock Rejection Entry (Auto Balance Deductor)</h3>
-    <p style="font-size: 13px; color: #64748b; margin-top: 0; margin-bottom: 15px;">नोट: यहाँ नया रिजेक्टेड माल डालने पर लाइव **FRESH** स्टॉक बैलेंस से क्वांटिटी अपने आप कट जाएगी और सीरियल नंबर डेटाबेस में लॉक हो जाएंगे।</p>
+    <h3 style="color:#b91c1c; margin: 15px 0 10px 0;">🗑️ Defect Tracking & Supplier Dispatch Hub</h3>
+    <p style="font-size: 13px; color: #64748b; margin-top: 0; margin-bottom: 15px;">नोट: यह पूल केवल रिजेक्टेड माल के सीरियल नंबर और डिफेक्ट्स ट्रैक करने के लिए है। इससे लाइव स्टॉक बैलेंस पर कोई असर नहीं पड़ेगा।</p>
 
     <div class="reject-card">
-        <h4 style="margin: 0 0 12px 0; color:#b91c1c;">📝 Report Fresh Component Defect & Deduct Stock</h4>
+        <h4 id="formTitleText" style="margin: 0 0 12px 0; color:#b91c1c;">📝 Log New Defective Component Record</h4>
         <form id="freshRejectForm">
+            <input type="hidden" id="editFirebaseKey" value="">
+            
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; align-items: flex-end;">
-                <div class="form-group">
-                    <label>Rejection Date <span>*</span></label>
-                    <input type="date" id="rejDate" required>
-                </div>
-                <div class="form-group">
-                    <label>Vendor Name <span>*</span></label>
-                    <input type="text" id="rejVendor" placeholder="e.g. AMIT ENGINEERS" required style="text-transform:uppercase;">
-                </div>
-                <div class="form-group">
-                    <label>Main Board Item Code <span>*</span></label>
-                    <input type="text" id="rejItemCode" placeholder="e.g. GC0027" required style="text-transform:uppercase;" oninput="autofillRejectItem(this)">
-                </div>
-                <div class="form-group">
-                    <label>Item Name</label>
-                    <input type="text" id="rejItemName" placeholder="Auto-fill Name" readonly style="background:#e2e8f0;">
-                </div>
-                <div class="form-group">
-                    <label>Reject Qty (Sets) <span>*</span></label>
-                    <input type="number" id="rejQty" placeholder="Max 5 Sets" min="1" max="5" required oninput="generateSubAssemblyInputs()">
-                </div>
+                <div class="form-group"><label>Rejection Date <span>*</span></label><input type="date" id="rejDate" required></div>
+                <div class="form-group"><label>Vendor Name <span>*</span></label><input type="text" id="rejVendor" placeholder="e.g. AMIT ENGINEERS" required style="text-transform:uppercase;"></div>
+                <div class="form-group"><label>Main Board Item Code <span>*</span></label><input type="text" id="rejItemCode" placeholder="e.g. GC0027" required style="text-transform:uppercase;" oninput="autofillRejectItem(this)"></div>
+                <div class="form-group"><label>Item Name</label><input type="text" id="rejItemName" placeholder="Auto-fill Name" readonly style="background:#e2e8f0;"></div>
+                <div class="form-group"><label>Reject Qty (Sets) <span>*</span></label><input type="number" id="rejQty" placeholder="Max 5 Sets" min="1" max="5" required oninput="generateSubAssemblyInputs()"></div>
             </div>
 
             <div id="subComponentsContainer" class="sub-components-box">
+                <span style="position:absolute; right:15px; top:12px; cursor:pointer; font-weight:bold; color:#ef4444; font-size:20px;" onclick="closeSerialBoxWithCheck()">×</span>
                 <h5 style="margin: 0 0 10px 0; color:#334155;">🧩 Enter Assembly Component Wise Serial, Barcodes, Problems & Testers</h5>
                 <div class="sub-header-grid">
-                    <div>Main Board SN</div>
-                    <div>Top LED Board SN</div>
-                    <div>CH1 LED Board SN</div>
-                    <div>CH2 LED Board SN</div>
-                    <div>Bar Code No</div>
-                    <div>⚠️ Problem / Defect *</div>
-                    <div>👤 Tested By *</div>
+                    <div>Main Board SN</div><div>Top LED Board SN</div><div>CH1 LED Board SN</div><div>CH2 LED Board SN</div><div>Bar Code No</div><div>⚠️ Problem / Defect *</div><div>👤 Tested By *</div>
                 </div>
                 <div id="dynamicSetsBody" style="margin-top: 5px;"></div>
             </div>
 
             <div class="form-group" style="margin-top: 15px;">
                 <label>General Batch Remarks / Notes</label>
-                <textarea id="rejRemarks" placeholder="Enter extra info here... e.g. Received damaged during transit" style="width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; box-sizing: border-box; height: 70px; resize: vertical; color: #1e293b;"></textarea>
+                <textarea id="rejRemarks" placeholder="Enter extra info here..." style="width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; box-sizing: border-box; height: 60px; resize: vertical; color: #1e293b;"></textarea>
             </div>
 
-            <button type="submit" class="btn-transfer" style="margin-top: 15px; width: 100%;">🚨 Deduct From Fresh Stock & Lock into Rejection Bin</button>
+            <button type="submit" id="btnSubmitForm" class="btn-transfer" style="margin-top: 15px; width: 100%;">💾 Save Defect Record To Ledger</button>
+            <button type="button" id="btnCancelEdit" class="btn-transfer" style="background-color:#64748b; display:none; margin-top:10px; width: 100%;" onclick="cancelEditMode()">Cancel Update</button>
         </form>
     </div>
 
-    <div class="table-responsive">
-        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 10px;">
-            <h3 style="color:#b91c1c; margin: 0;">📋 Fresh Rejected Material Holding Ledger</h3>
-            <button class="btn-excel" onclick="downloadRejectExcel()">📥 Download Bin List (CSV)</button>
-        </div>
-        <table class="history-table" id="rejectMasterTable">
+    <div class="counter-tabs">
+        <button class="tab-btn active" id="tabAll" onclick="switchFilter('ALL')">📋 All History <span class="badge-count" id="countAll">0</span></button>
+        <button class="tab-btn" id="tabPending" onclick="switchFilter('PENDING')">🛑 Pending In Our Stock <span class="badge-count" id="countPending">0</span></button>
+        <button class="tab-btn" id="tabSent" onclick="switchFilter('SENT')">🚚 Sent To Supplier <span class="badge-count" id="countSent">0</span></button>
+    </div>
+
+    <div class="table-filter-panel" style="border-radius: 6px 6px 0 0; margin-top:10px;">
+        <input type="text" id="tableSearchBox" class="search-input-box" placeholder="🔍 Search Vendor, SN, Code..." autocomplete="off" oninput="applyTableRender()">
+        <button class="btn-excel" onclick="downloadRejectExcel()" style="margin:0; padding:8px 14px;">📥 Export Bin List (Excel)</button>
+    </div>
+    
+    <div class="table-responsive" style="margin-top: 0;">
+        <table class="history-table" id="rejectMasterTable" style="border-top:none;">
             <thead>
                 <tr style="background-color: #475569; color: white;">
-                    <th style="width: 5%;">S.N</th>
-                    <th>Date</th>
-                    <th>Vendor Name</th>
-                    <th>Item Code</th>
-                    <th>Total Qty</th>
-                    <th>Sub-Assembly Track, Problem & Tester Details</th>
-                    <th>Remarks</th>
-                    <th>Debit Status</th>
+                    <th style="width: 4%;">S.N</th><th>Date</th><th>Vendor Name</th><th>Item Code</th><th>Qty</th><th>Sub-Assembly Track & Problem Details</th><th>Debit Info</th><th>Status</th><th style="width:18%;">Action Controls</th>
                 </tr>
             </thead>
             <tbody id="rejectTableBody">
-                <tr><td colspan="8" style="text-align:center; padding:15px; color:#64748b;">Connecting Firebase Ledger Pools...</td></tr>
+                <tr><td colspan="9" style="text-align:center; padding:15px; color:#64748b;">Connecting Firebase Ledger Pools...</td></tr>
             </tbody>
         </table>
     </div>
 </div>
+
+<div id="supplierModal" class="sn-modal">
+    <div class="modal-content" style="max-width: 320px;">
+        <h3 style="color:#16a34a; margin-top:0;">🚚 Dispatch to Supplier</h3>
+        <p style="font-size:12px; color:#475569;">Enter Supplier Return Details Below:</p>
+        <div class="form-group" style="text-align:left; margin-bottom:10px;">
+            <label style="font-size:12px; font-weight:bold;">Debit Note No. *</label>
+            <input type="text" id="modalDebitNo" placeholder="e.g. DN-26-0045" style="width:100%; padding:8px; box-sizing:border-box; text-transform:uppercase; margin-top:4px; border:1px solid #cbd5e1; border-radius:4px;">
+        </div>
+        <div class="form-group" style="text-align:left; margin-bottom:15px;">
+            <label style="font-size:12px; font-weight:bold;">Debit Note Date *</label>
+            <input type="date" id="modalDebitDate" style="width:100%; padding:8px; box-sizing:border-box; margin-top:4px; border:1px solid #cbd5e1; border-radius:4px;">
+        </div>
+        <div style="display:flex; gap:10px;">
+            <button type="button" class="btn-transfer" style="background-color:#16a34a; margin:0; width:100%;" onclick="submitSupplierDispatch()">Dispatch</button>
+            <button type="button" class="btn-transfer" style="background-color:#64748b; margin:0; width:100%;" onclick="closeSupplierModal()">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<div id="passwordModal" class="sn-modal">
+    <div class="modal-content" style="max-width: 300px;">
+        <h3 style="color:#dc2626; margin-top:0;">🔑 Security Check</h3>
+        <p style="font-size:12px; color:#475569;">Enter Password to proceed:</p>
+        <input type="password" id="securityPasswordInput" placeholder="••••" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px; text-align:center; font-size:18px; box-sizing:border-box; margin-bottom:15px; font-weight:bold;">
+        <div style="display:flex; gap:10px;">
+            <button type="button" class="btn-transfer" style="background-color:#dc2626; margin:0; width:100%;" onclick="verifySecurityAction()">Confirm</button>
+            <button type="button" class="btn-transfer" style="background-color:#64748b; margin:0; width:100%;" onclick="closePasswordModal()">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<div id="printSection"></div>
 
 <script>
     const firebaseConfig = {
@@ -132,11 +171,12 @@
     function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
 
     let masterCatalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
+    let rawBinData = [];
+    let currentFilter = 'ALL';
+    let activeActionKey = null;
+    let activeActionType = null; // 'EDIT' or 'DELETE'
 
-    function setLiveDate() {
-        const today = new Date().toISOString().split('T')[0];
-        document.getElementById('rejDate').value = today;
-    }
+    function setLiveDate() { document.getElementById('rejDate').value = new Date().toISOString().split('T')[0]; }
 
     function autofillRejectItem(input) {
         let code = input.value.trim().toUpperCase().replace(/\s+/g, '');
@@ -148,46 +188,44 @@
         document.getElementById('rejItemName').value = foundName;
     }
 
-    // 🧩 5 सब-बोर्ड्स + प्रॉब्लम + टेस्टेड बाई इनपुट लाइव जनरेट करना
     function generateSubAssemblyInputs() {
         let qty = parseInt(document.getElementById('rejQty').value) || 0;
         const box = document.getElementById('subComponentsContainer');
         const body = document.getElementById('dynamicSetsBody');
         body.innerHTML = "";
-
-        if(qty > 5) { alert("Maximum 5 Sets can be tracking logged at once!"); document.getElementById('rejQty').value = 5; qty = 5; }
-
+        if(qty > 5) { alert("Max 5 sets allowed!"); document.getElementById('rejQty').value = 5; qty = 5; }
         if(qty > 0) {
             box.style.display = "block";
             for(let i = 0; i < qty; i++) {
                 body.innerHTML += `
                     <div class="sub-set-row" data-set="${i}">
-                        <input type="text" class="mb-sn" placeholder="SET ${i+1} MAIN SN" required>
-                        <input type="text" class="top-sn" placeholder="SET ${i+1} TOP LED" required>
-                        <input type="text" class="ch1-sn" placeholder="SET ${i+1} CH1 SN" required>
-                        <input type="text" class="ch2-sn" placeholder="SET ${i+1} CH2 SN" required>
-                        <input type="text" class="bar-sn" placeholder="SET ${i+1} BARCODE" required>
-                        <input type="text" class="prob-box" placeholder="e.g. Component Burn" required style="text-transform:uppercase;">
-                        <input type="text" class="tester-box" placeholder="e.g. RAMESH" required style="text-transform:uppercase;">
+                        <input type="text" class="mb-sn" placeholder="MAIN SN" required>
+                        <input type="text" class="top-sn" placeholder="TOP LED" required>
+                        <input type="text" class="ch1-sn" placeholder="CH1 SN" required>
+                        <input type="text" class="ch2-sn" placeholder="CH2 SN" required>
+                        <input type="text" class="bar-sn" placeholder="BARCODE" required>
+                        <input type="text" class="prob-box" placeholder="PROBLEM/DEFECT" required style="text-transform:uppercase;">
+                        <input type="text" class="tester-box" placeholder="TESTED BY" required style="text-transform:uppercase;">
                     </div>`;
             }
+        } else { box.style.display = "none"; }
+    }
+
+    function closeSerialBoxWithCheck() {
+        let qty = parseInt(document.getElementById('rejQty').value) || 0;
+        if(qty > 0) {
+            alert("🚫 ERROR: You opened the serial box layout. Either fill all fields or set Qty to empty/0.");
         } else {
-            box.style.display = "none";
+            document.getElementById('subComponentsContainer').style.display = "none";
         }
     }
 
-    // 🚨 फॉर्म सबमिट होने पर लाइव फ्रेश स्टॉक काटना और बिन में सेव करना (की-मैचिंग फिक्स्ड)
+    // 🚨 सेव/अपडेट डेटाबेस एंट्री (No stock cuts anymore)
     document.getElementById('freshRejectForm').addEventListener('submit', function(e) {
         e.preventDefault();
+        const key = document.getElementById('editFirebaseKey').value;
+        let qty = parseInt(document.getElementById('rejQty').value) || 0;
         
-        const itemCode = document.getElementById('rejItemCode').value.trim().toUpperCase();
-        const qtyToReject = parseInt(document.getElementById('rejQty').value) || 0;
-        const vendor = document.getElementById('rejVendor').value.trim().toUpperCase();
-        const dateStr = document.getElementById('rejDate').value;
-        const remarksStr = document.getElementById('rejRemarks').value.trim();
-
-        const cleanTargetCode = itemCode.replace(/\s+/g, '');
-
         let piecesDetails = [];
         let rows = document.querySelectorAll('#dynamicSetsBody .sub-set-row');
         rows.forEach(row => {
@@ -202,148 +240,264 @@
             });
         });
 
-        // 🔄 लाइव वाуचर्स से ग्रिड के अंदर का सही स्टॉक ढूंढना
-        database.ref('freshStockVouchers').once('value').then((snapshot) => {
-            let stockRecords = snapshot.val();
-            let totalLiveAvailable = 0;
-            let lastVoucherKey = null;
-            let lastVoucherData = null;
-            let targetItemIndexInGrid = -1;
-
-            if(stockRecords) {
-                for(let key in stockRecords) {
-                    let v = stockRecords[key];
-                    if(!v) continue;
-
-                    // तरीका 1: अगर सीधे मेन वाउचर लेवल पर कोड है
-                    if(v.modelCode && v.modelCode.trim().toUpperCase().replace(/\s+/g, '') === cleanTargetCode) {
-                        totalLiveAvailable += parseInt(v.qty || v.receiveQty || 0);
-                        lastVoucherKey = key;
-                        lastVoucherData = v;
-                    }
-
-                    // तरीका 2: अगर ग्रिड आइटम्स एरे के अंदर है (की-मैचिंग फिक्स)
-                    let items = v.gridItems ? (Array.isArray(v.gridItems) ? v.gridItems : Object.values(v.gridItems)) : [];
-                    items.forEach((item, idx) => {
-                        if(item) {
-                            let currentCode = item.modelCode || item.itemCode || item.code || "";
-                            if(currentCode.trim().toUpperCase().replace(/\s+/g, '') === cleanTargetCode) {
-                                totalLiveAvailable += parseInt(item.qty || item.receiveQty || 0);
-                                lastVoucherKey = key;
-                                lastVoucherData = v;
-                                targetItemIndexInGrid = idx;
-                            }
-                        }
-                    });
-                }
-            }
-
-            // 🛑 अब पूरा अवेलेबल स्टॉक रीड होगा
-            if(totalLiveAvailable < qtyToReject) {
-                alert(`🚫 ERROR: Live Fresh Stock Room has insufficient balance!\n\nLedger Available: ${totalLiveAvailable} Nos.\nRequired to Reject: ${qtyToReject} Nos.`);
-                return;
-            }
-
-            let updatePromise;
-            if(lastVoucherKey && lastVoucherData) {
-                if(lastVoucherData.gridItems) {
-                    let gridArray = Array.isArray(lastVoucherData.gridItems) ? lastVoucherData.gridItems : Object.values(lastVoucherData.gridItems);
-                    
-                    if(targetItemIndexInGrid !== -1 && gridArray[targetItemIndexInGrid]) {
-                        let oldQty = parseInt(gridArray[targetItemIndexInGrid].qty || 0);
-                        gridArray[targetItemIndexInGrid].qty = oldQty - qtyToReject;
-                        if(gridArray[targetItemIndexInGrid].receiveQty) {
-                            gridArray[targetItemIndexInGrid].receiveQty = gridArray[targetItemIndexInGrid].qty;
-                        }
-                    }
-                    updatePromise = database.ref('freshStockVouchers/' + lastVoucherKey).update({ gridItems: gridArray });
-                } else {
-                    let updatedQty = parseInt(lastVoucherData.qty || 0) - qtyToReject;
-                    updatePromise = database.ref('freshStockVouchers/' + lastVoucherKey).update({ qty: updatedQty, receiveQty: updatedQty });
-                }
-            } else {
-                updatePromise = database.ref('freshStockVouchers').push({
-                    modelCode: itemCode,
-                    qty: -qtyToReject,
-                    receiveQty: -qtyToReject,
-                    date: dateStr,
-                    remarks: "Auto Adjustment via Rejection Bin"
-                });
-            }
-
-            // 💾 स्टॉक डिडक्ट होने के बाद रीजेक्शन बिन में डेटा डालना
-            updatePromise.then(() => {
-                const rejectionPayload = {
-                    date: dateStr,
-                    vendorName: vendor,
-                    itemCode: itemCode,
-                    itemName: document.getElementById('rejItemName').value,
-                    totalQty: qtyToReject,
-                    assemblyDetails: piecesDetails,
-                    remarks: remarksStr || "-",
-                    status: "PENDING_DEBIT_NOTE",
-                    loggedBy: session.userId || "k88rakesh"
-                };
-
-                database.ref('freshRejectionBinData').push(rejectionPayload).then(() => {
-                    alert(`🎉 SUCCESS:\n1. Live Fresh Stock successfully deducted (New Available: ${totalLiveAvailable - qtyToReject} Nos).\n2. Serial Map & Tester Data locked into Rejection Bin.`);
-                    document.getElementById('freshRejectForm').reset();
-                    document.getElementById('subComponentsContainer').style.display = "none";
-                    setLiveDate();
-                });
-            });
-        });
-    });
-
-    // 📥 लाइव रिजेक्शन बिन डेटा रेंडर इंजन
-    database.ref('freshRejectionBinData').on('value', (snapshot) => {
-        const tbody = document.getElementById('rejectTableBody');
-        tbody.innerHTML = "";
-        const data = snapshot.val();
-
-        if(!data) {
-            tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:15px; color:#64748b;">No items in Rejection Bin. Everything is neat and clean!</td></tr>`;
+        if(rows.length > 0 && piecesDetails.length !== qty) {
+            alert("🚫 ERROR: Serial count error. Please adjust Qty field to rebuild layout rows.");
             return;
         }
 
-        let sn = 1;
-        for(let key in data) {
-            const row = data[key];
-            let badgeClass = row.status === "PENDING_DEBIT_NOTE" ? "status-pending" : "status-cleared";
-            let badgeText = row.status === "PENDING_DEBIT_NOTE" ? "⚠️ PENDING DEBIT" : "✅ DEBIT DONE";
+        const payload = {
+            date: document.getElementById('rejDate').value,
+            vendorName: document.getElementById('rejVendor').value.trim().toUpperCase(),
+            itemCode: document.getElementById('rejItemCode').value.trim().toUpperCase(),
+            itemName: document.getElementById('rejItemName').value,
+            totalQty: qty,
+            assemblyDetails: piecesDetails,
+            remarks: document.getElementById('rejRemarks').value.trim() || "-",
+            loggedBy: session.userId || "k88rakesh"
+        };
 
-            let detailsHtml = "";
-            (row.assemblyDetails || []).forEach((p, i) => {
-                detailsHtml += `<b>P${i+1}:</b> [M: ${p.mainBoardSN}] [T: ${p.topLedSN}] [CH1: ${p.ch1SN}] [CH2: ${p.ch2SN}] [BC: ${p.barcodeNo}] <span style="color:#dc3545; font-weight:bold;">[Prob: ${p.problem || 'FAULTY'}]</span> <span style="color:#0284c7; font-weight:bold;">[Tester: ${p.testedBy || '-'}]</span><br>`;
+        if(!key) {
+            payload.status = "PENDING_DEBIT_NOTE"; // डिफॉल्ट स्टेटस
+            payload.debitNo = "-";
+            payload.debitDate = "-";
+            database.ref('freshRejectionBinData').push(payload).then(() => {
+                alert("🎉 Success: Defect Record logged in Our Stock!");
+                resetFormEverything();
             });
-
-            tbody.innerHTML += `<tr>
-                <td style="text-align:center;">${sn++}</td>
-                <td>${row.date}</td>
-                <td><b>${row.vendorName}</b></td>
-                <td><code>${row.itemCode}</code></td>
-                <td><b>${row.totalQty} Sets</b></td>
-                <td style="text-align:left; font-size:11px; line-height:1.4; color:#334155;">${detailsHtml}</td>
-                <td style="font-size:12px; color:#475569;">${row.remarks || '-'}</td>
-                <td><span class="${badgeClass}">${badgeText}</span></td>
-            </tr>`;
+        } else {
+            database.ref('freshRejectionBinData/' + key).once('value').then(snap => {
+                let existing = snap.val();
+                payload.status = existing.status || "PENDING_DEBIT_NOTE";
+                payload.debitNo = existing.debitNo || "-";
+                payload.debitDate = existing.debitDate || "-";
+                database.ref('freshRejectionBinData/' + key).set(payload).then(() => {
+                    alert("🎯 Success: Defect Record Updated!");
+                    resetFormEverything();
+                });
+            });
         }
     });
 
+    // 📥 लाइव डेटाबेस रेंडर और सिंक इंजन
+    database.ref('freshRejectionBinData').on('value', (snapshot) => {
+        rawBinData = [];
+        const data = snapshot.val();
+        if(data) { for(let key in data) { rawBinData.push({ fbKey: key, ...data[key] }); } }
+        rawBinData.reverse();
+        calculateCounters();
+        applyTableRender();
+    });
+
+    function calculateCounters() {
+        let all = rawBinData.length;
+        let pending = rawBinData.filter(r => r.status === "PENDING_DEBIT_NOTE").length;
+        let sent = rawBinData.filter(r => r.status === "DEBIT_NOTE_DONE").length;
+        
+        document.getElementById('countAll').innerText = all;
+        document.getElementById('countPending').innerText = pending;
+        document.getElementById('countSent').innerText = sent;
+    }
+
+    function switchFilter(type) {
+        currentFilter = type;
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        if(type === 'ALL') document.getElementById('tabAll').classList.add('active');
+        if(type === 'PENDING') document.getElementById('tabPending').classList.add('active');
+        if(type === 'SENT') document.getElementById('tabSent').classList.add('active');
+        applyTableRender();
+    }
+
+    function applyTableRender() {
+        const tbody = document.getElementById('rejectTableBody');
+        tbody.innerHTML = "";
+        const searchStr = document.getElementById('tableSearchBox').value.trim().toUpperCase();
+
+        let filtered = rawBinData;
+        if(currentFilter === 'PENDING') filtered = rawBinData.filter(r => r.status === "PENDING_DEBIT_NOTE");
+        if(currentFilter === 'SENT') filtered = rawBinData.filter(r => r.status === "DEBIT_NOTE_DONE");
+
+        if(searchStr) {
+            filtered = filtered.filter(r => 
+                r.vendorName.includes(searchStr) || r.itemCode.includes(searchStr) ||
+                (r.assemblyDetails || []).some(p => p.mainBoardSN.includes(searchStr) || p.barcodeNo.includes(searchStr))
+            );
+        }
+
+        if(filtered.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding:15px; color:#64748b;">No records found matching current view parameters.</td></tr>`;
+            return;
+        }
+
+        filtered.forEach((row, index) => {
+            let badge = row.status === "PENDING_DEBIT_NOTE" ? "status-pending" : "status-cleared";
+            let txt = row.status === "PENDING_DEBIT_NOTE" ? "🛑 IN OUR STOCK" : "🚚 SENT TO SUPPLIER";
+            let debInfo = row.status === "PENDING_DEBIT_NOTE" ? "-" : `<b>No:</b> ${row.debitNo}<br><b>Date:</b> ${row.debitDate}`;
+
+            let innerHtml = "";
+            (row.assemblyDetails || []).forEach((p, i) => {
+                innerHtml += `<b>P${i+1}:</b> [M:${p.mainBoardSN}] [T:${p.topLedSN}] [BC:${p.barcodeNo}] <span style="color:#dc3545;font-weight:bold;">[${p.problem}]</span> <span style="color:#0284c7;">[By: ${p.testedBy}]</span><br>`;
+            });
+
+            let actionBtn = row.status === "PENDING_DEBIT_NOTE" ? 
+                `<button type="button" class="btn-send-supplier" onclick="openSupplierModal('${row.fbKey}')">🚚 Send to Supplier</button>` : "";
+
+            tbody.innerHTML += `<tr>
+                <td style="text-align:center;">${index + 1}</td>
+                <td>${row.date}</td>
+                <td><b>${row.vendorName}</b></td>
+                <td><code>${row.itemCode}</code></td>
+                <td style="text-align:center;"><b>${row.totalQty}</b></td>
+                <td style="text-align:left; font-size:11px; line-height:1.4;">${innerHtml}</td>
+                <td style="font-size:11px;">${debInfo}</td>
+                <td><span class="${badge}">${txt}</span></td>
+                <td>
+                    ${actionBtn}
+                    <button type="button" class="btn-edit-action" style="background:#475569;" onclick="triggerPrintRecord('${row.fbKey}')">🖨️ Print</button>
+                    <button type="button" class="btn-edit-action" onclick="requestSecurityGate('${row.fbKey}', 'EDIT')">Edit</button>
+                    <button type="button" class="btn-delete-action" onclick="requestSecurityGate('${row.fbKey}', 'DELETE')">Delete</button>
+                </td>
+            </tr>`;
+        });
+    }
+
+    // 🚚 सप्लायर डिस्पैच मॉड्यूल गियर
+    function openSupplierModal(key) {
+        activeActionKey = key;
+        document.getElementById('modalDebitNo').value = "";
+        document.getElementById('modalDebitDate').value = new Date().toISOString().split('T')[0];
+        document.getElementById('supplierModal').style.display = "flex";
+    }
+    function closeSupplierModal() { document.getElementById('supplierModal').style.display = "none"; }
+    
+    function submitSupplierDispatch() {
+        const dn = document.getElementById('modalDebitNo').value.trim().toUpperCase();
+        const dd = document.getElementById('modalDebitDate').value;
+        if(!dn) { alert("Debit Note No is mandatory!"); return; }
+        
+        database.ref('freshRejectionBinData/' + activeActionKey).update({
+            status: "DEBIT_NOTE_DONE",
+            debitNo: dn,
+            debitDate: dd
+        }).then(() => {
+            alert("🚚 Success: Material marked as Sent to Supplier.");
+            closeSupplierModal();
+        });
+    }
+
+    // 🔑 सुरक्षा पासवर्ड मॉड्यूल इंजन
+    function requestSecurityGate(key, type) {
+        activeActionKey = key;
+        activeActionType = type;
+        document.getElementById('securityPasswordInput').value = "";
+        document.getElementById('passwordModal').style.display = "flex";
+        setTimeout(() => { document.getElementById('securityPasswordInput').focus(); }, 150);
+    }
+    function closePasswordModal() { document.getElementById('passwordModal').style.display = "none"; }
+
+    function verifySecurityAction() {
+        const pass = document.getElementById('securityPasswordInput').value;
+        if(pass === "7004") {
+            closePasswordModal();
+            if(activeActionType === 'DELETE') {
+                if(confirm("Are you sure you want to permanently wipe out this defect history row?")) {
+                    database.ref('freshRejectionBinData/' + activeActionKey).remove().then(() => { alert("Record deleted."); });
+                }
+            } else if(activeActionType === 'EDIT') {
+                loadRecordToForm(activeActionKey);
+            }
+        } else {
+            alert("❌ Access Denied: Invalid Secret Password!");
+            closePasswordModal();
+        }
+    }
+
+    function loadRecordToForm(key) {
+        const row = rawBinData.find(r => r.fbKey === key);
+        if(!row) return;
+
+        document.getElementById('editFirebaseKey').value = key;
+        document.getElementById('rejDate').value = row.date;
+        document.getElementById('rejVendor').value = row.vendorName;
+        document.getElementById('rejItemCode').value = row.itemCode;
+        document.getElementById('rejItemName').value = row.itemName || "";
+        document.getElementById('rejQty').value = row.totalQty;
+        document.getElementById('rejRemarks').value = row.remarks || "-";
+
+        generateSubAssemblyInputs();
+        
+        let inputs = document.querySelectorAll('#dynamicSetsBody .sub-set-row');
+        (row.assemblyDetails || []).forEach((p, i) => {
+            if(inputs[i]) {
+                inputs[i].querySelector('.mb-sn').value = p.mainBoardSN || "";
+                inputs[i].querySelector('.top-sn').value = p.topLedSN || "";
+                inputs[i].querySelector('.ch1-sn').value = p.ch1SN || "";
+                inputs[i].querySelector('.ch2-sn').value = p.ch2SN || "";
+                inputs[i].querySelector('.bar-sn').value = p.barcodeNo || "";
+                inputs[i].querySelector('.prob-box').value = p.problem || "";
+                inputs[i].querySelector('.tester-box').value = p.testedBy || "";
+            }
+        });
+
+        document.getElementById('formTitleText').innerText = "🛠️ Modify Defect Configuration Packet";
+        document.getElementById('btnSubmitForm').innerText = "Update Defect Record";
+        document.getElementById('btnCancelEdit').style.display = "inline-block";
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function resetFormEverything() {
+        document.getElementById('editFirebaseKey').value = "";
+        document.getElementById('freshRejectForm').reset();
+        document.getElementById('subComponentsContainer').style.display = "none";
+        document.getElementById('formTitleText').innerText = "📝 Log New Defective Component Record";
+        document.getElementById('btnSubmitForm').innerText = "Save Defect Record To Ledger";
+        document.getElementById('btnCancelEdit').style.display = "none";
+        setLiveDate();
+    }
+    function cancelEditMode() { resetFormEverything(); }
+
+    // 🖨️ प्रिंट रेंडरर गियर
+    function triggerPrintRecord(key) {
+        const row = rawBinData.find(r => r.fbKey === key);
+        if(!row) return;
+        const shell = document.getElementById('printSection');
+        let lines = "";
+        (row.assemblyDetails || []).forEach((p, i) => {
+            lines += `Piece ${i+1}: Main:${p.mainBoardSN} | Top:${p.topLedSN} | CH1:${p.ch1SN} | CH2:${p.ch2SN} | Bar:${p.barcodeNo} \n        Defect: ${p.problem} | Checked By: ${p.testedBy}\n\n`;
+        });
+
+        shell.innerHTML = `
+            <div style="border:2px solid #000; padding:15px; font-family:monospace; line-height:1.4;">
+                <h3 style="text-align:center; margin:0;">GVM RAIL PVT LTD - DEFECT AUDIT SLIP</h3>
+                <hr style="border-top:1px dashed #000;">
+                <b>Log Date:</b> ${row.date} | <b>Status:</b> ${row.status === 'PENDING_DEBIT_NOTE' ? 'IN STOCK' : 'SENT TO SUPPLIER'}<br>
+                <b>Vendor Name:</b> ${row.vendorName}<br>
+                <b>Item Code:</b> ${row.itemCode} | <b>Item Name:</b> ${row.itemName || '-'}<br>
+                <b>Total Qty:</b> ${row.totalQty} Sets<br>
+                <b>Debit Ref:</b> ${row.debitNo || '-'} (Date: ${row.debitDate || '-'})<br>
+                <hr style="border-top:1px dashed #000;">
+                <b>DETAILED PIECE-WISE COMPONENT TRACK RECORD:</b><br><pre style="font-family:monospace; font-size:11px;">${lines}</pre>
+                <hr style="border-top:1px dashed #000;">
+                <b>General Remarks:</b> ${row.remarks || '-'}<br><br>
+                <div style="text-align:right; font-weight:bold; margin-top:10px;">Quality Inspector Signature</div>
+            </div>`;
+        window.print();
+    }
+
+    // 📥 एक्सेल एक्सपोर्ट इंजन
     function downloadRejectExcel() {
         const table = document.getElementById('rejectMasterTable');
         let csv = [];
         let rows = table.querySelectorAll('tr');
         for (let i = 0; i < rows.length; i++) {
             let row = [], cols = rows[i].querySelectorAll('td, th');
-            for (let j = 0; j < cols.length; j++) { row.push(cols[j].innerText.replace(/,/g, ';').replace(/\n/g, ' ')); }
+            for (let j = 0; j < cols.length - 1; j++) { row.push(cols[j].innerText.replace(/,/g, ';').replace(/\n/g, ' ')); }
             csv.push(row.join(','));
         }
         let csvContent = "data:text/csv;charset=utf-8,\uFEFF" + csv.join('\n');
         let encodedUri = encodeURI(csvContent);
         let link = document.createElement("a");
         link.setAttribute("href", encodedUri);
-        link.setAttribute("download", "Fresh_Stock_Rejection_Report.csv");
+        link.setAttribute("download", "GVM_Rail_Material_Defect_Ledger.csv");
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
