@@ -22,7 +22,7 @@
 
         /* 📥 जादुई सीरियल नंबर पॉपअप बॉक्स की स्टाइलिंग */
         .sn-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(15, 23, 42, 0.6); z-index: 9999; justify-content: center; align-items: center; backdrop-filter: blur(2px); }
-        .modal-content { background: white; padding: 25px; border-radius: 8px; width: 100%; max-width: 850px; max-height: 85%; overflow-y: auto; box-shadow: 0 20px 40px rgba(15, 23, 42, 0.2); }
+        .modal-content { background: white; padding: 25px; border-radius: 8px; width: 100%; max-width: 850px; max-height: 85%; overflow-y: auto; box-shadow: 0 20px 40px rgba(15, 23, 42, 0.2); position: relative; }
         .sub-set-row { display: grid; grid-template-columns: repeat(5, 1fr) 1.2fr 1fr; gap: 8px; padding: 8px 0; border-bottom: 1px solid #f1f5f9; }
         .sub-set-row input { padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 12px; width: 100%; box-sizing: border-box; text-transform: uppercase; }
         .sub-header-grid { display: grid; grid-template-columns: repeat(5, 1fr) 1.2fr 1fr; gap: 8px; background: #334155; color: white; padding: 6px 10px; border-radius: 4px; font-size: 11px; font-weight: bold; text-align: center; }
@@ -77,7 +77,8 @@
                         <th style="width:13%;">Item Code 🔍</th>
                         <th style="width:20%;">Item Display Name</th>
                         <th style="width:8%;">Qty</th>
-                        <th style="width:12%;">Track Serial No?</th> <th style="width:30%;">Reason / Sub-Assembly Tracks</th>
+                        <th style="width:12%;">Track Serial No?</th>
+                        <th style="width:30%;">Reason / Sub-Assembly Tracks</th>
                         <th style="width:5%;">Action</th>
                     </tr>
                 </thead>
@@ -94,8 +95,11 @@
         <div>
             <input type="text" id="liveTableSearchBox" class="search-input-box" placeholder="🔍 Search Note No, Vendor, Code..." autocomplete="off" oninput="renderHistory()">
         </div>
-        <div>
-            <label style="font-weight: bold; font-size: 13px; color:#475569;">Show Records:</label>
+        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+            <button type="button" class="btn-excel" onclick="downloadDebitExcel()" style="margin-bottom:0; float:none; padding: 8px 14px;">📥 Download Excel</button>
+            <button type="button" class="btn-print-receipt" onclick="window.print()" style="padding: 8px 14px; background-color:#475569;">🖨️ Print Summary</button>
+            
+            <label style="font-weight: bold; font-size: 13px; color:#475569; margin-left: 10px;">Show Records:</label>
             <select id="liveTableLimitSelect" class="limit-dropdown-select" onchange="renderHistory()">
                 <option value="5" selected>5 Records (Default)</option>
                 <option value="10">10 Records</option>
@@ -105,7 +109,7 @@
     </div>
 
     <div class="table-responsive" style="margin-top: 0;">
-        <table class="history-table" style="border-top: none;">
+        <table class="history-table" id="masterDebitHistoryTable" style="border-top: none;">
             <thead style="background-color: #ef4444; color: white;">
                 <tr><th>Date</th><th>Debit Note No</th><th>Vendor Name</th><th>Original Ref</th><th>Items Returned Details</th><th>Action Controls</th></tr>
             </thead>
@@ -118,6 +122,8 @@
 
 <div id="serialModal" class="sn-modal">
     <div class="modal-content">
+        <span class="btn-row-remove" style="float:right; cursor:pointer; font-size:28px; line-height:20px; font-weight:bold; color:#64748b;" onclick="closeSerialModalWithoutSaving()">×</span>
+        
         <h3 style="color:#ef4444; margin-top:0;">🧩 Enter Assembly Component Wise Serial, Barcodes, Problems & Testers</h3>
         <p style="font-size:12px; color:#64748b;">कृपया प्रत्येक पीस का यूनिक सीरियल नंबर ट्रैक रिकॉर्ड दर्ज करें:</p>
         <div class="sub-header-grid">
@@ -193,9 +199,9 @@
             </td>
             <td><button type="button" class="btn-row-remove" onclick="this.closest('tr').remove()">×</button></td>`;
         body.appendChild(tr);
+        checkSerialTrigger(rowId);
     }
 
-    // ⚡ जब क्वांटिटी भरी जाए या YES चुना जाए, तब डिब्बे खोलना
     function checkSerialTrigger(rowId) {
         const row = document.getElementById(rowId);
         const trackVal = row.querySelector('.db-track-sr').value;
@@ -243,6 +249,12 @@
         document.getElementById('serialModal').style.display = "flex";
     }
 
+    // ❌ क्रॉस बटन दबाने पर बिना सेव किए बंद करने का गियर
+    function closeSerialModalWithoutSaving() {
+        document.getElementById('serialModal').style.display = "none";
+        currentActiveRowForSerials = null;
+    }
+
     function lockModalSerialsToRow() {
         if(!currentActiveRowForSerials) return;
         
@@ -270,7 +282,7 @@
 
         const targetRow = document.getElementById(currentActiveRowForSerials);
         targetRow.querySelector('.db-serialized-output').value = JSON.stringify(setWiseDetailsArray);
-        targetRow.querySelector('.db-reason').value = summaryText.trim(); // डिस्प्ले के लिए संक्षिप्त विवरण
+        targetRow.querySelector('.db-reason').value = summaryText.trim(); 
         
         document.getElementById('serialModal').style.display = "none";
         currentActiveRowForSerials = null;
@@ -286,6 +298,7 @@
         input.closest('tr').querySelector('.db-name').value = foundName;
     }
 
+    // 🚨 फॉर्म सबमिशन - (क्रॉस करने पर ब्लॉक मारने का कड़क इंजन फिटेड)
     document.getElementById('debitForm').addEventListener('submit', function(e) {
         e.preventDefault();
         let items = [];
@@ -298,7 +311,13 @@
             let trackVal = row.querySelector('.db-track-sr').value;
             let serialJsonString = row.querySelector('.db-serialized-output').value;
             
-            if(trackVal === "YES" && !serialJsonString) { verificationCheck = false; return; }
+            // 🔒 लॉजिक चेक: अगर YES है पर अंदर डेटा खाली/ब्लैंक है, तो ब्लॉक मारो!
+            if(trackVal === "YES") {
+                if(!serialJsonString || serialJsonString === "[]" || serialJsonString === "") {
+                    verificationCheck = false;
+                    return;
+                }
+            }
 
             items.push({ 
                 pool: row.querySelector('.db-pool-select').value,
@@ -311,7 +330,10 @@
             });
         });
 
-        if(!verificationCheck) { alert("Please lock sub-assembly details since Track Serial is YES!"); return; }
+        if(!verificationCheck) { 
+            alert("🚫 ERROR: आपने 'Track Serial No = YES' चुना हुआ है, लेकिन सीरियल नंबर बॉक्स को बिना सेव किए क्रॉस (×) कर दिया था!\n\nकृपया या तो सीरियल नंबर दर्ज करें या फिर ड्रॉपडाउन को वापस 'NO' पर सेट करें।"); 
+            return; 
+        }
 
         const idx = parseInt(document.getElementById('editRowIndex').value);
         const fbKey = document.getElementById('editFirebaseKey').value;
@@ -337,6 +359,26 @@
             });
         }
     });
+
+    // 📥 एक्सेल एक्सपोर्ट इंजन (नया जोड़ा)
+    function downloadDebitExcel() {
+        const table = document.getElementById('masterDebitHistoryTable');
+        let csv = [];
+        let rows = table.querySelectorAll('tr');
+        for (let i = 0; i < rows.length; i++) {
+            let row = [], cols = rows[i].querySelectorAll('td, th');
+            for (let j = 0; j < cols.length; j++) { row.push(cols[j].innerText.replace(/,/g, ';').replace(/\n/g, ' ')); }
+            csv.push(row.join(','));
+        }
+        let csvContent = "data:text/csv;charset=utf-8,\uFEFF" + csv.join('\n');
+        let encodedUri = encodeURI(csvContent);
+        let link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "GVM_Debit_Notes_Master_Report.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
 
     function renderHistory() {
         const b = document.getElementById('debitHistoryBody'); b.innerHTML = '';
