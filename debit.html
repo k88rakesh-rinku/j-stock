@@ -20,7 +20,7 @@
         
         .db-pool-select { width: 100%; padding: 5px; border: 1px solid #cbd5e1; border-radius: 4px; font-weight: bold; background: #fff; cursor: pointer; }
 
-        /* जादुई सीरियल नंबर पॉपअप बॉक्स की स्टाइलिंग */
+        /* जादुई सीरियल नंबर और पासवर्ड पॉपअप बॉक्स की स्टाइलिंग */
         .sn-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(15, 23, 42, 0.6); z-index: 9999; justify-content: center; align-items: center; backdrop-filter: blur(2px); }
         .modal-content { background: white; padding: 25px; border-radius: 8px; width: 100%; max-width: 850px; max-height: 85%; overflow-y: auto; box-shadow: 0 20px 40px rgba(15, 23, 42, 0.2); position: relative; }
         .sub-set-row { display: grid; grid-template-columns: repeat(5, 1fr) 1.2fr 1fr; gap: 8px; padding: 8px 0; border-bottom: 1px solid #f1f5f9; }
@@ -140,6 +140,18 @@
     </div>
 </div>
 
+<div id="passwordModal" class="sn-modal">
+    <div class="modal-content" style="max-width: 320px; text-align: center; padding: 20px;">
+        <h3 style="color:#dc2626; margin-top:0;">🔑 Security Check</h3>
+        <p style="font-size:13px; color:#475569; margin-bottom: 12px;">Enter Secret Password to Delete:</p>
+        <input type="password" id="securityPasswordInput" placeholder="••••" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px; text-align:center; font-size:18px; box-sizing:border-box; margin-bottom:15px; font-weight: bold;">
+        <div style="display:flex; gap:10px;">
+            <button type="button" class="btn-submit" style="background-color:#dc2626; margin:0;" onclick="verifyDeletePassword()">Confirm</button>
+            <button type="button" class="btn-submit" style="background-color:#64748b; margin:0;" onclick="closePasswordModal()">Cancel</button>
+        </div>
+    </div>
+</div>
+
 <div id="printSection"></div>
 
 <script>
@@ -159,6 +171,7 @@
     let debitData = [];
     let masterCatalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
     let currentActiveRowForSerials = null; 
+    let currentRowIdxToDelete = null; // डिलीट इंडेक्स होल्डर गियर
 
     database.ref('debitStockVouchers').on('value', (snapshot) => {
         debitData = [];
@@ -297,7 +310,6 @@
         input.closest('tr').querySelector('.db-name').value = foundName;
     }
 
-    // 🚨 फॉर्म सबमिशन - (इंग्लिश एरर मैसेज गियर अपडेटेड)
     document.getElementById('debitForm').addEventListener('submit', function(e) {
         e.preventDefault();
         let items = [];
@@ -328,7 +340,6 @@
             });
         });
 
-        // 🌟 यहाँ एरर मैसेज को पूरी तरह इंग्लिश में लॉक कर दिया है राकेश भाई
         if(!verificationCheck) { 
             alert("🚫 ERROR: You have selected 'Track Serial No = YES', but you closed the serial number box without saving!\n\nPlease either enter the serial numbers or set the dropdown back to 'NO'."); 
             return; 
@@ -468,14 +479,42 @@
 
     function cancelEditMode() { resetDebitForm(); }
 
+    // 🌟 स्टार पासवर्ड ट्रिगर इंजन
     function deleteDebitRow(idx) {
-        const passwordInput = prompt("🔑 Security Check:\nEnter Secret Password:");
-        if (passwordInput === "7004") {
-            if(confirm("Permanently delete this voucher?")) {
-                database.ref('debitStockVouchers/' + debitData[idx].fbKey).remove().then(() => { resetDebitForm(); });
-            }
-        } else if(passwordInput !== null) { alert("Wrong Password!"); }
+        currentRowIdxToDelete = idx;
+        document.getElementById('securityPasswordInput').value = "";
+        document.getElementById('passwordModal').style.display = "flex";
+        // इनपुट बॉक्स पर ऑटोमैटिक फोकस लॉक
+        setTimeout(() => { document.getElementById('securityPasswordInput').focus(); }, 120);
     }
+
+    function closePasswordModal() {
+        document.getElementById('passwordModal').style.display = "none";
+        currentRowIdxToDelete = null;
+    }
+
+    // 🔑 पासवर्ड वेरिफिकेशन गियर (पूरी तरह स्टार मास्क्ड)
+    function verifyDeletePassword() {
+        const inputPass = document.getElementById('securityPasswordInput').value;
+        if (inputPass === "7004") {
+            if(confirm("⚠️ ALERT: Are you sure you want to permanently delete this Debit Note voucher from Cloud?")) {
+                const fbKey = debitData[currentRowIdxToDelete].fbKey;
+                database.ref('debitStockVouchers/' + fbKey).remove().then(() => {
+                    alert("🗑️ Success: Cloud Record wiped out completely.");
+                    resetDebitForm();
+                    closePasswordModal();
+                });
+            }
+        } else {
+            alert("❌ Access Denied: Incorrect Password!");
+            closePasswordModal();
+        }
+    }
+
+    // कीबोर्ड के Enter बटन दबाने पर भी पासवर्ड सबमिट हो जाएगा भाई
+    document.getElementById('securityPasswordInput').addEventListener('keyup', function(e) {
+        if (e.key === 'Enter') { verifyDeletePassword(); }
+    });
 
     function triggerPrintDebit(d) {
         const shell = document.getElementById('printSection');
