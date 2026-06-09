@@ -145,7 +145,7 @@
     let gateoutData = [];
     let bomFormulaList = []; 
     let masterCatalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
-    let calculatedGridDataset = []; // 🌟 जोड़ा: लाइव सर्च फिल्टर को बिना डेटाबेस डिस्टर्ब किए रन करने का बफ़र
+    let calculatedGridDataset = []; 
 
     const cleanStr = (str) => String(str || "").trim().toUpperCase().replace(/\s+/g, '');
 
@@ -365,8 +365,8 @@
         document.body.removeChild(downloadLink);
     }
 </script>
+
 <a href="#" class="scroll-to-top-btn" style="position: fixed !important; bottom: 25px !important; right: 25px !important; width: 45px !important; height: 45px !important; background-color: #1e3a8a !important; color: white !important; font-size: 22px !important; font-weight: bold !important; text-align: center !important; line-height: 42px !important; border-radius: 50% !important; cursor: pointer !important; box-shadow: 0 4px 15px rgba(15, 23, 42, 0.4) !important; z-index: 999999999 !important; text-decoration: none !important; display: flex !important; align-items: center !important; justify-content: center !important; opacity: 0.9 !important;">↑</a>
 
 </body>
 </html>
-
