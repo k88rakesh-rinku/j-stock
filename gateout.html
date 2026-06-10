@@ -185,7 +185,8 @@
     let activeDeleteRowIdx = null; 
     let flatPOList = []; 
 
-    const cleanStr = (str) => String(str || "").trim().toUpperCase().replace(/\s+/g, '');
+    // 🌟 सुरक्षा महा-अपग्रेड: अब स्पेस और डैश (-) दोनों उड़ जाएंगे ताकि स्पेलिंग एरर न आए भाई!
+    const cleanStr = (str) => String(str || "").trim().toUpperCase().replace(/[\s\-]+/g, '');
 
     function safeConvertToArray(rawVal) {
         if (!rawVal) return [];
@@ -287,7 +288,6 @@
         }
     }
 
-    // 🌟 लाइव स्टॉक कैलकुलेशन इंजन महा-अपग्रेड (चाबी मैचिंग पूरी तरह से फिक्स)
     function calculateLiveFreshStock(targetCode, skipFbKey = "") {
         let totalIn = 0; let totalOut = 0; let cleanedTarget = cleanStr(targetCode);
         
@@ -295,7 +295,6 @@
             if(!v) return;
             let items = safeConvertToArray(v.gridItems);
             
-            // अगर सीधे बेस लेवल पर कोई कोड सेव है (पुराना तरीका)
             if(items.length === 0) {
                 let baseCode = v.modelCode || v.itemCode || v.code || "";
                 if(cleanStr(baseCode) === cleanedTarget) {
@@ -303,7 +302,6 @@
                 }
             }
             
-            // ग्रिड आइटम्स एरे के अंदर घुसकर तीनों चाबियाँ चेक करना (बग फिक्स!)
             items.forEach(item => { 
                 if(item) {
                     let currentInwardCode = item.modelCode || item.itemCode || item.code || "";
@@ -364,6 +362,7 @@
                     deficit = true; break; 
                 }
 
+                // 🌟 महा-अपग्रेड लॉजिक: अगर कच्चे माल (BOM) का स्टॉक कम है, तो यह केवल चेतावनी (Warning) देगा, ब्लॉक नहीं करेगा!
                 let targetBOM = bomFormulaList.find(b => b && cleanStr(b.mainCode) === cleanStr(rawCode));
                 if(targetBOM && targetBOM.accessories) {
                     let accs = safeConvertToArray(targetBOM.accessories);
@@ -373,8 +372,8 @@
                         let availableAccStock = calculateLiveFreshStock(acc.code, fbKey);
                         let bomUnit = acc.unit ? acc.unit : "NOS";
                         if(availableAccStock < requiredAccQty) {
-                            alert(`🚫 BOM Component Deficit!\n\nMain Model [${rawCode}] requires [${requiredAccQty} ${bomUnit}] of Component [${acc.code}].\nAvailable Stock on Cloud: ${availableAccStock} ${bomUnit}`);
-                            deficit = true; break;
+                            // ⚠️ केवल ऑपरेटर को सूचित करें, वाउचर रोकने की कोई ज़रूरत नहीं है भाई
+                            alert(`⚠️ BOM Component Warning:\n\nMain Model [${rawCode}] requires [${requiredAccQty} ${bomUnit}] of Component [${acc.code}].\nAvailable Stock on Cloud: ${availableAccStock} ${bomUnit}\n\n(Note: Dispatch is permitted because main model is in stock).`);
                         }
                     }
                 }
