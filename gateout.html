@@ -185,7 +185,6 @@
     let activeDeleteRowIdx = null; 
     let flatPOList = []; 
 
-    // 🌟 सुरक्षा महा-अपग्रेड: अब स्पेस और डैश (-) दोनों उड़ जाएंगे ताकि स्पेलिंग एरर न आए भाई!
     const cleanStr = (str) => String(str || "").trim().toUpperCase().replace(/[\s\-]+/g, '');
 
     function safeConvertToArray(rawVal) {
@@ -332,12 +331,39 @@
         return (totalIn - totalOut);
     }
 
+    // 🚨 फॉर्म सबमिशन इंजन (डुप्लिकेट ब्लॉक गियर और ऑटो-बटन लॉकर फिटेड)
     document.getElementById('gateoutForm').addEventListener('submit', function(e) {
         e.preventDefault();
-        let items = []; 
-        let rows = document.querySelectorAll('#gateoutItemsBody tr'); let deficit = false;
+        
+        const docTypeVal = document.getElementById('goDocType').value;
+        const docNoVal = document.getElementById('goDocNo').value.trim().toUpperCase();
         const idx = parseInt(document.getElementById('editRowIndex').value);
         const fbKey = document.getElementById('editFirebaseKey').value;
+        
+        const submitBtn = document.getElementById('btnSubmitForm');
+        submitBtn.disabled = true; // 🔒 बटन तुरंत लॉक
+        submitBtn.innerText = "Verifying & Authorizing... Please Wait";
+
+        // 1. 🛑 STRICT DUPLICATE CHECK LOGIC
+        let cleanNewDocNo = cleanStr(docNoVal);
+        let cleanNewDocType = cleanStr(docTypeVal);
+        
+        let isDuplicate = gateoutData.some(g => {
+            if (!g) return false;
+            if (idx !== -1 && g.fbKey === fbKey) return false; // एडिट मोड में खुद को छोड़ दो भाई
+            return cleanStr(g.docNo) === cleanNewDocNo && cleanStr(g.docType) === cleanNewDocType;
+        });
+
+        if (isDuplicate) {
+            alert(`🚫 DUPLICATE GATE PASS ERROR:\n\nA dispatch voucher with ${docTypeVal} No. [${docNoVal}] already exists on Cloud!\n\nYou cannot generate duplicate gate passes.`);
+            submitBtn.disabled = false; // बटन वापस अनलॉक
+            submitBtn.innerText = "Authorize Gate Out (Deduct Stock)";
+            return;
+        }
+
+        // 2. 📦 STOCK CHECK ENGINE
+        let items = []; 
+        let rows = document.querySelectorAll('#gateoutItemsBody tr'); let deficit = false;
 
         for(let row of rows) {
             const pool = row.querySelector('.go-pool-type').value;
@@ -362,7 +388,6 @@
                     deficit = true; break; 
                 }
 
-                // 🌟 महा-अपग्रेड लॉजिक: अगर कच्चे माल (BOM) का स्टॉक कम है, तो यह केवल चेतावनी (Warning) देगा, ब्लॉक नहीं करेगा!
                 let targetBOM = bomFormulaList.find(b => b && cleanStr(b.mainCode) === cleanStr(rawCode));
                 if(targetBOM && targetBOM.accessories) {
                     let accs = safeConvertToArray(targetBOM.accessories);
@@ -372,7 +397,6 @@
                         let availableAccStock = calculateLiveFreshStock(acc.code, fbKey);
                         let bomUnit = acc.unit ? acc.unit : "NOS";
                         if(availableAccStock < requiredAccQty) {
-                            // ⚠️ केवल ऑपरेटर को सूचित करें, वाउचर रोकने की कोई ज़रूरत नहीं है भाई
                             alert(`⚠️ BOM Component Warning:\n\nMain Model [${rawCode}] requires [${requiredAccQty} ${bomUnit}] of Component [${acc.code}].\nAvailable Stock on Cloud: ${availableAccStock} ${bomUnit}\n\n(Note: Dispatch is permitted because main model is in stock).`);
                         }
                     }
@@ -389,10 +413,12 @@
                 serials: String(serialsVal) 
             });
         }
-        if(deficit) return;
-
-        const docTypeVal = document.getElementById('goDocType').value;
-        const docNoVal = document.getElementById('goDocNo').value.trim().toUpperCase();
+        
+        if(deficit) {
+            submitBtn.disabled = false; // एरर होने पर बटन वापस अनलॉक
+            submitBtn.innerText = "Authorize Gate Out (Deduct Stock)";
+            return;
+        }
 
         const dispatchVoucher = {
             voucherNo: idx === -1 ? (gateoutData.length + 1) : gateoutData.find(x => x.fbKey === fbKey).voucherNo,
@@ -592,7 +618,11 @@
         document.getElementById('gateoutForm').reset();
         document.getElementById('gateoutItemsBody').innerHTML = '';
         document.getElementById('formTitleGateout').innerText = "🚪 Gate Out (Dispatch) Ledger";
-        document.getElementById('btnSubmitForm').innerText = "Authorize Gate Out (Deduct Stock)";
+        
+        const submitBtn = document.getElementById('btnSubmitForm');
+        submitBtn.innerText = "Authorize Gate Out (Deduct Stock)";
+        submitBtn.disabled = false; // रीसेट होने पर बटन वापस खुल जाएगा
+        
         document.getElementById('btnCancelEdit').style.display = "none";
         applyLiveDateRestrictions(); addGoRow();
         document.getElementById('liveTableSearchBox').value = "";
