@@ -8,124 +8,187 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
     <style>
-        /* [आपका CSS पहले जैसा ही है, वही रखें] */
-        .btn-edit-action { background-color: #0284c7; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
-        .btn-delete-action { background-color: #dc2626; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
-        .btn-print-receipt { background-color: #007bff; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
+        .btn-edit-action { background-color: #0284c7; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
+        .btn-delete-action { background-color: #dc2626; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; }
+        .btn-print-receipt { background-color: #007bff; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
+        .tabs-nav a.active-gateout { background-color: #1e3a8a !important; color: white !important; font-weight: bold; }
+        .secret-modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 9999; }
+        .secret-modal-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); text-align: center; width: 320px; }
+        .secret-modal-input { width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #cbd5e1; border-radius: 4px; text-align: center; font-size: 18px; font-weight: bold; letter-spacing: 2px; }
+        .go-doc-group { display: flex; gap: 6px; }
+        .go-doc-group select { width: 40%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-weight: bold; }
+        .go-doc-group input { width: 60%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; text-transform: uppercase; }
     </style>
 </head>
 <body>
 <div class="container">
-    <div class="erp-header"><h1>Material Lifecycle Control & Inventory Ledger Systems</h1></div>
+    <div class="erp-header">
+        <h1>Material Lifecycle Control & Inventory Ledger Systems</h1>
+        <button class="logout-btn" onclick="logout()">Logout</button>
+    </div>
     
+    <div class="tabs-nav">
+        <a href="index.html" class="tab-link">📦 New Entry (Fresh)</a>
+        <a href="rework.html" class="tab-link">🛠️ Gate In (Rework)</a>
+        <a href="gateout.html" class="tab-link active-gateout">🚪 Gate Out (Dispatch)</a>
+        <a href="debit.html" class="tab-link">🧾 Debit Note (Vendor)</a>
+        <a href="code.html" class="tab-link">🆕 Generate Code</a>
+        <a href="ledger.html" class="tab-link">📊 Master Ledger & History</a>
+        <a href="reject_bin.html" class="tab-link">🗑️ Rejection Bin</a>
+    </div>
+
+    <h3>🚪 Gate Out (Dispatch) Ledger</h3>
+
     <form id="gateoutForm">
-        <input type="hidden" id="editRowIndex" value="-1">
         <input type="hidden" id="editFirebaseKey" value="">
         <div class="form-grid">
-            <div class="form-group"><label>Dispatch Trans Date <span>*</span></label><input type="date" id="goDate" required></div>
-            <div class="form-group"><label>Vehicle Transport No <span>*</span></label><input type="text" id="goVehicleNo" required autocomplete="off" style="text-transform:uppercase;"></div>
-            <div class="form-group"><label>Doc Type & Number <span>*</span></label>
+            <div class="form-group"><label>Date <span>*</span></label><input type="date" id="goDate" required></div>
+            <div class="form-group"><label>Vehicle No <span>*</span></label><input type="text" id="goVehicleNo" required style="text-transform:uppercase;"></div>
+            <div class="form-group"><label>Doc Type & No <span>*</span></label>
                 <div class="go-doc-group">
                     <select id="goDocType"><option value="BILL">BILL</option><option value="CHALLAN">CHALLAN</option></select>
-                    <input type="text" id="goDocNo" required placeholder="Doc No..." autocomplete="off">
+                    <input type="text" id="goDocNo" required placeholder="Doc No..." style="text-transform:uppercase;">
                 </div>
             </div>
-            <div class="form-group"><label>Delivery Shipping Location <span>*</span></label><input type="text" id="goDeliveryShipping" required autocomplete="off" style="text-transform:uppercase;"></div>
-            <div class="form-group"><label>Send / Dispatched By</label><input type="text" id="goSendBy" autocomplete="off" style="text-transform:uppercase;"></div>
+            <div class="form-group"><label>Destination <span>*</span></label><input type="text" id="goDeliveryShipping" required style="text-transform:uppercase;"></div>
         </div>
 
-        <div style="overflow-x:auto; margin-top: 15px;">
-            <table class="grid-table">
-                <thead><tr><th>Pool</th><th>Code</th><th>Item Name</th><th>Qty</th><th>Unit</th><th>S/N Track</th><th>Action</th></tr></thead>
-                <tbody id="gateoutItemsBody"></tbody>
-            </table>
-        </div>
+        <table class="grid-table">
+            <thead style="background-color: var(--secondary); color: white;">
+                <tr><th>Pool</th><th>Code 🔍</th><th>Qty</th><th>Unit</th><th>Action</th></tr>
+            </thead>
+            <tbody id="gateoutItemsBody"></tbody>
+        </table>
         <button type="button" class="btn-row-add" onclick="addGoRow()">+</button>
-        <button type="submit" id="btnSubmitForm" class="btn-submit" style="margin-top:15px; width: 100%;">Authorize Gate Out</button>
+        <button type="submit" id="btnSubmitForm" class="btn-submit" style="margin-top:15px; width:100%;">Authorize Gate Out</button>
     </form>
-    <div id="goHistoryBody"></div>
+
+    <div class="table-responsive">
+        <table class="history-table">
+            <thead><tr><th>Voucher No</th><th>Date</th><th>Party / Doc</th><th>Items</th><th>Action</th></tr></thead>
+            <tbody id="goHistoryBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<div id="secretPasswordModal" class="secret-modal-overlay">
+    <div class="secret-modal-card">
+        <h4>🔑 Security Check</h4>
+        <input type="password" id="secretModalPasswordField" class="secret-modal-input" placeholder="••••" autocomplete="off">
+        <div class="secret-modal-btn-group">
+            <button type="button" class="secret-modal-btn-confirm" onclick="submitSecretDeletePassword()">Confirm</button>
+            <button type="button" class="secret-modal-btn-cancel" onclick="closeSecretPasswordModal()">Cancel</button>
+        </div>
+    </div>
 </div>
 
 <script>
-    const firebaseConfig = { apiKey: "AIzaSyCAOXbPwuFR3wh1QSLBXWsodupKWoRYmqs", databaseURL: "https://gvm-stock-control-default-rtdb.firebaseio.com", projectId: "gvm-stock-control" };
+    const firebaseConfig = {
+        apiKey: "AIzaSyCAOXbPwuFR3wh1QSLBXWsodupKWoRYmqs",
+        databaseURL: "https://gvm-stock-control-default-rtdb.firebaseio.com",
+        projectId: "gvm-stock-control"
+    };
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
 
-    let stockData = [], gateoutData = [], reworkStockData = [], bomFormulaList = [];
-    const cleanStr = (str) => String(str || "").trim().toUpperCase().replace(/[\s\-]+/g, '');
+    // -- App Data --
+    let stockData = [], gateoutData = [], reworkStockData = [], bomFormulaList = [], masterCatalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
+    let activeDeleteRowIdx = null;
 
-    // डेटा सिंक
-    database.ref('freshStockVouchers').on('value', s => stockData = Object.values(s.val() || {}));
-    database.ref('reworkStockVouchers').on('value', s => reworkStockData = Object.values(s.val() || {}));
-    database.ref('bomMasterData').on('value', s => bomFormulaList = Object.values(s.val() || {}));
-    database.ref('gateoutStockData').on('value', s => gateoutData = Object.entries(s.val() || {}).map(([k, v]) => ({fbKey: k, ...v})));
+    // -- Clean Strings --
+    const cleanStr = (str) => String(str || "").trim().toUpperCase().replace(/\s+/g, '');
 
-    // 🌟 महा-फिक्स: स्टॉक कैलकुलेटर
-    function calculateLiveFreshStock(targetCode, skipFbKey = "") {
-        let totalIn = 0; let totalOut = 0; let cleanedTarget = cleanStr(targetCode);
-        
-        // 1. Fresh Inward से माल जोड़ें
+    // -- Load Data --
+    database.ref('bomMasterData').on('value', snap => bomFormulaList = Object.values(snap.val() || {}));
+    database.ref('freshStockVouchers').on('value', snap => stockData = Object.values(snap.val() || {}));
+    database.ref('reworkStockVouchers').on('value', snap => reworkStockData = Object.values(snap.val() || {}));
+    database.ref('gateoutStockData').on('value', snap => {
+        gateoutData = [];
+        snap.forEach(child => gateoutData.push({ fbKey: child.key, ...child.val() }));
+        renderTable();
+    });
+
+    function addGoRow() {
+        const body = document.getElementById('gateoutItemsBody');
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td><select class="go-pool-type"><option value="FRESH">FRESH</option><option value="REWORK">REWORK</option></select></td>
+            <td><input type="text" required class="go-code" style="text-transform:uppercase;"></td>
+            <td><input type="number" min="0" step="0.001" required class="go-qty"></td>
+            <td><select class="go-unit-select"><option value="NOS">NOS</option><option value="MTR">MTR</option><option value="SET">SET</option></select></td>
+            <td><button type="button" class="btn-remove-row" onclick="this.closest('tr').remove()">×</button></td>`;
+        body.appendChild(tr);
+    }
+
+    function calculateLiveFreshStock(targetCode) {
+        let totalIn = 0, totalOut = 0; let cleanedTarget = cleanStr(targetCode);
         stockData.forEach(v => {
-            Object.values(v.gridItems || []).forEach(item => {
-                if(cleanStr(item.modelCode || item.code || "") === cleanedTarget) totalIn += parseFloat(item.qty || 0);
-            });
+            if(v.modelCode && cleanStr(v.modelCode) === cleanedTarget) totalIn += parseFloat(v.qty || 0);
+            (v.gridItems || []).forEach(item => { if(item.modelCode && cleanStr(item.modelCode) === cleanedTarget) totalIn += parseFloat(item.qty || 0); });
         });
-
-        // 2. Rework/Fresh Gate In से 'FRESH' पूल का माल जोड़ें
         reworkStockData.forEach(v => {
-            Object.values(v.gridItems || []).forEach(item => {
-                if(cleanStr(item.pool) === "FRESH" && cleanStr(item.itemShort || item.code || "") === cleanedTarget) totalIn += parseFloat(item.qty || 0);
-            });
+            (v.gridItems || []).forEach(item => { if(item.pool === 'FRESH' && cleanStr(item.modelCode || item.code) === cleanedTarget) totalIn += parseFloat(item.qty || 0); });
         });
-
-        // 3. Gate Out (बाकी सब माइनस)
         gateoutData.forEach(g => {
-            if(skipFbKey && g.fbKey === skipFbKey) return;
-            Object.values(g.gridItems || []).forEach(item => {
+            (g.gridItems || []).forEach(item => { 
                 if(item.pool === 'FRESH' && cleanStr(item.code) === cleanedTarget) totalOut += parseFloat(item.qty || 0);
-                
                 let bom = bomFormulaList.find(b => cleanStr(b.mainCode) === cleanStr(item.code));
-                if(bom && bom.accessories) {
-                    bom.accessories.forEach(acc => {
-                        if(cleanStr(acc.code) === cleanedTarget) totalOut += (parseFloat(acc.qty) * parseFloat(item.qty || 0));
-                    });
-                }
+                if(bom) (bom.accessories || []).forEach(acc => { if(cleanStr(acc.code) === cleanedTarget) totalOut += (parseFloat(acc.qty) * parseFloat(item.qty || 0)); });
             });
         });
-        return Math.max(0, totalIn - totalOut); // माइनस नहीं जाने देगा
+        return (totalIn - totalOut);
     }
 
     document.getElementById('gateoutForm').addEventListener('submit', function(e) {
         e.preventDefault();
+        
+        let items = []; let seenCodes = [];
         let rows = document.querySelectorAll('#gateoutItemsBody tr');
-        let deficit = false;
-        let report = [];
 
-        // चेक करो
         for(let row of rows) {
-            let code = cleanStr(row.querySelector('.go-code').value);
-            let qty = parseFloat(row.querySelector('.go-qty').value) || 0;
+            let code = row.querySelector('.go-code').value.trim().toUpperCase();
+            if(seenCodes.includes(code)) { alert("Duplicate Code in Grid: " + code); return; }
+            seenCodes.push(code);
+            
+            let qty = parseFloat(row.querySelector('.go-qty').value);
             if(row.querySelector('.go-pool-type').value === 'FRESH') {
-                let avail = calculateLiveFreshStock(code, document.getElementById('editFirebaseKey').value);
-                if(avail < qty) {
-                    report.push(`Item ${code}: Req ${qty}, Avail ${avail.toFixed(2)}`);
-                    deficit = true;
-                }
+                let stock = calculateLiveFreshStock(code);
+                if(stock < qty) { alert("Insufficient Stock for: " + code + ". Available: " + stock); return; }
             }
+            items.push({ pool: row.querySelector('.go-pool-type').value, code: code, qty: qty, unit: row.querySelector('.go-unit-select').value });
         }
 
-        if(deficit) {
-            alert("🚫 STOP! स्टॉक कम है:\n" + report.join('\n'));
-            return;
-        }
+        let isDuplicate = gateoutData.some(g => cleanStr(g.docNo) === cleanStr(document.getElementById('goDocNo').value) && g.docType === document.getElementById('goDocType').value);
+        if(isDuplicate) { alert("Duplicate Bill/Challan!"); return; }
 
-        // सब सही है तो Firebase पर सेव करें (Submit Logic)
-        alert("🎉 Success! Stock Authorized.");
-        location.reload();
+        database.ref('gateoutStockData').push({
+            date: document.getElementById('goDate').value,
+            vehicleNo: document.getElementById('goVehicleNo').value.trim().toUpperCase(),
+            docType: document.getElementById('goDocType').value,
+            docNo: document.getElementById('goDocNo').value.trim().toUpperCase(),
+            partyName: document.getElementById('goDocType').value + " - " + document.getElementById('goDocNo').value,
+            gridItems: items
+        }).then(() => { alert("Saved!"); cancelEditMode(); });
     });
 
-    function addGoRow() { /* [रो जोड़ने का कोड वैसे ही रखें] */ }
-    applyLiveDateRestrictions(); addGoRow();
+    function cancelEditMode() {
+        document.getElementById('gateoutForm').reset();
+        document.getElementById('gateoutItemsBody').innerHTML = '';
+        addGoRow();
+    }
+    
+    // -- Password logic using Base64 for 7004 --
+    function submitSecretDeletePassword() {
+        if (btoa(document.getElementById('secretModalPasswordField').value) === "NzAwNA==") {
+            database.ref('gateoutStockData/' + gateoutData[activeDeleteRowIdx].fbKey).remove();
+            closeSecretPasswordModal();
+        } else { alert("Wrong Password!"); }
+    }
+    function deleteGateoutRow(idx) { activeDeleteRowIdx = idx; document.getElementById('secretPasswordModal').style.display = 'flex'; }
+    function closeSecretPasswordModal() { document.getElementById('secretPasswordModal').style.display = 'none'; }
+    function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
+    
+    document.getElementById('goDate').valueAsDate = new Date();
+    addGoRow();
 </script>
 </body>
 </html>
