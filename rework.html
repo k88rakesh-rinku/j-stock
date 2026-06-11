@@ -2,60 +2,122 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Gate In (Rework/Fresh) - Control System</title>
+    <title>Rework Management - Control System</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+    <style>
+        /* स्टाइल्स को वैसे ही रखें जैसे आपने दी थीं */
+        .btn-edit-action { background-color: #0284c7; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
+        .btn-delete-action { background-color: #dc2626; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
+        .btn-print-receipt { background-color: #007bff; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
+        .rw-pool-select { padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; font-weight: bold; background: #fff; cursor: pointer; }
+    </style>
 </head>
 <body>
 <div class="container">
-    <h3 id="formTitleRework" style="color:var(--primary); margin: 15px 0 10px 0;">🛠️ Gate In (Rework/Fresh) Ledger</h3>
+    <div class="erp-header"><h1>Material Lifecycle Control & Inventory Ledger Systems</h1><button class="logout-btn" onclick="logout()">Logout</button></div>
+    
+    <div class="tabs-nav">
+        <a href="index.html">📦 New Entry</a>
+        <a href="rework.html" style="background-color: #1e3a8a; color: white;">🛠️ Gate In (Rework)</a>
+        <a href="gateout.html">🚪 Gate Out</a>
+    </div>
+
     <form id="reworkForm">
         <input type="hidden" id="editRowIndex" value="-1">
         <input type="hidden" id="editFirebaseKey" value="">
-        <div id="dynamicItemsBody"></div>
+        <div class="form-grid">
+            <div class="form-group"><label>Bill No</label><input type="text" id="rwBillNo" required style="text-transform:uppercase;"></div>
+            <div class="form-group"><label>Date</label><input type="date" id="rwDate" required></div>
+            <div class="form-group"><label>Party Name</label><input type="text" id="rwPartyName" required style="text-transform:uppercase;"></div>
+        </div>
+
+        <table class="grid-table">
+            <thead><tr><th>Pool</th><th>Code</th><th>Item Name</th><th>Qty</th><th>Action</th></tr></thead>
+            <tbody id="dynamicItemsBody"></tbody>
+        </table>
+        <button type="button" class="btn-row-add" onclick="addReworkRow()">+</button>
         <button type="submit" id="btnSubmitForm" class="btn-submit">Save Gate In Entry</button>
     </form>
 
-    <div class="table-filter-panel">
-        <input type="text" id="liveTableSearchBox" class="search-input-box" placeholder="🔍 Search..." oninput="renderHistory()">
-    </div>
-
-    <table class="history-table">
-        <thead><tr><th>Date</th><th>From Party</th><th>Challan / Gate No</th><th>Items Details</th><th>Action Controls</th></tr></thead>
+    <table class="history-table" style="margin-top:20px;">
+        <thead><tr><th>Date</th><th>Party</th><th>Bill No</th><th>Items</th><th>Actions</th></tr></thead>
         <tbody id="reworkHistoryBody"></tbody>
     </table>
 </div>
 
 <script>
-    // [Firebase Config वही रखें]
-    // 🌟 यहाँ मुख्य लॉजिक है जो लेजर से कनेक्ट होगा
+    const firebaseConfig = { apiKey: "AIzaSyCAOXbPwuFR3wh1QSLBXWsodupKWoRYmqs", databaseURL: "https://gvm-stock-control-default-rtdb.firebaseio.com", projectId: "gvm-stock-control" };
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+
+    let reworkData = [];
+    const cleanStr = (str) => String(str || "").trim().toUpperCase().replace(/[\s\-]+/g, '');
+
+    // डेटा लोड
+    database.ref('reworkStockVouchers').on('value', s => {
+        reworkData = Object.entries(s.val() || {}).map(([k, v]) => ({fbKey: k, ...v}));
+        renderHistory();
+    });
+
+    function addReworkRow(item = {}) {
+        const body = document.getElementById('dynamicItemsBody');
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><select class="rw-pool-select"><option value="REWORK" ${item.pool==='REWORK'?'selected':''}>REWORK</option><option value="FRESH" ${item.pool==='FRESH'?'selected':''}>FRESH</option></select></td>
+            <td><input type="text" class="item-short" value="${item.itemShort||''}" oninput="autofillItem(this)"></td>
+            <td><input type="text" class="item-name" value="${item.itemName||''}"></td>
+            <td><input type="number" class="item-qty" value="${item.qty||''}"></td>
+            <td><button type="button" onclick="this.closest('tr').remove()">×</button></td>`;
+        body.appendChild(tr);
+    }
+
+    document.getElementById('reworkForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        let items = [];
+        document.querySelectorAll('#dynamicItemsBody tr').forEach(row => {
+            items.push({ 
+                pool: row.querySelector('.rw-pool-select').value, // 🌟 यह पूल 'FRESH' या 'REWORK' सही सेव करेगा
+                itemShort: row.querySelector('.item-short').value.toUpperCase(),
+                itemName: row.querySelector('.item-name').value,
+                qty: parseFloat(row.querySelector('.item-qty').value) || 0
+            });
+        });
+
+        const entry = { date: document.getElementById('rwDate').value, billNo: document.getElementById('rwBillNo').value.toUpperCase(), partyName: document.getElementById('rwPartyName').value.toUpperCase(), gridItems: items };
+        const fbKey = document.getElementById('editFirebaseKey').value;
+        
+        if(fbKey) database.ref('reworkStockVouchers/'+fbKey).set(entry).then(() => { alert("Updated!"); resetReworkForm(); });
+        else database.ref('reworkStockVouchers').push(entry).then(() => { alert("Saved!"); resetReworkForm(); });
+    });
+
     function renderHistory() {
         const b = document.getElementById('reworkHistoryBody'); b.innerHTML = '';
-        
         reworkData.forEach((r, idx) => {
-            let desc = "";
-            (r.gridItems || []).forEach(i => {
-                desc += `• [<b>${i.pool || 'REWORK'}</b>] <code>${i.itemShort}</code> - ${i.itemName} (<b>${i.qty} ${i.unit}</b>)<br>`;
-            });
-
-            b.innerHTML += `<tr>
-                <td>${r.date}</td>
-                <td><b>${r.partyName}</b></td>
-                <td>${r.billNo}</td>
-                <td style="text-align:left;">${desc}</td>
-                <td>
-                    <button class="btn-print-receipt" onclick='triggerPrintPass(${JSON.stringify(r)})'>🖨️ Print</button>
-                    <button class="btn-edit-action" onclick="editReworkRow(${idx})">Edit</button>
-                    <button class="btn-delete-action" onclick="deleteReworkRow(${idx})">Delete</button>
-                </td>
-            </tr>`;
+            let desc = (r.gridItems||[]).map(i => `[${i.pool}] ${i.itemShort}: ${i.qty}`).join('<br>');
+            b.innerHTML += `<tr><td>${r.date}</td><td>${r.partyName}</td><td>${r.billNo}</td><td>${desc}</td>
+            <td>
+                <button class="btn-edit-action" onclick="editReworkRow(${idx})">Edit</button>
+                <button class="btn-delete-action" onclick="deleteReworkRow(${idx})">Delete</button>
+            </td></tr>`;
         });
     }
 
-    // बाकी सारे Functions (Edit, Delete, Print, Excel) यहाँ नीचे वैसे ही पेस्ट करें 
-    // जैसे मैंने पिछली बार दिए थे, ये सब आपके Ledger/Firebase से जुड़ गए हैं।
-    // जब आप Gate Out (Dispatch) करेंगे, तो वो सीधे reworkStockVouchers को चेक करेगा!
+    function editReworkRow(idx) {
+        const r = reworkData[idx];
+        document.getElementById('editFirebaseKey').value = r.fbKey;
+        document.getElementById('rwDate').value = r.date;
+        document.getElementById('rwBillNo').value = r.billNo;
+        document.getElementById('rwPartyName').value = r.partyName;
+        document.getElementById('dynamicItemsBody').innerHTML = '';
+        (r.gridItems || []).forEach(addReworkRow);
+    }
+
+    function resetReworkForm() { document.getElementById('reworkForm').reset(); document.getElementById('dynamicItemsBody').innerHTML = ''; addReworkRow(); }
+    
+    // डिलीट का पासवर्ड कोड वही रखें जो पहले था...
+    addReworkRow();
 </script>
 </body>
 </html>
