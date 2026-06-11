@@ -60,9 +60,6 @@
         <a href="ledger.html" class="tab-link">📊 Master Ledger & History</a>
         <a href="users.html" class="tab-link">👥 Manage Users</a>
         <a href="bom.html" class="tab-link">🔗 BOM Master</a>
-        <a href="failure.html" class="tab-link">🛠️ Failure Defect Log</a>
-        <a href="production.html" class="tab-link">🏭 Production Planner</a>
-        <a href="reject_bin.html" class="tab-link">🗑️ Rejection Bin</a>
     </div>
 
     <h3 id="formTitleGateout" style="color:var(--primary); margin: 15px 0 10px 0;">🚪 Gate Out (Dispatch) Ledger</h3>
@@ -186,7 +183,6 @@
     let activeDeleteRowIdx = null; 
     let flatPOList = []; 
 
-    // 🌟 महा-सुधार: अब हाइफन (-) को कोड से बिल्कुल नहीं हटाया जाएगा। केवल फालतू स्पेस साफ होंगे!
     const cleanStr = (str) => String(str || "").trim().toUpperCase().replace(/\s+/g, '');
 
     function safeConvertToArray(rawVal) {
@@ -299,12 +295,10 @@
         
         stockData.forEach(v => {
             if(!v) return;
-            
             let baseCode = v.modelCode || v.itemCode || v.code || v.partCode || "";
             if(baseCode && cleanStr(baseCode) === cleanedTarget) {
                 totalIn += parseFloat(v.qty || v.receiveQty || v.passedQty || v.quantity || 0);
             }
-            
             let items = safeConvertToArray(v.gridItems);
             items.forEach(item => { 
                 if(item) {
@@ -318,13 +312,11 @@
 
         reworkStockData.forEach(v => {
             if (!v) return;
-            
             let baseCode = v.modelCode || v.itemCode || v.code || v.itemShort || "";
             let basePool = cleanStr(v.pool || 'REWORK');
             if (baseCode && basePool === "FRESH" && cleanStr(baseCode) === cleanedTarget) {
                 totalIn += parseFloat(v.qty || v.receiveQty || v.passedQty || v.quantity || 0);
             }
-
             let items = safeConvertToArray(v.gridItems);
             items.forEach(item => {
                 if(item) {
@@ -343,21 +335,28 @@
             items.forEach(item => { 
                 if(!item) return;
                 let currentOutwardCode = item.code || item.modelCode || item.itemCode || "";
-                if(item.pool === 'FRESH' && cleanStr(currentOutwardCode) === cleanedTarget) { totalOut += parseFloat(item.qty || 0); }
+                if(item.pool === 'FRESH' && cleanStr(currentOutwardCode) === cleanedTarget) { 
+                    totalOut += parseFloat(item.qty || 0); 
+                }
                 
                 let mainItemBOM = bomFormulaList.find(b => b && cleanStr(b.mainCode) === cleanStr(currentOutwardCode));
                 if(mainItemBOM && mainItemBOM.accessories) {
                     let accs = safeConvertToArray(mainItemBOM.accessories);
                     accs.forEach(acc => {
-                        if(acc && cleanStr(acc.code) === cleanedTarget) { totalOut += (parseFloat(acc.qty) * parseFloat(item.qty || 0)); }
+                        if(acc && cleanStr(acc.code) === cleanedTarget) { 
+                            totalOut += (parseFloat(acc.qty) * parseFloat(item.qty || 0)); 
+                        }
                     });
                 }
             });
         });
-        return (totalIn - totalOut);
+        
+        let finalBalance = totalIn - totalOut;
+        // 🌟 सुरक्षा घेरा: स्टॉक को कभी भी 0 से कम (माइनस में) मत दिखाओ
+        return finalBalance < 0 ? 0 : finalBalance;
     }
 
-    // 🚨 फॉर्म सबमिशन इंजन (डुप्लिकेट वाउचर लॉक + ग्रिड रो डुप्लिकेट कोड ब्लॉकर)
+    // 🚨 कड़क शॉर्टेज और फॉर्म सबमिशन इंजन
     document.getElementById('gateoutForm').addEventListener('submit', function(e) {
         e.preventDefault();
         
@@ -370,7 +369,6 @@
         submitBtn.disabled = true; 
         submitBtn.innerText = "Verifying & Authorizing... Please Wait";
 
-        // 1. DUPLICATE VOUCHER CHECK LOCK
         let cleanNewDocNo = cleanStr(docNoVal);
         let cleanNewDocType = cleanStr(docTypeVal);
         
@@ -387,12 +385,11 @@
             return;
         }
 
-        // 2. STABLE MAIN ITEM CHECK & GRID DUPLICATE ROW CHECK ENGINE
         let items = []; 
         let rows = document.querySelectorAll('#gateoutItemsBody tr'); 
         let deficit = false;
         let shortageReportList = []; 
-        let seenCodesInGrid = []; // 🌟 एक चालान में डबल कोड रोकने के लिए एरे
+        let seenCodesInGrid = []; 
 
         for(let row of rows) {
             const pool = row.querySelector('.go-pool-type').value;
@@ -401,10 +398,9 @@
             const unit = row.querySelector('.go-unit-select').value;
             const snRequired = row.querySelector('.go-sn-required').value;
             
-            // 🌟 कड़क ग्रिड डुप्लिकेट लॉक: अगर एक ही आइटम कोड दोबारा आया तो यहीं ब्लॉक कर दो भाई
             let cleanGridCode = cleanStr(rawCode);
             if (seenCodesInGrid.includes(cleanGridCode)) {
-                alert(`🚫 DUPLICATE ITEM CODE BLOCKED:\n\nModel Code [${rawCode}] is added multiple times in this gate pass list!\n\nYou cannot enter the same code in two separate rows. Please combine the quantities.`);
+                alert(`🚫 DUPLICATE ITEM CODE BLOCKED:\n\nModel Code [${rawCode}] is added multiple times in this gate pass!\n\nPlease combine the quantities in a single row.`);
                 submitBtn.disabled = false; 
                 submitBtn.innerText = "Authorize Gate Out (Deduct Stock)";
                 return;
@@ -415,15 +411,18 @@
             if(snRequired === 'YES') {
                 serialsVal = row.querySelector('.go-serials').value.trim().toUpperCase();
                 if(!serialsVal || serialsVal === "-") {
-                    alert(`⚠️ Range Text Missing!\n\nYou selected YES for S/N Track on item [${rawCode}], but left the Serial box empty.`);
-                    deficit = true; break;
+                    alert(`⚠️ Range Text Missing for item [${rawCode}].`);
+                    submitBtn.disabled = false; submitBtn.innerText = "Authorize Gate Out (Deduct Stock)";
+                    return;
                 }
             }
 
+            // 🌟 1. मेन आइटम का शॉर्टेज चेक
             if(pool === 'FRESH') {
                 let availableStock = calculateLiveFreshStock(rawCode, fbKey);
                 if(availableStock < qty) { 
-                    shortageReportList.push(`• Main Item [${rawCode}]: Required: ${qty} ${unit}, Available: ${availableStock.toFixed(3)} ${unit}`);
+                    let shortageAmount = qty - availableStock;
+                    shortageReportList.push(`• [MAIN ITEM] ${rawCode} -> Required: ${qty} ${unit} | Available: ${availableStock} ${unit} | ❌ Shortage: ${shortageAmount.toFixed(3)} ${unit}`);
                     deficit = true; 
                 }
             }
@@ -438,8 +437,30 @@
             });
         }
         
+        // 🌟 2. BOM पार्ट्स का शॉर्टेज चेक (एकदम सटीक रिपोर्ट के साथ)
+        for(let item of items) {
+            let linkedBOM = bomFormulaList.find(b => b && cleanStr(b.mainCode) === cleanStr(item.code));
+            if(linkedBOM && linkedBOM.accessories) {
+                let accs = safeConvertToArray(linkedBOM.accessories);
+                for(let acc of accs) {
+                    if(acc) {
+                        let requiredBOMQty = parseFloat(acc.qty) * item.qty;
+                        let availableBOMStock = calculateLiveFreshStock(acc.code, fbKey);
+                        
+                        if(availableBOMStock < requiredBOMQty) {
+                            let bUnit = acc.unit ? acc.unit : "NOS";
+                            let shortageAmount = requiredBOMQty - availableBOMStock;
+                            shortageReportList.push(`• [BOM PART] ${acc.code} (For ${item.code}) -> Required: ${requiredBOMQty.toFixed(3)} ${bUnit} | Available: ${availableBOMStock} ${bUnit} | ❌ Shortage: ${shortageAmount.toFixed(3)} ${bUnit}`);
+                            deficit = true;
+                        }
+                    }
+                }
+            }
+        }
+
+        // 🌟 अगर शॉर्टेज है तो बिल को रोक दो और पूरी रिपोर्ट दिखाओ!
         if(shortageReportList.length > 0 || deficit) {
-            alert(`🚫 INSUFFICIENT MAIN STOCK BLOCK:\n\nGate Out dispatch is blocked due to the following main item shortages:\n\n${shortageReportList.join('\n')}\n\nPlease check your warehouse inventory balances before dispatching.`);
+            alert(`🚫 GATE OUT DISPATCH BLOCKED!\n\nCannot create bill. You have Shortage for the following materials:\n\n${shortageReportList.join('\n')}\n\nPlease update Fresh Inward first.`);
             submitBtn.disabled = false; 
             submitBtn.innerText = "Authorize Gate Out (Deduct Stock)";
             return; 
