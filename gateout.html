@@ -186,7 +186,8 @@
     let activeDeleteRowIdx = null; 
     let flatPOList = []; 
 
-    const cleanStr = (str) => String(str || "").trim().toUpperCase().replace(/[\s\-]+/g, '');
+    // 🌟 सुधार: यहाँ से हाइफन (-) हटाने वाला लॉजिक डिलीट कर दिया है भाई, अब डैश बिल्कुल सेफ रहेगा!
+    const cleanStr = (str) => String(str || "").trim().toUpperCase().replace(/\s+/g, '');
 
     function safeConvertToArray(rawVal) {
         if (!rawVal) return [];
@@ -356,7 +357,6 @@
         return (totalIn - totalOut);
     }
 
-    // 🚨 फॉर्म सबमिशन इंजन (BOM कंपोनेंट ब्लॉकिंग को पूरी तरह से हटा दिया गया है भाई)
     document.getElementById('gateoutForm').addEventListener('submit', function(e) {
         e.preventDefault();
         
@@ -409,7 +409,6 @@
             }
 
             if(pool === 'FRESH') {
-                // 🌟 यहाँ केवल मुख्य तैयार मटीरियल का स्टॉक चेक होगा (BOM कंपोनेंट्स की शॉर्टेज डिस्पैच को ब्लॉक नहीं करेगी भाई)
                 let availableStock = calculateLiveFreshStock(rawCode, fbKey);
                 if(availableStock < qty) { 
                     shortageReportList.push(`• Main Item [${rawCode}]: Required: ${qty} ${unit}, Available: ${availableStock.toFixed(3)} ${unit}`);
