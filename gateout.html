@@ -186,7 +186,7 @@
     let activeDeleteRowIdx = null; 
     let flatPOList = []; 
 
-    // 🌟 सुधार: यहाँ से हाइफन (-) हटाने वाला लॉजिक डिलीट कर दिया है भाई, अब डैश बिल्कुल सेफ रहेगा!
+    // 🌟 महा-सुधार: अब हाइफन (-) को कोड से बिल्कुल नहीं हटाया जाएगा। केवल फालतू स्पेस साफ होंगे!
     const cleanStr = (str) => String(str || "").trim().toUpperCase().replace(/\s+/g, '');
 
     function safeConvertToArray(rawVal) {
@@ -357,6 +357,7 @@
         return (totalIn - totalOut);
     }
 
+    // 🚨 फॉर्म सबमिशन इंजन (डुप्लिकेट वाउचर लॉक + ग्रिड रो डुप्लिकेट कोड ब्लॉकर)
     document.getElementById('gateoutForm').addEventListener('submit', function(e) {
         e.preventDefault();
         
@@ -369,7 +370,7 @@
         submitBtn.disabled = true; 
         submitBtn.innerText = "Verifying & Authorizing... Please Wait";
 
-        // 1. DUPLICATE CHECK LOCK
+        // 1. DUPLICATE VOUCHER CHECK LOCK
         let cleanNewDocNo = cleanStr(docNoVal);
         let cleanNewDocType = cleanStr(docTypeVal);
         
@@ -386,11 +387,12 @@
             return;
         }
 
-        // 2. STABLE MAIN ITEM CHECK ENGINE
+        // 2. STABLE MAIN ITEM CHECK & GRID DUPLICATE ROW CHECK ENGINE
         let items = []; 
         let rows = document.querySelectorAll('#gateoutItemsBody tr'); 
         let deficit = false;
         let shortageReportList = []; 
+        let seenCodesInGrid = []; // 🌟 एक चालान में डबल कोड रोकने के लिए एरे
 
         for(let row of rows) {
             const pool = row.querySelector('.go-pool-type').value;
@@ -399,6 +401,16 @@
             const unit = row.querySelector('.go-unit-select').value;
             const snRequired = row.querySelector('.go-sn-required').value;
             
+            // 🌟 कड़क ग्रिड डुप्लिकेट लॉक: अगर एक ही आइटम कोड दोबारा आया तो यहीं ब्लॉक कर दो भाई
+            let cleanGridCode = cleanStr(rawCode);
+            if (seenCodesInGrid.includes(cleanGridCode)) {
+                alert(`🚫 DUPLICATE ITEM CODE BLOCKED:\n\nModel Code [${rawCode}] is added multiple times in this gate pass list!\n\nYou cannot enter the same code in two separate rows. Please combine the quantities.`);
+                submitBtn.disabled = false; 
+                submitBtn.innerText = "Authorize Gate Out (Deduct Stock)";
+                return;
+            }
+            seenCodesInGrid.push(cleanGridCode);
+
             let serialsVal = "-";
             if(snRequired === 'YES') {
                 serialsVal = row.querySelector('.go-serials').value.trim().toUpperCase();
