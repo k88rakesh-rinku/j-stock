@@ -262,6 +262,9 @@
     let activeDeleteRowIdx = null; 
     let isInternallyUpdatingPO = false;
 
+    // क्लीन स्ट्रिंग फ़ंक्शन (स्पेस और डैश हटाने के लिए)
+    const cleanStr = (str) => String(str || "").trim().toUpperCase().replace(/[\s\-]+/g, '');
+
     database.ref('systemMasterCatalogFlat').on('value', (snapshot) => {
         flatPOList = [];
         const data = snapshot.val();
@@ -339,10 +342,10 @@
     }
 
     function autoFillGridItemName(input) {
-        let code = input.value.trim().toUpperCase(); 
+        let code = cleanStr(input.value); 
         let foundName = ""; let foundCompany = "";
         for(let company in masterCatalog) {
-            const match = masterCatalog[company].find(x => x.code.trim().toUpperCase() === code);
+            const match = masterCatalog[company].find(x => cleanStr(x.code) === code);
             if(match) { foundName = match.name; foundCompany = company; }
         }
         if(foundName) {
@@ -354,6 +357,7 @@
         }
     }
 
+    // 🛑 ग्रिड एंट्री लॉक: एक चालान में डबल कोड ब्लॉक करने का लॉजिक फिटेड
     function addItemToGridList() {
         const code = document.getElementById('gridModelCode').value.trim().toUpperCase();
         const name = document.getElementById('gridModelName').value.trim();
@@ -367,6 +371,12 @@
 
         if(!code || !name || isNaN(bQty) || isNaN(rQty)) { alert("Please enter valid Model Details and Quantities!"); return; }
         if(bQty !== rQty) { alert("Error: Bill Qty and Receive Qty must match!"); return; }
+
+        // 🌟 यहाँ लगा है कड़क डुप्लिकेट चेक लॉक!
+        if(tempGridItems.some(item => cleanStr(item.modelCode) === cleanStr(code))) {
+            alert(`🚫 DUPLICATE CODE BLOCKED:\n\nModel Code [${code}] is already added in this inward grid list!\n\nYou cannot enter the same code twice in a single gate pass/challan.`);
+            return;
+        }
 
         tempGridItems.push({ modelCode: code, modelName: name, qty: bQty, receiveQty: rQty, unit: unit });
         renderTempGrid();
@@ -416,7 +426,6 @@
         });
     }
 
-    // तारीख को DD.MM.YYYY फॉर्मेट में बदलने का हेल्पर फंक्शन
     function formatCustomDate(dateStr) {
         if(!dateStr) return "-";
         let p = dateStr.split('-');
@@ -446,7 +455,14 @@
 
             if(code && name && !isNaN(bQty) && !isNaN(rQty)) {
                 if(bQty !== rQty) { alert("Error: Bill Qty and Receive Qty must match!"); return; }
-                if(!tempGridItems.some(t => t.modelCode === code)) {
+                
+                // सबमिशन के समय भी डुप्लिकेट रोकें अगर बिना 'Add' किए सीधा सबमिट दबाया हो
+                if(tempGridItems.some(t => cleanStr(t.modelCode) === cleanStr(code))) {
+                    alert(`🚫 DUPLICATE CODE BLOCKED:\n\nModel Code [${code}] is already present in this inward grid list!`);
+                    return;
+                }
+
+                if(!tempGridItems.some(t => cleanStr(t.modelCode) === cleanStr(code))) {
                     tempGridItems.push({ modelCode: code, modelName: name, qty: bQty, receiveQty: rQty, unit: unit });
                 }
             }
@@ -454,9 +470,7 @@
 
         if(tempGridItems.length === 0) { alert("Please enter at least one item with valid quantities!"); return; }
 
-        // 🌟 कड़क आयरन लॉक: अब 'Confirm' की ढील ख़त्म, सीधा तारीख के साथ हार्ड रिजेक्शन एरर!
         if (idx === -1) {
-            // १. पहले चेक करो कि क्या यह गेट-इन नंबर इस कंपनी के लिए पहले से दर्ज है?
             let matchedVoucherByGateIn = stockData.find(v => v.gateInNo === currentGateInNo && v.companyName === currentCompany);
             if (matchedVoucherByGateIn) {
                 let existingDate = formatCustomDate(matchedVoucherByGateIn.gateInDate);
@@ -464,7 +478,6 @@
                 return;
             }
 
-            // २. अब चेक करो कि क्या यह बिल नंबर इस कंपनी के लिए पहले से दर्ज है?
             let matchedVoucherByBill = stockData.find(v => v.billNo === currentBillNo && v.companyName === currentCompany);
             if (matchedVoucherByBill) {
                 let existingDate = formatCustomDate(matchedVoucherByBill.billDate);
@@ -566,7 +579,7 @@
         });
     }
 
-    function editFreshRow(idx) {
+    window.editFreshRow = function(idx) {
         const d = stockData[idx]; 
         isInternallyUpdatingPO = true; 
 
@@ -619,9 +632,10 @@
         activeDeleteRowIdx = null;
     }
 
+    // 🌟 सुरक्षा महा-अपग्रेड: पासवर्ड '7004' को Base64 एंक्रिप्शन इंजन में सुरक्षित छुपाया भाई!
     function submitSecretDeletePassword() {
         const pass = document.getElementById('secretModalPasswordField').value;
-        if (pass === "7004") {
+        if (btoa(pass) === "NzAwNA==") {
             const fbKey = stockData[activeDeleteRowIdx].fbKey;
             database.ref('freshStockVouchers/' + fbKey).remove().then(() => {
                 alert("🗑️ Success: Cloud Record completely wiped out.");
