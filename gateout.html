@@ -287,25 +287,26 @@
         }
     }
 
+    // 🌟 लाइव स्टॉक कैलकुलेटर महा-ओवरहॉल (रिवर्क और टॉप-लेवल दोनों को बिना पाबंदी के स्कैन करेगा भाई)
     function calculateLiveFreshStock(targetCode, skipFbKey = "") {
         let totalIn = 0; let totalOut = 0; let cleanedTarget = cleanStr(targetCode);
         
         stockData.forEach(v => {
             if(!v) return;
-            let items = safeConvertToArray(v.gridItems);
             
-            if(items.length === 0) {
-                let baseCode = v.modelCode || v.itemCode || v.code || "";
-                if(cleanStr(baseCode) === cleanedTarget) {
-                    totalIn += parseFloat(v.qty || v.receiveQty || 0);
-                }
+            // सुधार 1: टॉप-लेवल वाउचर कोड बिना किसी पाबंदी के स्कैन होगा (जिससे आपका 4600 का स्टॉक मिलेगा)
+            let baseCode = v.modelCode || v.itemCode || v.code || v.partCode || "";
+            if(baseCode && cleanStr(baseCode) === cleanedTarget) {
+                totalIn += parseFloat(v.qty || v.receiveQty || v.passedQty || v.quantity || 0);
             }
             
+            // ग्रिड आइटम्स एरे के अंदर के कोड्स भी पैरेलल स्कैन होंगे
+            let items = safeConvertToArray(v.gridItems);
             items.forEach(item => { 
                 if(item) {
-                    let currentInwardCode = item.modelCode || item.itemCode || item.code || "";
+                    let currentInwardCode = item.modelCode || item.itemCode || item.code || item.partCode || "";
                     if(cleanStr(currentInwardCode) === cleanedTarget) { 
-                        totalIn += parseFloat(item.qty || item.receiveQty || 0); 
+                        totalIn += parseFloat(item.qty || item.receiveQty || item.passedQty || item.quantity || 0); 
                     } 
                 }
             });
@@ -331,7 +332,7 @@
         return (totalIn - totalOut);
     }
 
-    // 🚨 फॉर्म सबमिशन इंजन (डुप्लिकेट ब्लॉक गियर और ऑटो-बटन लॉकर फिटेड)
+    // 🚨 फॉर्म सबमिशन इंजन (शॉर्टेज समेकन सूची और स्ट्रिक्ट ब्लॉक के साथ)
     document.getElementById('gateoutForm').addEventListener('submit', function(e) {
         e.preventDefault();
         
@@ -341,29 +342,31 @@
         const fbKey = document.getElementById('editFirebaseKey').value;
         
         const submitBtn = document.getElementById('btnSubmitForm');
-        submitBtn.disabled = true; // 🔒 बटन तुरंत लॉक
+        submitBtn.disabled = true; 
         submitBtn.innerText = "Verifying & Authorizing... Please Wait";
 
-        // 1. 🛑 STRICT DUPLICATE CHECK LOGIC
+        // 1. DUPLICATE CHECK LOCK
         let cleanNewDocNo = cleanStr(docNoVal);
         let cleanNewDocType = cleanStr(docTypeVal);
         
         let isDuplicate = gateoutData.some(g => {
             if (!g) return false;
-            if (idx !== -1 && g.fbKey === fbKey) return false; // एडिट मोड में खुद को छोड़ दो भाई
+            if (idx !== -1 && g.fbKey === fbKey) return false; 
             return cleanStr(g.docNo) === cleanNewDocNo && cleanStr(g.docType) === cleanNewDocType;
         });
 
         if (isDuplicate) {
             alert(`🚫 DUPLICATE GATE PASS ERROR:\n\nA dispatch voucher with ${docTypeVal} No. [${docNoVal}] already exists on Cloud!\n\nYou cannot generate duplicate gate passes.`);
-            submitBtn.disabled = false; // बटन वापस अनलॉक
+            submitBtn.disabled = false; 
             submitBtn.innerText = "Authorize Gate Out (Deduct Stock)";
             return;
         }
 
-        // 2. 📦 STOCK CHECK ENGINE
+        // 2. CONSOLIDATED STOCK CHECK ENGINE
         let items = []; 
-        let rows = document.querySelectorAll('#gateoutItemsBody tr'); let deficit = false;
+        let rows = document.querySelectorAll('#gateoutItemsBody tr'); 
+        let deficit = false;
+        let shortageReportList = []; // 🌟 सारी शॉर्टेज को एक लिस्ट में बटोरने का एरे
 
         for(let row of rows) {
             const pool = row.querySelector('.go-pool-type').value;
@@ -382,12 +385,14 @@
             }
 
             if(pool === 'FRESH') {
+                // मुख्य आइटम का स्टॉक चेक करें
                 let availableStock = calculateLiveFreshStock(rawCode, fbKey);
                 if(availableStock < qty) { 
-                    alert(`🚫 Deficit in Fresh Pool for Main Item: ${rawCode}\n\nAvailable: ${availableStock} ${unit}\nRequested: ${qty} ${unit}`); 
-                    deficit = true; break; 
+                    shortageReportList.push(`• Main Item [${rawCode}]: Required: ${qty} ${unit}, Available: ${availableStock} ${unit}`);
+                    deficit = true; 
                 }
 
+                // इसके BOM एक्सेसरीज़ का स्टॉक चेक करें
                 let targetBOM = bomFormulaList.find(b => b && cleanStr(b.mainCode) === cleanStr(rawCode));
                 if(targetBOM && targetBOM.accessories) {
                     let accs = safeConvertToArray(targetBOM.accessories);
@@ -397,11 +402,11 @@
                         let availableAccStock = calculateLiveFreshStock(acc.code, fbKey);
                         let bomUnit = acc.unit ? acc.unit : "NOS";
                         if(availableAccStock < requiredAccQty) {
-                            alert(`⚠️ BOM Component Warning:\n\nMain Model [${rawCode}] requires [${requiredAccQty} ${bomUnit}] of Component [${acc.code}].\nAvailable Stock on Cloud: ${availableAccStock} ${bomUnit}\n\n(Note: Dispatch is permitted because main model is in stock).`);
+                            shortageReportList.push(`• Component [${acc.code}] for ${rawCode}: Required: ${requiredAccQty} ${bomUnit}, Available: ${availableAccStock} ${bomUnit}`);
+                            deficit = true; // 🌟 स्ट्रिक्ट ब्लॉक गियर लॉक किया
                         }
                     }
                 }
-                if(deficit) break;
             }
             
             items.push({ 
@@ -414,10 +419,12 @@
             });
         }
         
-        if(deficit) {
-            submitBtn.disabled = false; // एरर होने पर बटन वापस अनलॉक
+        // 🌟 अंतिम फ़ैसला: अगर सूची में कोई भी शॉर्टेज मिली, तो एक बार में पूरा अलर्ट दिखाकर सबमिशन को ब्लॉक कर देंगे
+        if(shortageReportList.length > 0 || deficit) {
+            alert(`🚫 INSUFFICIENT STOCK BLOCK:\n\nGate Out dispatch is blocked due to the following material shortages:\n\n${shortageReportList.join('\n')}\n\nPlease update your ledger balances before dispatching.`);
+            submitBtn.disabled = false; 
             submitBtn.innerText = "Authorize Gate Out (Deduct Stock)";
-            return;
+            return; // 🛑 यहाँ से बाहर! कोई फ़ोर्सफुल कट नहीं होगा भाई।
         }
 
         const dispatchVoucher = {
@@ -621,7 +628,7 @@
         
         const submitBtn = document.getElementById('btnSubmitForm');
         submitBtn.innerText = "Authorize Gate Out (Deduct Stock)";
-        submitBtn.disabled = false; // रीसेट होने पर बटन वापस खुल जाएगा
+        submitBtn.disabled = false; 
         
         document.getElementById('btnCancelEdit').style.display = "none";
         applyLiveDateRestrictions(); addGoRow();
