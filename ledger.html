@@ -39,9 +39,9 @@
         .btn-view-action { background-color: #64748b; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; }
         .btn-view-action:hover { background-color: #475569; }
 
-        /* 🌟 History Modal Styling */
+        /* History Modal Styling */
         .history-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 10000; }
-        .history-modal-content { background: white; padding: 20px; border-radius: 8px; width: 800px; max-width: 95%; max-height: 85vh; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+        .history-modal-content { background: white; padding: 20px; border-radius: 8px; width: 850px; max-width: 95%; max-height: 85vh; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
         .modal-header-title { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 15px; }
         .modal-close-btn { background: #ef4444; color: white; border: none; padding: 5px 12px; font-weight: bold; border-radius: 4px; cursor: pointer; }
         .sub-modal-table { width: 100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 15px; }
@@ -73,7 +73,7 @@
 
     <div class="ledger-tabs">
         <button class="ledger-tab-btn active" onclick="switchLedgerTab('po-tab', this)">📊 PO Matrix Ledger</button>
-        <button class="ledger-tab-btn" onclick="switchLedgerTab('stock-tab', this)">🏬 Live Fresh Stock (Bills)</button>
+        <button class="ledger-tab-btn" onclick="switchLedgerTab('stock-tab', this)">🏬 Live Fresh Stock (Consolidated)</button>
         <button class="ledger-tab-btn" onclick="switchLedgerTab('rework-tab', this)">🛠️ Live Rework Inventory (Gate Pass)</button>
     </div>
 
@@ -90,7 +90,7 @@
                     <option value="ALL">All PO Records</option>
                 </select>
             </div>
-            <div class="panel-left">
+            <div class="form-group" style="margin-bottom:0; flex-direction:row; align-items:center; gap:5px;">
                 <label style="font-weight: bold; font-size: 13px; color:#475569;">Show:</label>
                 <select id="poLimitDropdown" class="select-filter" onchange="renderPoLedgerTable()">
                     <option value="5" selected>5 Records</option>
@@ -122,7 +122,7 @@
             <div class="panel-left">
                 <input type="text" id="stockSearchBox" class="search-box" placeholder="🔍 Type Model Code or Item Name..." autocomplete="off" oninput="renderPhysicalStockTable()">
             </div>
-            <div class="panel-left">
+            <div class="form-group" style="margin-bottom:0; flex-direction:row; align-items:center; gap:5px;">
                 <label style="font-weight: bold; font-size: 13px; color:#475569;">Show Records:</label>
                 <select id="stockLimitDropdown" class="select-filter" onchange="renderPhysicalStockTable()">
                     <option value="5" selected>5 Records</option>
@@ -154,7 +154,7 @@
             <div class="panel-left">
                 <input type="text" id="reworkSearchBox" class="search-box" placeholder="🔍 Type Model Code or Item Name..." autocomplete="off" oninput="renderReworkStockTable()">
             </div>
-            <div class="panel-left">
+            <div class="form-group" style="margin-bottom:0; flex-direction:row; align-items:center; gap:5px;">
                 <label style="font-weight: bold; font-size: 13px; color:#475569;">Show Records:</label>
                 <select id="reworkLimitDropdown" class="select-filter" onchange="renderReworkStockTable()">
                     <option value="5" selected>5 Records</option>
@@ -225,7 +225,9 @@
     function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
 
     let catalogFlatList = []; let inboundVouchers = []; let reworkInboundVouchers = []; let outwardDispatches = []; let bomFormulaList = [];
-    const cleanStr = (str) => String(str || "").trim().toUpperCase();
+    
+    // 🌟 सुरक्षा महा-अपग्रेड: अब स्पेस और डैश दोनों उड़ेंगे ताकि कोड मिसमैच न हो भाई!
+    const cleanStr = (str) => String(str || "").trim().toUpperCase().replace(/[\s\-]+/g, '');
     function safeConvertToArray(rawVal) { return rawVal ? (Array.isArray(rawVal) ? rawVal : Object.values(rawVal)) : []; }
 
     function switchLedgerTab(tabId, btn) {
@@ -258,9 +260,11 @@
             let currentPoNo = v.poNo ? cleanStr(v.poNo) : "";
             let entryDate = v.gateInDate || v.billDate || v.date || "";
             safeConvertToArray(v.gridItems).forEach(item => {
-                if(!item || !item.modelCode) return;
-                let key = currentPoNo + "|||" + cleanStr(item.modelCode);
-                poSummaryMap[key] = (poSummaryMap[key] || 0) + parseInt(item.qty || item.receiveQty || item.quantity || 0);
+                if(!item) return;
+                let innerCode = item.modelCode || item.itemCode || item.code || "";
+                if(!innerCode) return;
+                let key = currentPoNo + "|||" + cleanStr(innerCode);
+                poSummaryMap[key] = (poSummaryMap[key] || 0) + parseFloat(item.qty || item.receiveQty || item.quantity || 0);
                 if (entryDate && (!poDateMap[key] || entryDate > poDateMap[key])) poDateMap[key] = entryDate;
             });
         });
@@ -269,7 +273,7 @@
             if(!c || !c.poNumber) return false;
             let key = cleanStr(c.poNumber) + "|||" + cleanStr(c.code);
             let received = poSummaryMap[key] || 0;
-            let poQty = parseInt(c.qty || c.poTotalQty || 0);
+            let poQty = parseFloat(c.qty || c.poTotalQty || 0);
             let isCompleted = (poQty - received) <= 0;
             if(poFilter === 'ACTIVE' && isCompleted) return false;
             if(poFilter === 'COMPLETED' && !isCompleted) return false;
@@ -281,16 +285,16 @@
         filteredCatalog.forEach(c => {
             let key = cleanStr(c.poNumber) + "|||" + cleanStr(c.code);
             let received = poSummaryMap[key] || 0;
-            let poQty = parseInt(c.qty || c.poTotalQty || 0);
+            let poQty = parseFloat(c.qty || c.poTotalQty || 0);
             let pending = poQty - received; if(pending < 0) pending = 0;
             let unit = c.poUnit || "NOS";
             let lastDate = poDateMap[key] ? poDateMap[key] : "-";
 
-            tbody.innerHTML += `<tr><td><code>${c.poNumber}</code></td><td><code>${c.code}</code></td><td>${c.name}</td><td><b>${poQty} ${unit}</b></td><td style="color:#0284c7;">${received} ${unit}</td><td style="color:${pending>0?'#dc2626':'#16a34a'}">${pending} ${unit}</td><td style="color:#475569; font-weight:bold;">${lastDate}</td><td>${pending===0?'✅ Complete':'⏳ Active'}</td></tr>`;
+            tbody.innerHTML += `<tr><td><code>${c.poNumber}</code></td><td><code>${c.code}</code></td><td>${c.name}</td><td><b>${poQty.toFixed(2)} ${unit}</b></td><td style="color:#0284c7;">${received.toFixed(2)} ${unit}</td><td style="color:${pending>0?'#dc2626':'#16a34a'}">${pending.toFixed(2)} ${unit}</td><td style="color:#475569; font-weight:bold;">${lastDate}</td><td>${pending===0?'✅ Complete':'⏳ Active'}</td></tr>`;
         });
     }
 
-    // 2. LIVE FRESH STOCK TABLE
+    // 2. LIVE FRESH STOCK TABLE (Mergining Fresh inward bills + Rework passed to fresh)
     function renderPhysicalStockTable() {
         const tbody = document.getElementById('physicalStockBody'); tbody.innerHTML = '';
         const searchStr = document.getElementById('stockSearchBox').value.trim().toUpperCase();
@@ -298,25 +302,56 @@
 
         let globalFreshInMap = {}; let itemNamesMap = {}; let itemUnitsMap = {}; let freshDateMap = {};
 
+        // A. Fresh Inward Bills Scanner (Root Level + Grid Level)
         inboundVouchers.forEach(v => {
+            if (!v) return;
             let entryDate = v.gateInDate || v.billDate || v.date || "";
+            
+            let baseCode = v.modelCode || v.itemCode || v.code || v.partCode || "";
+            if (baseCode) {
+                let code = cleanStr(baseCode);
+                globalFreshInMap[code] = (globalFreshInMap[code] || 0) + parseFloat(v.qty || v.receiveQty || v.passedQty || v.quantity || 0);
+                if (v.modelName || v.itemName) itemNamesMap[code] = String(v.modelName || v.itemName || '').toUpperCase();
+                if (v.unit) itemUnitsMap[code] = cleanStr(v.unit);
+                if (entryDate && (!freshDateMap[code] || entryDate > freshDateMap[code])) freshDateMap[code] = entryDate;
+            }
+
             safeConvertToArray(v.gridItems).forEach(item => {
-                if(!item || !item.modelCode) return;
-                let code = cleanStr(item.modelCode);
-                globalFreshInMap[code] = (globalFreshInMap[code] || 0) + parseInt(item.qty || item.receiveQty || item.quantity || 0);
-                itemNamesMap[code] = String(item.modelName || '').toUpperCase();
-                itemUnitsMap[code] = cleanStr(item.unit || 'NOS');
+                if(!item) return;
+                let innerCode = item.modelCode || item.itemCode || item.code || item.partCode || "";
+                if (!innerCode) return;
+                let code = cleanStr(innerCode);
+                globalFreshInMap[code] = (globalFreshInMap[code] || 0) + parseFloat(item.qty || item.receiveQty || item.quantity || 0);
+                itemNamesMap[code] = String(item.modelName || item.itemName || itemNamesMap[code] || '').toUpperCase();
+                itemUnitsMap[code] = cleanStr(item.unit || itemUnitsMap[code] || 'NOS');
                 if (entryDate && (!freshDateMap[code] || entryDate > freshDateMap[code])) freshDateMap[code] = entryDate;
             });
         });
 
+        // B. Rework Vouchers Passed into FRESH Scanner (Root Level + Grid Level)
         reworkInboundVouchers.forEach(v => {
-            let entryDate = v.date || "";
+            if (!v) return;
+            let entryDate = v.date || v.gateInDate || "";
+            
+            let baseCode = v.modelCode || v.itemCode || v.code || v.itemShort || "";
+            let basePool = cleanStr(v.pool || 'REWORK');
+            if (baseCode && basePool === "FRESH") {
+                let code = cleanStr(baseCode);
+                globalFreshInMap[code] = (globalFreshInMap[code] || 0) + parseFloat(v.qty || v.receiveQty || v.passedQty || v.quantity || 0);
+                if (v.modelName || v.itemName) itemNamesMap[code] = String(v.modelName || v.itemName || '').toUpperCase();
+                if (v.unit) itemUnitsMap[code] = cleanStr(v.unit);
+                if (entryDate && (!freshDateMap[code] || entryDate > freshDateMap[code])) freshDateMap[code] = entryDate;
+            }
+
             safeConvertToArray(v.gridItems).forEach(item => {
                 if(!item) return;
-                let code = cleanStr(item.itemShort || item.modelCode || item.code);
-                if(cleanStr(item.pool) === "FRESH") {
-                    globalFreshInMap[code] = (globalFreshInMap[code] || 0) + parseInt(item.qty || item.receiveQty || item.quantity || 0);
+                let innerCode = item.itemShort || item.modelCode || item.code || item.partCode || "";
+                if (!innerCode) return;
+                let code = cleanStr(innerCode);
+                let rowPool = cleanStr(item.pool || 'REWORK');
+                
+                if(rowPool === "FRESH") {
+                    globalFreshInMap[code] = (globalFreshInMap[code] || 0) + parseFloat(item.qty || item.receiveQty || item.quantity || item.passedQty || 0);
                     if (entryDate && (!freshDateMap[code] || entryDate > freshDateMap[code])) freshDateMap[code] = entryDate;
                 }
                 if(item.itemName || item.modelName) itemNamesMap[code] = String(item.itemName || item.modelName).toUpperCase();
@@ -324,13 +359,17 @@
             });
         });
 
+        // C. Gate Out Dispatches & BOM Auto Deduction Tracker
         let globalFreshOutMap = {};
         outwardDispatches.forEach(g => {
+            if (!g) return;
             let entryDate = g.date || "";
             safeConvertToArray(g.gridItems).forEach(item => {
                 if(!item || !item.code) return;
-                let mainCode = cleanStr(item.code); let mainQty = parseInt(item.qty || 0);
-                if(item.pool === 'FRESH') {
+                let mainCode = cleanStr(item.code); let mainQty = parseFloat(item.qty || 0);
+                let rowPool = cleanStr(item.pool || 'FRESH');
+                
+                if(rowPool === 'FRESH') {
                     globalFreshOutMap[mainCode] = (globalFreshOutMap[mainCode] || 0) + mainQty;
                     if (entryDate && (!freshDateMap[mainCode] || entryDate > freshDateMap[mainCode])) freshDateMap[mainCode] = entryDate;
                     
@@ -339,7 +378,7 @@
                         safeConvertToArray(targetBOM.accessories).forEach(acc => {
                             if(acc && acc.code) {
                                 let accCode = cleanStr(acc.code);
-                                globalFreshOutMap[accCode] = (globalFreshOutMap[accCode] || 0) + (parseInt(acc.qty || 0) * mainQty);
+                                globalFreshOutMap[accCode] = (globalFreshOutMap[accCode] || 0) + (parseFloat(acc.qty || 0) * mainQty);
                                 if (entryDate && (!freshDateMap[accCode] || entryDate > freshDateMap[accCode])) freshDateMap[accCode] = entryDate;
                             }
                         });
@@ -359,15 +398,15 @@
 
             tbody.innerHTML += `<tr>
                 <td><code>${code}</code></td><td>${itemNamesMap[code] || 'GENERIC ITEM'}</td>
-                <td style="color:#16a34a; font-weight:bold;">${tin} ${unit}</td><td style="color:#64748b;">${tout} ${unit}</td>
-                <td><span class="badge-stock ${live>0?'badge-plus':'badge-zero'}">${live} ${unit}</span></td>
+                <td style="color:#16a34a; font-weight:bold;">${tin.toFixed(3)} ${unit}</td><td style="color:#64748b;">${tout.toFixed(3)} ${unit}</td>
+                <td><span class="badge-stock ${live>0?'badge-plus':'badge-zero'}">${live.toFixed(3)} ${unit}</span></td>
                 <td style="color:#475569; font-weight:bold;">${lastDate}</td>
                 <td><button type="button" class="btn-view-action" onclick="openItemLifecycleModal('${code}', 'FRESH')">👁️ View</button></td>
             </tr>`;
         });
     }
 
-    // 3. REWORK STOCK TABLE
+    // 3. REWORK STOCK TABLE (Pure rework only)
     function renderReworkStockTable() {
         const tbody = document.getElementById('reworkStockBody'); tbody.innerHTML = '';
         const searchStr = document.getElementById('reworkSearchBox').value.trim().toUpperCase();
@@ -376,26 +415,43 @@
         let globalReworkInMap = {}; let itemNamesMap = {}; let itemUnitsMap = {}; let reworkDateMap = {};
 
         reworkInboundVouchers.forEach(v => {
+            if (!v) return;
             let entryDate = v.date || "";
+            
+            let baseCode = v.modelCode || v.itemCode || v.code || v.itemShort || "";
+            let basePool = cleanStr(v.pool || 'REWORK');
+            if (baseCode && basePool === "REWORK") {
+                let code = cleanStr(baseCode);
+                globalReworkInMap[code] = (globalReworkInMap[code] || 0) + parseFloat(v.qty || v.receiveQty || v.passedQty || v.quantity || 0);
+                if (v.modelName || v.itemName) itemNamesMap[code] = String(v.modelName || v.itemName || '').toUpperCase();
+                if (v.unit) itemUnitsMap[code] = cleanStr(v.unit);
+                if (entryDate && (!reworkDateMap[code] || entryDate > reworkDateMap[code])) reworkDateMap[code] = entryDate;
+            }
+
             safeConvertToArray(v.gridItems).forEach(item => {
                 if(!item) return;
-                let code = cleanStr(item.itemShort || item.modelCode || item.code);
-                if(cleanStr(item.pool || 'REWORK') === "REWORK") {
-                    globalReworkInMap[code] = (globalReworkInMap[code] || 0) + parseInt(item.qty || item.receiveQty || item.quantity || 0);
-                    itemNamesMap[code] = String(item.itemName || item.modelName || '').toUpperCase();
-                    itemUnitsMap[code] = cleanStr(item.unit || 'NOS');
+                let innerCode = item.itemShort || item.modelCode || item.code || item.partCode || "";
+                if (!innerCode) return;
+                let code = cleanStr(innerCode);
+                let rowPool = cleanStr(item.pool || 'REWORK');
+                
+                if(rowPool === "REWORK") {
+                    globalReworkInMap[code] = (globalReworkInMap[code] || 0) + parseFloat(item.qty || item.receiveQty || item.quantity || item.passedQty || 0);
                     if (entryDate && (!reworkDateMap[code] || entryDate > reworkDateMap[code])) reworkDateMap[code] = entryDate;
                 }
+                if(item.itemName || item.modelName) itemNamesMap[code] = String(item.itemName || item.modelName).toUpperCase();
+                if(item.unit) itemUnitsMap[code] = cleanStr(item.unit);
             });
         });
 
         let globalReworkOutMap = {};
         outwardDispatches.forEach(g => {
+            if (!g) return;
             let entryDate = g.date || "";
             safeConvertToArray(g.gridItems).forEach(item => {
-                if(item && item.code && item.pool === 'REWORK') {
+                if(item && item.code && cleanStr(item.pool || 'FRESH') === 'REWORK') {
                     let code = cleanStr(item.code);
-                    globalReworkOutMap[code] = (globalReworkOutMap[code] || 0) + parseInt(item.qty || 0);
+                    globalReworkOutMap[code] = (globalReworkOutMap[code] || 0) + parseFloat(item.qty || 0);
                     if (entryDate && (!reworkDateMap[code] || entryDate > reworkDateMap[code])) reworkDateMap[code] = entryDate;
                 }
             });
@@ -412,15 +468,15 @@
 
             tbody.innerHTML += `<tr>
                 <td><code>${code}</code></td><td>${itemNamesMap[code] || 'REPAIR MATERIAL'}</td>
-                <td style="color:#0369a1; font-weight:bold;">${rin} ${unit}</td><td style="color:#64748b;">${rout} ${unit}</td>
-                <td><span class="badge-stock ${live>0?'badge-rework':'badge-zero'}">${live} ${unit}</span></td>
+                <td style="color:#0369a1; font-weight:bold;">${rin.toFixed(3)} ${unit}</td><td style="color:#64748b;">${rout.toFixed(3)} ${unit}</td>
+                <td><span class="badge-stock ${live>0?'badge-rework':'badge-zero'}">${live.toFixed(3)} ${unit}</span></td>
                 <td style="color:#475569; font-weight:bold;">${lastDate}</td>
                 <td><button type="button" class="btn-view-action" onclick="openItemLifecycleModal('${code}', 'REWORK')">👁️ View</button></td>
             </tr>`;
         });
     }
 
-    // 🌟 4. VIEW POPUP HISTORY ENGINE
+    // 4. VIEW POPUP HISTORY STATEMENT ENGINE
     let currentActiveModalCode = "";
     let currentActiveModalPool = "";
 
@@ -441,10 +497,17 @@
                 let refNo = v.billNo || v.invoiceNo || v.gateInNo || "-";
                 let vName = v.companyName || v.vendorName || v.supplier || "-";
 
+                let baseCode = v.modelCode || v.itemCode || v.code || v.partCode || "";
+                if (baseCode && cleanStr(baseCode) === cleanTarget) {
+                    let qty = parseFloat(v.qty || v.receiveQty || v.passedQty || v.quantity || 0);
+                    inBody.innerHTML += `<tr><td>${billDate}</td><td>Bill: ${refNo} (Root)</td><td>${vName}</td><td><span style="color:#16a34a;">FRESH</span></td><td><b>${qty.toFixed(3)} ${v.unit || 'NOS'}</b></td></tr>`;
+                }
+
                 safeConvertToArray(v.gridItems).forEach(item => {
-                    if(item && cleanStr(item.modelCode) === cleanTarget) {
-                        let qty = item.qty || item.receiveQty || item.quantity || 0;
-                        inBody.innerHTML += `<tr><td>${billDate}</td><td>Bill: ${refNo}</td><td>${vName}</td><td><span style="color:#16a34a;">FRESH</span></td><td><b>${qty} ${item.unit || 'NOS'}</b></td></tr>`;
+                    let innerCode = item.modelCode || item.itemCode || item.code || item.partCode || "";
+                    if(item && cleanStr(innerCode) === cleanTarget) {
+                        let qty = parseFloat(item.qty || item.receiveQty || item.quantity || 0);
+                        inBody.innerHTML += `<tr><td>${billDate}</td><td>Bill: ${refNo}</td><td>${vName}</td><td><span style="color:#16a34a;">FRESH</span></td><td><b>${qty.toFixed(3)} ${item.unit || 'NOS'}</b></td></tr>`;
                     }
                 });
             });
@@ -456,13 +519,20 @@
             let refNo = v.gateEntryNo || v.gpNo || v.challanNo || "-";
             let pName = v.partyName || v.clientName || "-";
 
+            let baseCode = v.modelCode || v.itemCode || v.code || v.itemShort || "";
+            let basePool = cleanStr(v.pool || 'REWORK');
+            if (baseCode && cleanStr(baseCode) === cleanTarget && basePool === poolType) {
+                let qty = parseFloat(v.qty || v.receiveQty || v.passedQty || v.quantity || 0);
+                inBody.innerHTML += `<tr><td>${entryDate}</td><td>GP Root: ${refNo}</td><td>${pName}</td><td><span style="color:#0369a1;">${basePool}</span></td><td><b>${qty.toFixed(3)} ${v.unit || 'NOS'}</b></td></tr>`;
+            }
+
             safeConvertToArray(v.gridItems).forEach(item => {
                 if(!item) return;
-                let itemCode = cleanStr(item.itemShort || item.modelCode || item.code);
+                let innerCode = item.itemShort || item.modelCode || item.code || item.partCode || "";
                 let rowPool = cleanStr(item.pool || 'REWORK');
-                if(itemCode === cleanTarget && rowPool === poolType) {
-                    let qty = item.qty || item.receiveQty || item.quantity || 0;
-                    inBody.innerHTML += `<tr><td>${entryDate}</td><td>GP Entry: ${refNo}</td><td>${pName}</td><td><span style="color:#0369a1;">${rowPool}</span></td><td><b>${qty} ${item.unit || 'NOS'}</b></td></tr>`;
+                if(cleanStr(innerCode) === cleanTarget && rowPool === poolType) {
+                    let qty = parseFloat(item.qty || item.receiveQty || item.quantity || item.passedQty || 0);
+                    inBody.innerHTML += `<tr><td>${entryDate}</td><td>GP Entry: ${refNo}</td><td>${pName}</td><td><span style="color:#0369a1;">${rowPool}</span></td><td><b>${qty.toFixed(3)} ${item.unit || 'NOS'}</b></td></tr>`;
                 }
             });
         });
@@ -476,20 +546,25 @@
 
             safeConvertToArray(g.gridItems).forEach(item => {
                 if(!item) return;
-                let mainCode = cleanStr(item.code);
-                let mainQty = parseInt(item.qty || 0);
+                let innerCode = item.code || item.modelCode || item.itemCode || "";
+                let mainCode = cleanStr(innerCode);
+                let mainQty = parseFloat(item.qty || 0);
+                let rowPool = cleanStr(item.pool || 'FRESH');
 
-                if(mainCode === cleanTarget && cleanStr(item.pool || 'FRESH') === poolType) {
-                    outBody.innerHTML += `<tr><td>${outDate}</td><td>GO-${vNo} (${docType})</td><td>Loc: ${loc}</td><td>${item.pool}</td><td><b>${mainQty} ${item.unit || 'NOS'}</b></td></tr>`;
+                if(mainCode === cleanTarget && rowPool === poolType) {
+                    outBody.innerHTML += `<tr><td>${outDate}</td><td>GO-${vNo} (${docType})</td><td>Loc: ${loc}</td><td>${item.pool}</td><td><b>${mainQty.toFixed(3)} ${item.unit || 'NOS'}</b></td></tr>`;
                 }
 
-                if(poolType === 'FRESH' && item.pool === 'FRESH') {
+                if(poolType === 'FRESH' && rowPool === 'FRESH') {
                     let targetBOM = bomFormulaList.find(b => b && cleanStr(b.mainCode) === mainCode);
                     if(targetBOM && targetBOM.accessories) {
                         safeConvertToArray(targetBOM.accessories).forEach(acc => {
-                            if(acc && cleanStr(acc.code) === cleanTarget) {
-                                let totalCut = parseInt(acc.qty) * mainQty;
-                                outBody.innerHTML += `<tr><td>${outDate}</td><td>BOM Cut (Main: ${mainCode})</td><td>Loc: ${loc}</td><td>FRESH (BOM)</td><td style="color:#ef4444;"><b>${totalCut} ${acc.unit || 'NOS'}</b></td></tr>`;
+                            if(acc && acc.code) {
+                                let accCode = cleanStr(acc.code);
+                                if (accCode === cleanTarget) {
+                                    let totalCut = parseFloat(acc.qty) * mainQty;
+                                    outBody.innerHTML += `<tr><td>${outDate}</td><td>BOM Cut (Main: ${mainCode})</td><td>Loc: ${loc}</td><td>FRESH (BOM)</td><td style="color:#ef4444;"><b>${totalCut.toFixed(3)} ${acc.unit || 'NOS'}</b></td></tr>`;
+                                }
                             }
                         });
                     }
@@ -505,7 +580,6 @@
 
     function closeHistoryModal() { document.getElementById('itemHistoryModal').style.display = 'none'; }
 
-    // 🚀 🌟 सुधरा हुआ जादुई डाउनलोडर इंजन (NOS हटा दिया - शुद्ध नंबर फ़िक्स) 🌟 🚀
     function exportModalStatementToCSV() {
         let csvRows = [];
         let matchedItemName = "GENERIC ITEM";
@@ -517,115 +591,69 @@
             }
         });
 
-        if(currentActiveModalPool === 'FRESH') {
-            inboundVouchers.forEach(v => {
-                if(!v) return;
-                let vName = v.companyName || v.vendorName || v.supplier;
-                if(vName) {
-                    safeConvertToArray(v.gridItems).forEach(item => {
-                        if(item && cleanStr(item.modelCode) === currentActiveModalCode) {
-                            let cleanVendor = vName.trim().toUpperCase();
-                            if(!matchedParties.includes(cleanVendor)) matchedParties.push(cleanVendor);
-                        }
-                    });
-                }
-            });
-        }
-        
-        reworkInboundVouchers.forEach(v => {
-            if(!v) return;
-            let pName = v.partyName || v.clientName;
-            if(pName) {
-                safeConvertToArray(v.gridItems).forEach(item => {
-                    let itemCode = cleanStr(item.itemShort || item.modelCode || item.code);
-                    let rowPool = cleanStr(item.pool || 'REWORK');
-                    if(itemCode === currentActiveModalCode && rowPool === currentActiveModalPool) {
-                        let cleanParty = pName.trim().toUpperCase();
-                        if(!matchedParties.includes(cleanParty)) matchedParties.push(cleanParty);
-                    }
-                });
-            }
-        });
-
-        let finalPartyString = matchedParties.length > 0 ? matchedParties.join(" / ") : "-";
-
         csvRows.push([`"Item Code:",,,"${currentActiveModalCode}"`].join(","));
         csvRows.push([`"Item Name:",,,"${matchedItemName.toUpperCase().replace(/"/g, '""')}"`].join(","));
-        csvRows.push([`"Party Name:",,,"${finalPartyString.replace(/"/g, '""')}"`].join(","));
-        csvRows.push([]); // खाली स्पेस लाइन
+        csvRows.push([]); 
 
-        // 📥 टेबल हेडर
-        csvRows.push(['"Gate Id"', '"Gate in Date"', '"Bill No"', '"Bill Qty"', '"Bill Date"'].join(","));
+        csvRows.push(['"Gate Id"', '"Gate in Date"', '"Reference Doc"', '"Quantity Ledger"', '"Pool Type"'].join(","));
         
         if(currentActiveModalPool === 'FRESH') {
             inboundVouchers.forEach((v, index) => {
                 if(!v) return;
-                let billDate = v.billDate || "-";
-                let gateInDate = v.gateInDate || v.date || "-";
+                let billDate = v.billDate || v.gateInDate || v.date || "-";
                 let refNo = v.billNo || v.invoiceNo || "-";
                 let gateId = v.gateInNo || `G-${1000 + index}`;
 
+                let baseCode = v.modelCode || v.itemCode || v.code || "";
+                if (baseCode && cleanStr(baseCode) === currentActiveModalCode) {
+                    let qty = parseFloat(v.qty || v.receiveQty || 0);
+                    csvRows.push([`"${gateId}"`, `"${billDate}"`, `"Bill: ${refNo}"`, `"${qty.toFixed(3)}"`, `"${currentActiveModalPool}"`].join(","));
+                }
+
                 safeConvertToArray(v.gridItems).forEach(item => {
-                    if(item && cleanStr(item.modelCode) === currentActiveModalCode) {
-                        // 🌟 यहाँ सिर्फ़ शुद्ध नंबर भेज रहे हैं, ताकि एक्सेल में आसानी से SUM हो सके भाई
-                        let qtyNumberOnly = parseInt(item.qty || item.receiveQty || 0);
-                        
-                        let rData = [
-                            '"' + gateId + '"',
-                            '"' + gateInDate + '"',
-                            '"' + refNo + '"',
-                            '"' + qtyNumberOnly + '"', 
-                            '"' + billDate + '"'
-                        ];
-                        csvRows.push(rData.join(","));
+                    let innerCode = item.modelCode || item.itemCode || item.code || "";
+                    if(item && cleanStr(innerCode) === currentActiveModalCode) {
+                        let qty = parseFloat(item.qty || item.receiveQty || 0);
+                        csvRows.push([`"${gateId}"`, `"${billDate}"`, `"Bill: ${refNo}"`, `"${qty.toFixed(3)}"`, `"${currentActiveModalPool}"`].join(","));
                     }
                 });
             });
-        } else {
-            reworkInboundVouchers.forEach((v, index) => {
-                if(!v) return;
-                let gateInDate = v.date || "-";
-                let refNo = v.gateEntryNo || v.challanNo || "-";
-                let gateId = v.gateEntryNo || `GP-${2000 + index}`;
+        } 
+        
+        reworkInboundVouchers.forEach((v, index) => {
+            if(!v) return;
+            let gateInDate = v.date || "-";
+            let refNo = v.gateEntryNo || v.challanNo || "-";
+            let gateId = v.gateEntryNo || `GP-${2000 + index}`;
 
-                safeConvertToArray(v.gridItems).forEach(item => {
-                    let itemCode = cleanStr(item.itemShort || item.modelCode || item.code);
-                    let rowPool = cleanStr(item.pool || 'REWORK');
-                    if(itemCode === currentActiveModalCode && rowPool === currentActiveModalPool) {
-                        // 🌟 यहाँ भी सिर्फ़ नंबर भेज रहे हैं
-                        let qtyNumberOnly = parseInt(item.qty || item.receiveQty || 0);
-                        
-                        let rData = [
-                            '"' + gateId + '"',
-                            '"' + gateInDate + '"',
-                            '"' + refNo + '"',
-                            '"' + qtyNumberOnly + '"',
-                            '"' + gateInDate + '"'
-                        ];
-                        csvRows.push(rData.join(","));
-                    }
-                });
+            let baseCode = v.modelCode || v.itemCode || v.code || v.itemShort || "";
+            let basePool = cleanStr(v.pool || 'REWORK');
+            if (baseCode && cleanStr(baseCode) === currentActiveModalCode && basePool === currentActiveModalPool) {
+                let qty = parseFloat(v.qty || v.receiveQty || 0);
+                csvRows.push([`"${gateId}"`, `"${gateInDate}"`, `"GP Root: ${refNo}"`, `"${qty.toFixed(3)}"`, `"${currentActiveModalPool}"`].join(","));
+            }
+
+            safeConvertToArray(v.gridItems).forEach(item => {
+                let innerCode = item.itemShort || item.modelCode || item.code || "";
+                let rowPool = cleanStr(item.pool || 'REWORK');
+                if(cleanStr(innerCode) === currentActiveModalCode && rowPool === currentActiveModalPool) {
+                    let qty = parseFloat(item.qty || item.receiveQty || 0);
+                    csvRows.push([`"${gateId}"`, `"${gateInDate}"`, `"GP Entry: ${refNo}"`, `"${qty.toFixed(3)}"`, `"${currentActiveModalPool}"`].join(","));
+                }
             });
-        }
-
-        if(csvRows.length === 5) {
-            csvRows.push(['"No transactions found for this item in database."', '""', '""', '""', '""'].join(","));
-        }
+        });
 
         const csvContent = "\uFEFF" + csvRows.join("\n");
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
-        
         const link = document.createElement("a");
         link.setAttribute("href", url);
         link.setAttribute("download", `Statement_${currentActiveModalCode}.csv`);
-        link.style.visibility = 'hidden';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
     }
 
-    // GLOBAL TABLES EXPORTER ENGINE
     function downloadTableToCSV(tableId, filename) {
         const table = document.getElementById(tableId);
         if(!table) return;
@@ -637,8 +665,7 @@
             for (let j = 0; j < cols.length; j++) {
                 if((tableId === "freshStockTableHead" || tableId === "reworkStockTableHead") && j === cols.length - 1) continue; 
                 let cellText = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, "").trim().replace(/"/g, '""');
-                rowData.push('景色' + cellText + '"');
-                rowData[rowData.length - 1] = '"' + cellText + '"';
+                rowData.push('"' + cellText + '"');
             }
             csvRows.push(rowData.join(","));
         }
@@ -648,7 +675,6 @@
         const link = document.createElement("a");
         link.setAttribute("href", url);
         link.setAttribute("download", filename);
-        link.style.visibility = 'hidden';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -658,21 +684,33 @@
     function exportReworkStockToExcel() { downloadTableToCSV("reworkStockTableHead", "Live_Rework_Inventory_Report.csv"); }
     
     function exportPhysicalStockToExcel() { 
-        if (inboundVouchers.length === 0) { alert("डेटाबेस में कोई रिकॉर्ड नहीं मिला!"); return; }
+        if (inboundVouchers.length === 0) { alert("ಡೇಟಾಬೇಸ್‌ನಲ್ಲಿ ಯಾವುದೇ ರೆಕಾರ್ಡ್ ಕಂಡುಬಂದಿಲ್ಲ!"); return; }
         let csvRows = [];
         csvRows.push(['"Inward Date"', '"Bill No / Ref"', '"Vendor / Company Name"', '"Model Part Code"', '"Item Description"', '"Received Qty"', '"Unit"'].join(","));
+        
         inboundVouchers.forEach(v => {
             if (!v) return;
             let billDate = v.gateInDate || v.billDate || v.date || "-";
             let billNo = (v.billNo || v.invoiceNo || "-").replace(/"/g, '""');
             let vendorName = (v.companyName || v.vendorName || "-").replace(/"/g, '""');
+            
+            let baseCode = v.modelCode || v.itemCode || v.code || "";
+            if (baseCode) {
+                let pCode = cleanStr(baseCode);
+                let pName = String(v.modelName || v.itemName || "GENERIC ITEM").toUpperCase().replace(/"/g, '""');
+                let qty = parseFloat(v.qty || v.receiveQty || 0);
+                let unit = cleanStr(v.unit || "NOS");
+                csvRows.push(['"' + billDate + '"', '"' + billNo + '"', '"' + vendorName + '"', '"' + pCode + '"', '"' + pName + '"', '"' + qty.toFixed(3) + '"', '"' + unit + '"'].join(","));
+            }
+
             safeConvertToArray(v.gridItems).forEach(item => {
                 if (!item) return;
-                let pCode = cleanStr(item.modelCode || "-");
+                let innerCode = item.modelCode || item.itemCode || item.code || "";
+                let pCode = cleanStr(innerCode);
                 let pName = String(item.modelName || "GENERIC ITEM").toUpperCase().replace(/"/g, '""');
-                let qty = parseInt(item.qty || item.receiveQty || item.quantity || 0); // शुद्ध नंबर फ़िक्स
+                let qty = parseFloat(item.qty || item.receiveQty || 0);
                 let unit = cleanStr(item.unit || "NOS");
-                csvRows.push(['"' + billDate + '"', '"' + billNo + '"', '"' + vendorName + '"', '"' + pCode + '"', '"' + pName + '"', '"' + qty + '"', '"' + unit + '"'].join(","));
+                csvRows.push(['"' + billDate + '"', '"' + billNo + '"', '"' + vendorName + '"', '"' + pCode + '"', '"' + pName + '"', '"' + qty.toFixed(3) + '"', '"' + unit + '"'].join(","));
             });
         });
         const csvContent = "\uFEFF" + csvRows.join("\n");
@@ -681,7 +719,6 @@
         const link = document.createElement("a");
         link.setAttribute("href", url);
         link.setAttribute("download", "Detailed_Fresh_Inward_Bill_Report.csv");
-        link.style.visibility = 'hidden';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
