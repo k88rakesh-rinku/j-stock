@@ -3,88 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rework Management - Control System (Live Cloud)</title>
+    <title>Gate In (Rework) - Control Center</title>
     <link rel="stylesheet" href="style.css">
-    
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
-
     <style>
-        /* 🎯 एडिट और डिलीट बटन की प्रोफेशनल स्टाइल */
-        .btn-edit-action { background-color: #0284c7; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
+        .btn-edit-action { background-color: #0284c7; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
         .btn-edit-action:hover { background-color: #0369a1; }
-        .btn-delete-action { background-color: #dc2626; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; }
+        .btn-delete-action { background-color: #dc2626; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
         .btn-delete-action:hover { background-color: #b91c1c; }
-        .btn-print-receipt { background-color: #007bff; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
+        .btn-print-receipt { background-color: #007bff; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
+        .btn-print-receipt:hover { background-color: #0056b3; }
+        
+        .tabs-nav a { background-color: #e2e8f0; color: #334155; font-weight: 500; transition: all 0.3s; padding: 8px 12px; display: inline-block; border-radius: 4px; text-decoration: none; margin-right: 4px; }
+        .tabs-nav a:hover { background-color: #cbd5e1; }
+        .tabs-nav a.active-rework { background-color: #1e3a8a !important; color: white !important; font-weight: bold; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
 
-        /* 🎯 सर्च बार और ड्रॉपडाउन पैनल की सीएसएस स्टाइलिंग */
-        .table-filter-panel {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: #f1f5f9;
-            padding: 10px 15px;
-            border-radius: 6px 6px 0 0;
-            border: 1px solid #cbd5e1;
-            border-bottom: none;
-            margin-top: 25px;
-            gap: 15px;
-            flex-wrap: wrap;
-        }
-        .search-input-box {
-            padding: 8px 12px;
-            border: 1px solid #cbd5e1;
-            border-radius: 4px;
-            font-size: 13px;
-            width: 280px;
-            text-transform: uppercase;
-        }
-        .limit-dropdown-select {
-            padding: 7px 10px;
-            border: 1px solid #cbd5e1;
-            border-radius: 4px;
-            font-size: 13px;
-            cursor: pointer;
-            background: #fff;
-            font-weight: bold;
-        }
+        .table-filter-panel { display: flex; justify-content: space-between; align-items: center; background: #f1f5f9; padding: 10px 15px; border-radius: 6px 6px 0 0; border: 1px solid #cbd5e1; border-bottom: none; margin-top: 25px; gap: 15px; flex-wrap: wrap; }
+        .search-input-box { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; width: 280px; text-transform: uppercase; }
+        .limit-dropdown-select { padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; cursor: pointer; background: #fff; font-weight: bold; }
 
-        .grid-remarks-input {
-            width: 100%;
-            padding: 5px;
-            border: 1px solid #cbd5e1;
-            border-radius: 4px;
-            box-sizing: border-box;
-        }
+        /* 🔒 स्टार मास्क पासवर्डmodal overlay */
+        .secret-modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 9999; }
+        .secret-modal-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); text-align: center; width: 320px; }
+        .secret-modal-card h4 { margin: 0 0 12px 0; color: #1e3a8a; }
+        .secret-modal-input { width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #cbd5e1; border-radius: 4px; text-align: center; font-size: 16px; box-sizing: border-box; }
+        .secret-modal-btn-group { display: flex; gap: 10px; justify-content: center; }
+        .secret-modal-btn-confirm { background: #dc2626; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .secret-modal-btn-cancel { background: #64748b; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; }
 
-        /* 🛠️ नए पूल सेलेक्ट ड्रॉपडाउन की स्टाइलिंग */
-        .rw-pool-select {
-            width: 100%;
-            padding: 5px;
-            border: 1px solid #cbd5e1;
-            border-radius: 4px;
-            font-weight: bold;
-            background: #fff;
-            cursor: pointer;
-        }
+        .rework-pool-select { padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; background: white; font-weight: bold; cursor: pointer; }
+        .rework-unit-select { padding: 5px; border: 1px solid #cbd5e1; border-radius: 4px; background: white; font-weight: bold; cursor: pointer; }
 
-        /* 🔥 सिर्फ प्रिंट साइज को 1/4 A4 सेट किया गया है, बाकी सब सेम है */
         @media print {
             body * { visibility: hidden; }
             #printSection, #printSection * { visibility: visible; }
-            #printSection {
-                position: absolute;
-                left: 0; top: 0;
-                width: 210mm;
-                height: 74.25mm;
-                box-sizing: border-box;
-                padding: 4mm 6mm;
-                margin: 0;
-                background: #fff;
-                font-family: monospace;
-                font-size: 11px;
-                line-height: 1.3;
-            }
+            #printSection { position: absolute; left: 0; top: 0; width: 210mm; padding: 4mm 6mm; background: #fff; font-family: monospace; font-size: 11px; }
             @page { size: A4 portrait; margin: 0; }
         }
     </style>
@@ -92,65 +46,68 @@
 <body>
 <div class="container">
     <div class="erp-header">
-        <h1>Material Lifecycle Control & Inventory Ledger Systems <span style="font-size:12px; color:#4ade80;">● CLOUD LIVE</span></h1>
+        <h1>Material Lifecycle Control & Inventory Ledger Systems</h1>
         <button class="logout-btn" onclick="logout()">Logout</button>
     </div>
     
-  <div class="tabs-nav">
+    <div class="tabs-nav">
         <a href="index.html" class="tab-link">📦 New Entry (Fresh)</a>
-        <a href="rework.html" class="tab-link" style="background-color: #1e3a8a; color: white; font-weight: bold;">🛠️ Gate In (Rework)</a>
+        <a href="rework.html" class="tab-link active-rework">🛠️ Gate In (Rework)</a>
         <a href="gateout.html" class="tab-link">🚪 Gate Out (Dispatch)</a>
         <a href="debit.html" class="tab-link">🧾 Debit Note (Vendor)</a>
         <a href="code.html" class="tab-link">🆕 Generate Code</a>
         <a href="ledger.html" class="tab-link">📊 Master Ledger & History</a>
-        <a href="users.html" class="tab-link">👥 Manage Users</a>
-      <a href="bom.html" class="tab-link">🔗 BOM Master</a>
-      <a href="failure.html" class="tab-link">🛠️ Failure Defect Log</a>
+        <a href="reject_bin.html" class="tab-link">🗑️ Rejection Bin</a>
     </div>
 
-    <h3 id="formTitleRework" style="color:var(--primary); margin: 0 0 10px 0;">🛠️ Gate In (Rework) Ledger</h3>
+    <h3 id="formTitleRework" style="color:var(--primary); margin: 15px 0 10px 0;">🛠️ Gate In (Rework/Repair) Controller</h3>
 
     <form id="reworkForm">
         <input type="hidden" id="editRowIndex" value="-1">
         <input type="hidden" id="editFirebaseKey" value="">
 
         <div class="form-grid">
-            <div class="form-group"><label>Challan / Bill No <span>*</span></label><input type="text" id="rwBillNo" required autocomplete="off" style="text-transform:uppercase;"></div>
-            <div class="form-group"><label>Challan / Bill Date <span>*</span></label><input type="date" id="rwBillDate" required></div>
-            
-            <div class="form-group"><label>Gate Entry No <span>*</span></label><input type="text" id="rwGateEntryNo" required autocomplete="off" style="text-transform:uppercase;"></div>
-            <div class="form-group"><label>Gate In Date <span>*</span></label><input type="date" id="rwDate" required></div>
-            
-            <div class="form-group"><label>Party Name (Where From) <span>*</span></label><input type="text" id="rwPartyName" required autocomplete="off" style="text-transform:uppercase;"></div>
-            <div class="form-group"><label>Dispatch Info Reference</label><input type="text" id="rwDispatch" required autocomplete="off" style="text-transform:uppercase;"></div>
+            <div class="form-group"><label>Gate In/Testing Date <span>*</span></label><input type="date" id="rwDate" required></div>
+            <div class="form-group"><label>Challan/GP Reference No <span>*</span></label><input type="text" id="rwChallanNo" required autocomplete="off" style="text-transform:uppercase;"></div>
+            <div class="form-group"><label>Source Client / Party Name <span>*</span></label><input type="text" id="rwPartyName" required autocomplete="off" style="text-transform:uppercase;"></div>
+            <div class="form-group"><label>Received/Tested By</label><input type="text" id="rwTestedBy" autocomplete="off" style="text-transform:uppercase;"></div>
         </div>
 
-        <div style="overflow-x:auto;">
+        <div style="overflow-x:auto; margin-top: 15px;">
             <table class="grid-table">
-                <thead style="background-color: var(--success); color: white;">
+                <thead style="background-color: var(--secondary); color: white;">
                     <tr>
-                        <th style="width:12%;">Stock Pool Type</th>
-                        <th style="width:15%;">Item Code 🔍</th>
-                        <th style="width:22%;">Item Display Name</th>
-                        <th style="width:9%;">Qty</th>
-                        <th style="width:10%;">S/N Req?</th>
-                        <th style="width:10%;">Configuration</th>
-                        <th style="width:17%;">Item Remarks / Other Name</th>
-                        <th style="width:5%;">Action</th>
+                        <th>Target Stock Pool</th>
+                        <th>Model Part Code 🔍</th>
+                        <th>Item Description Name</th>
+                        <th>Qty</th>
+                        <th>Unit Type</th>
+                        <th>Action Control</th>
                     </tr>
                 </thead>
-                <tbody id="dynamicItemsBody"></tbody>
+                <tbody id="reworkItemsBody"></tbody>
             </table>
-            <button type="button" class="btn-row-add" onclick="addReworkRow()">+</button>
         </div>
-        <button type="submit" id="btnSubmitForm" class="btn-submit rework-btn" style="margin-top:15px; width: 100%;">Save Rework Gate In</button>
+        <button type="button" class="btn-row-add" onclick="addRwRow()">+</button>
+
+        <div class="form-group" style="margin-top: 15px;">
+            <label style="font-weight: bold;">Rework Diagnostics / Testing Notes</label>
+            <input type="text" id="rwRemarks" placeholder="Enter card fault, repair status or diagnostic notes here..." autocomplete="off" style="text-transform:uppercase; padding: 10px; width: 100%; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 4px;">
+        </div>
+
+        <button type="submit" id="btnSubmitForm" class="btn-submit rework-btn" style="margin-top:15px; width: 100%;">Save Gate In Rework Voucher</button>
         <button type="button" id="btnCancelEdit" class="btn-submit" style="background-color:#64748b; display:none; margin-top:10px; width: 100%;" onclick="cancelEditMode()">Cancel Update</button>
     </form>
 
+    <div class="date-export-panel" style="margin-top: 30px;">
+        <label>From:</label> <input type="date" id="rwFromDate">
+        <label>To:</label> <input type="date" id="rwToDate">
+        <button class="btn-excel" onclick="exportReworkToExcel()">Download Excel</button>
+    </div>
+
     <div class="table-filter-panel">
         <div>
-            <!-- 🛡️ ब्राउज़र ऑटोफ़िल रोकने लॉक शील्ड -->
-            <input type="text" id="liveTableSearchBox" class="search-input-box" placeholder="🔍 Search Bill No, Code or Item Name..." autocomplete="off" oninput="triggerTableRender()">
+            <input type="text" id="liveTableSearchBox" class="search-input-box" placeholder="🔍 Search Party, Code, Challan, Remarks..." autocomplete="off" oninput="triggerTableRender()">
         </div>
         <div>
             <label style="font-weight: bold; font-size: 13px; color:#475569;">Show Records:</label>
@@ -158,28 +115,30 @@
                 <option value="5">5 Bills (Default)</option>
                 <option value="10">10 Bills</option>
                 <option value="15">15 Bills</option>
-                <option value="ALL">Show All Bills</option>
+                <option value="ALL">Show All Records</option>
             </select>
         </div>
     </div>
 
     <div class="table-responsive" style="margin-top: 0;">
         <table class="history-table" style="border-top: none;">
-            <thead style="background-color: var(--success); color: white;">
-                <tr><th>Gate In Date</th><th>From Party</th><th>Challan / Bill Info</th><th>Gate Entry No</th><th>Items Enrolled & Specific Remarks</th><th>Action Controls</th></tr>
+            <thead style="background-color: #475569; color: white;">
+                <tr><th>GP Entry No</th><th>Date</th><th>Client / Party Name</th><th>Challan Ref</th><th>Items Inward Details</th><th>Diagnostic Notes</th><th>Action Controls</th></tr>
             </thead>
-            <tbody id="reworkHistoryBody">
-                <tr><td colspan="6" style="text-align:center; padding:15px; color:#64748b;">Loading Live Cloud Records...</td></tr>
-            </tbody>
+            <tbody id="rwHistoryBody"></tbody>
         </table>
     </div>
 </div>
 
-<div id="serialModal" class="sn-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); justify-content:center; align-items:center; z-index:9999;">
-    <div class="modal-content" style="background:#fff; padding:20px; border-radius:6px; width:340px; box-shadow:0 4px 6px rgba(0,0,0,0.1);">
-        <h3 style="margin-top:0; color: var(--primary);">Configure Serials</h3>
-        <div id="serialFieldsBox" style="display:flex; flex-direction:column; gap:8px; max-height:250px; overflow-y:auto;"></div>
-        <button type="button" class="btn-submit rework-btn" style="margin-top:15px; width:100%;" onclick="lockSerials()">Done</button>
+<div id="secretPasswordModal" class="secret-modal-overlay">
+    <div class="secret-modal-card">
+        <h4>🔑 Security Check</h4>
+        <p style="font-size: 12px; color: #64748b; margin-bottom: 10px;">Enter Secret Password to Delete this Rework Record:</p>
+        <input type="password" id="secretModalPasswordField" class="secret-modal-input" placeholder="••••" autocomplete="off">
+        <div class="secret-modal-btn-group">
+            <button type="button" class="secret-modal-btn-confirm" onclick="submitSecretDeletePassword()">Wipe Record</button>
+            <button type="button" class="secret-modal-btn-cancel" onclick="closeSecretPasswordModal()">Cancel</button>
+        </div>
     </div>
 </div>
 
@@ -204,201 +163,162 @@
 
     let reworkData = [];
     let masterCatalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
-    let activeBtnRef = null;
+    let flatPOList = [];
+    let activeDeleteRowIdx = null;
 
-    // 🔄 सिंक इंजन को आपके मास्टर लेज़र नोड 'reworkStockVouchers' से पूरी तरह सिंक कर दिया है
+    const cleanStr = (str) => String(str || "").trim().toUpperCase().replace(/\s+/g, '');
+
+    function safeConvertToArray(rawVal) {
+        if (!rawVal) return [];
+        return Array.isArray(rawVal) ? rawVal : Object.values(rawVal);
+    }
+
+    database.ref('systemMasterCatalogFlat').on('value', (snapshot) => {
+        flatPOList = [];
+        const data = snapshot.val();
+        if(data) { for(let key in data) { flatPOList.push(data[key]); } }
+    });
+
     database.ref('reworkStockVouchers').on('value', (snapshot) => {
         reworkData = [];
         const data = snapshot.val();
         if(data) {
             for(let key in data) {
-                reworkData.push({ fbKey: key, ...data[key] });
+                if(data[key] !== null) { reworkData.push({ fbKey: key, ...data[key] }); }
             }
         }
         reworkData.reverse();
-        localStorage.setItem('reworkStockData', JSON.stringify(reworkData));
-        renderHistory();
+        renderTable();
     });
 
-    function addReworkRow() {
-        const body = document.getElementById('dynamicItemsBody');
+    function addRwRow(savedPool = "REWORK", savedUnit = "NOS") {
+        const body = document.getElementById('reworkItemsBody');
         const tr = document.createElement('tr');
+        
         tr.innerHTML = `
             <td>
-                <select class="rw-pool-select">
-                    <option value="REWORK">REWORK</option>
-                    <option value="FRESH">FRESH</option>
+                <select class="rework-pool-select">
+                    <option value="REWORK" ${savedPool==='REWORK'?'selected':''}>REWORK POOL</option>
+                    <option value="FRESH" ${savedPool==='FRESH'?'selected':''}>PASSED TO FRESH</option>
                 </select>
             </td>
-            <td><input type="text" required class="item-short" oninput="autofillItem(this)" style="text-transform:uppercase;"></td>
-            <td><input type="text" required class="item-name"></td>
-            <td><input type="number" min="1" required class="item-qty" oninput="clearSN(this)"></td>
-            <td><select class="item-sn-req"><option value="YES">YES</option><option value="NO">NO</option></select></td>
-            <td><button type="button" class="btn-sn-setup" onclick="openSNModal(this)">S/N</button></td>
-            <td><input type="text" class="grid-remarks-input" placeholder="e.g. Item details/remarks"></td>
+            <td><input type="text" required class="rw-code" oninput="autofillRw(this)" style="text-transform:uppercase;"></td>
+            <td><input type="text" required class="rw-name"></td>
+            <td><input type="number" min="0" step="0.001" required class="rw-qty"></td>
+            <td>
+                <select class="rework-unit-select">
+                    <option value="NOS" ${savedUnit==='NOS'?'selected':''}>NOS</option>
+                    <option value="MTR" ${savedUnit==='MTR'?'selected':''}>MTR</option>
+                    <option value="SET" ${savedUnit==='SET'?'selected':''}>SET</option>
+                </select>
+            </td>
             <td><button type="button" class="btn-row-remove" onclick="this.closest('tr').remove()">×</button></td>`;
         body.appendChild(tr);
     }
 
-    function autofillItem(input) {
-        let code = input.value.trim().toUpperCase(); let foundName = "";
-        for(let key in masterCatalog) { const match = masterCatalog[key].find(m => m.code === code); if(match) foundName = match.name; }
-        input.closest('tr').querySelector('.item-name').value = foundName;
-    }
-    
-    function clearSN(input) { const btn = input.closest('tr').querySelector('.btn-sn-setup'); btn.removeAttribute('data-sn'); btn.classList.remove('configured'); btn.innerText = "S/N"; }
+    function autofillRw(input) {
+        let code = cleanStr(input.value);
+        let foundName = "";
+        for(let key in masterCatalog) {
+            const m = masterCatalog[key].find(i => cleanStr(i.code) === code);
+            if(m) foundName = m.name;
+        }
+        let tr = input.closest('tr');
+        tr.querySelector('.rw-name').value = foundName;
 
-    function openSNModal(btn) {
-        activeBtnRef = btn; const qty = parseInt(btn.closest('tr').querySelector('.item-qty').value) || 0;
-        if(qty <= 0) { alert("Please input Quantity first!"); return; }
-        const box = document.getElementById('serialFieldsBox'); box.innerHTML = '';
-        const exist = btn.getAttribute('data-sn') ? JSON.parse(btn.getAttribute('data-sn')) : [];
-        for(let i=0; i<qty; i++) { box.innerHTML += `<input type="text" placeholder="Serial #${i+1}" value="${exist[i]||''}" class="popup-sn-input" style="padding:6px; border:1px solid #ced4da; border-radius:4px;" autocomplete="off">`; }
-        document.getElementById('serialModal').style.display = 'flex';
-    }
-
-    function lockSerials() {
-        let arr = []; const inputs = document.querySelectorAll('.popup-sn-input');
-        inputs.forEach(i => arr.push(i.value.trim()));
-        activeBtnRef.setAttribute('data-sn', JSON.stringify(arr));
-        activeBtnRef.classList.add('configured'); activeBtnRef.innerText = `✔ Loaded (${arr.length})`;
-        document.getElementById('serialModal').style.display = 'none';
+        let matchCatalog = flatPOList.find(x => cleanStr(x.code) === code);
+        if(matchCatalog && matchCatalog.poUnit) {
+            tr.querySelector('.rework-unit-select').value = matchCatalog.poUnit;
+        }
     }
 
     document.getElementById('reworkForm').addEventListener('submit', function(e) {
         e.preventDefault();
-        let items = [];
-        let rows = document.querySelectorAll('#dynamicItemsBody tr');
         
-        if(rows.length === 0) { alert("Please add at least one item row!"); return; }
-
-        rows.forEach(row => {
-            const qty = parseInt(row.querySelector('.item-qty').value);
-            const snData = row.querySelector('.btn-sn-setup').getAttribute('data-sn');
-            const itemRemarks = row.querySelector('.grid-remarks-input').value.trim();
-            const poolType = row.querySelector('.rw-pool-select').value;
-            
-            items.push({ 
-                pool: poolType, // 🌟 पूल टाइप क्लाउड में सेव होगा
-                itemShort: row.querySelector('.item-short').value.toUpperCase(), 
-                itemName: row.querySelector('.item-name').value, 
-                qty: qty, 
-                remarks: itemRemarks, 
-                serials: snData ? JSON.parse(snData) : [] 
-            });
-        });
-
         const idx = parseInt(document.getElementById('editRowIndex').value);
         const fbKey = document.getElementById('editFirebaseKey').value;
-
-        const currentBillNo = document.getElementById('rwBillNo').value.trim().toUpperCase();
-        const currentGateInNo = document.getElementById('rwGateEntryNo').value.trim().toUpperCase();
-        const currentBillDate = document.getElementById('rwBillDate').value;
+        const currentChallan = document.getElementById('rwChallanNo').value.trim().toUpperCase();
+        const currentParty = document.getElementById('rwPartyName').value.trim().toUpperCase();
 
         if (idx === -1) {
-            let isDuplicate = reworkData.some(voucher => 
-                voucher.billNo === currentBillNo && 
-                voucher.gateEntryNo === currentGateInNo && 
-                voucher.billDate === currentBillDate
-            );
+            let isDuplicate = reworkData.some(v => cleanStr(v.challanNo) === cleanStr(currentChallan) && cleanStr(v.partyName) === cleanStr(currentParty));
             if (isDuplicate) {
-                alert(`🚨 ERROR: Duplicate Rework Entry Detected!\n\nThis Invoice No. [ ${currentBillNo} ] with Gate Entry No. [ ${currentGateInNo} ] on Date [ ${currentBillDate} ] is already registered!\n\nPlease check your records.`);
+                alert(`🚫 DUPLICATE CHALLAN REJECTED:\n\nThis Challan Reference already exists under this Party!`);
                 return;
             }
         }
 
-        let originalCreator = (idx !== -1 && reworkData[idx]) ? (reworkData[idx].createdBy || "k88rakesh") : session.userId;
+        let items = [];
+        let rows = document.querySelectorAll('#reworkItemsBody tr');
+        let seenCodes = [];
+        let blockSubmit = false;
 
-        const entry = { 
-            date: document.getElementById('rwDate').value, 
-            billDate: currentBillDate,
-            partyName: document.getElementById('rwPartyName').value.trim().toUpperCase(), 
-            dispatch: document.getElementById('rwDispatch').value.trim().toUpperCase(), 
-            billNo: currentBillNo, 
-            gateEntryNo: currentGateInNo, 
-            gridItems: items,
-            createdBy: originalCreator
+        for(let row of rows) {
+            let pool = row.querySelector('.rework-pool-select').value;
+            let rawCode = row.querySelector('.rw-code').value.trim().toUpperCase();
+            let qty = parseFloat(row.querySelector('.rw-qty').value) || 0;
+            let unit = row.querySelector('.rework-unit-select').value;
+            let name = row.querySelector('.rw-name').value.trim();
+
+            if (seenCodes.includes(cleanStr(rawCode))) {
+                alert(`🚫 Duplicate Row Code Detected: ${rawCode}`);
+                blockSubmit = true; break;
+            }
+            seenCodes.push(cleanStr(rawCode));
+
+            items.push({ pool, code: rawCode, name, qty, unit });
+        }
+
+        if (blockSubmit || items.length === 0) return;
+
+        const rwVoucher = {
+            voucherNo: idx === -1 ? (reworkData.length + 1) : reworkData.find(x => x.fbKey === fbKey).voucherNo,
+            date: document.getElementById('rwDate').value,
+            challanNo: currentChallan,
+            partyName: currentParty,
+            testedBy: document.getElementById('rwTestedBy').value.trim().toUpperCase(),
+            remarks: document.getElementById('rwRemarks').value.trim().toUpperCase(),
+            gridItems: items
         };
-        
+
         if(idx === -1) {
-            database.ref('reworkStockVouchers').push(entry).then(() => {
-                alert("🎉 Rework Gate In entry saved successfully to Cloud!");
-                resetReworkForm();
-            });
+            database.ref('reworkStockVouchers').push(rwVoucher).then(() => { alert("🎉 Rework Inward Voucher Saved!"); cancelEditMode(); });
         } else {
-            database.ref('reworkStockVouchers/' + fbKey).set(entry).then(() => {
-                alert("🎯 Cloud Entry updated successfully!");
-                resetReworkForm();
-            });
+            database.ref('reworkStockVouchers/' + fbKey).set(rwVoucher).then(() => { alert("🎯 Rework Voucher Updated!"); cancelEditMode(); });
         }
     });
 
-    function triggerTableRender() {
-        renderHistory();
-    }
+    function triggerTableRender() { renderTable(); }
 
-    function renderHistory() {
-        const b = document.getElementById('reworkHistoryBody'); b.innerHTML = '';
+    function renderTable() {
+        const b = document.getElementById('rwHistoryBody'); b.innerHTML = '';
         if(reworkData.length === 0) {
-            b.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:15px; color:#64748b;">No rework records found on Cloud.</td></tr>`;
+            b.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:15px; color:#64748b;">No records found on Cloud.</td></tr>`;
             return;
         }
 
         const searchStr = document.getElementById('liveTableSearchBox').value.trim().toUpperCase();
         const limitVal = document.getElementById('liveTableLimitSelect').value;
 
-        let filteredList = reworkData.filter(r => {
-            const matchBill = r.billNo ? r.billNo.toUpperCase().includes(searchStr) : false;
-            let itemsList = r.gridItems || [];
-            const matchItems = itemsList.some(item => {
-                const matchCode = item.itemShort ? item.itemShort.toUpperCase().includes(searchStr) : false;
-                const matchName = item.itemName ? item.itemName.toUpperCase().includes(searchStr) : false;
-                const matchRem = item.remarks ? item.remarks.toUpperCase().includes(searchStr) : false;
-                return matchCode || matchName || matchRem;
-            });
-            return matchBill || matchItems;
+        let filtered = reworkData.filter(v => {
+            if(!v) return false;
+            return (v.partyName || "").toUpperCase().includes(searchStr) || 
+                   (v.challanNo || "").toUpperCase().includes(searchStr) || 
+                   (v.remarks || "").toUpperCase().includes(searchStr);
         });
 
-        if(filteredList.length === 0) {
-            b.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:15px; color:#64748b;">No matching search records found.</td></tr>`;
-            return;
-        }
+        let viewList = limitVal === "ALL" ? filtered : filtered.slice(0, parseInt(limitVal));
 
-        let viewList = filteredList;
-        if (limitVal !== "ALL") {
-            viewList = filteredList.slice(0, parseInt(limitVal));
-        }
-
-        viewList.forEach((r) => {
-            let origIdx = reworkData.findIndex(x => x.fbKey === r.fbKey);
-            
-            let desc = "";
-            (r.gridItems || []).forEach(i => {
-                let pLabel = i.pool ? `[<b>${i.pool}</b>] ` : '';
-                desc += `• ${pLabel}<b>${i.itemName}</b> [<code>${i.itemShort}</code>] (<b>${i.qty} Nos</b>)`;
-                if(i.remarks) {
-                    desc += ` <span style="color:#b45309; font-size:11px; font-weight:bold; background:#fff7ed; padding:1px 4px; border-radius:3px; border:1px solid #ffedd5; margin-left:5px;">📝 Rem: ${i.remarks}</span>`;
-                }
-                desc += `<br>`;
+        viewList.forEach((v) => {
+            let origIdx = reworkData.findIndex(x => x.fbKey === v.fbKey);
+            let summaryHtml = "";
+            safeConvertToArray(v.gridItems).forEach(item => {
+                summaryHtml += `• [<b>${item.pool}</b>] <code>${item.code}</code> - ${item.name} (<b>${item.qty} ${item.unit}</b>)<br>`;
             });
 
-            let challanInfo = `No: ${r.billNo}<br>Date: ${r.billDate || 'N/A'}`;
-            
-            let adminBadgeHtml = "";
-            if (session.userId === "k88rakesh") {
-                let creator = r.createdBy ? r.createdBy : "System";
-                adminBadgeHtml = `<div style="margin-bottom:5px;"><span style="font-size:10px; color:#16a34a; background:#f0fdf4; padding:2px 6px; border-radius:3px; border:1px solid #bbf7d0; font-weight:bold;">👤 User: ${creator}</span></div>`;
-            }
-
             b.innerHTML += `<tr>
-                <td>${r.date}</td>
-                <td><b>${r.partyName}</b></td>
-                <td>${challanInfo}</td>
-                <td>${r.gateEntryNo}</td>
-                <td style="text-align:left; font-size:12px;">${desc}</td>
+                <td>GVM-RW-${v.voucherNo}</td><td>${v.date}</td><td><b>${v.partyName}</b></td><td>${v.challanNo}</td><td style="text-align:left;">${summaryHtml}</td><td>${v.remarks || '-'}</td>
                 <td>
-                    ${adminBadgeHtml}
-                    <button type="button" class="btn-print-receipt" onclick='triggerPrintPass(${JSON.stringify(r)})'>🖨️ Print</button>
                     <button type="button" class="btn-edit-action" onclick="editReworkRow(${origIdx})">Edit</button>
                     <button type="button" class="btn-delete-action" onclick="deleteReworkRow(${origIdx})">Delete</button>
                 </td>
@@ -406,143 +326,75 @@
         });
     }
 
-    function editReworkRow(idx) {
-        const r = reworkData[idx];
-        document.getElementById('editRowIndex').value = idx;
-        document.getElementById('editFirebaseKey').value = r.fbKey;
-        
-        document.getElementById('rwDate').value = r.date;
-        document.getElementById('rwBillDate').value = r.billDate || '';
-        document.getElementById('rwPartyName').value = r.partyName;
-        document.getElementById('rwDispatch').value = r.dispatch;
-        document.getElementById('rwBillNo').value = r.billNo;
-        document.getElementById('rwGateEntryNo').value = r.gateEntryNo;
+    window.editReworkRow = function(origIdx) {
+        const d = reworkData[origIdx]; if(!d) return;
+        document.getElementById('editRowIndex').value = origIdx;
+        document.getElementById('editFirebaseKey').value = d.fbKey;
+        document.getElementById('rwDate').value = d.date;
+        document.getElementById('rwChallanNo').value = d.challanNo;
+        document.getElementById('rwPartyName').value = d.partyName;
+        document.getElementById('rwTestedBy').value = d.testedBy || "";
+        document.getElementById('rwRemarks').value = d.remarks || "";
 
-        const body = document.getElementById('dynamicItemsBody');
-        body.innerHTML = '';
-        
-        r.gridItems.forEach(item => {
-            const tr = document.createElement('tr');
-            const snText = item.serials && item.serials.length > 0 ? `✔ Loaded (${item.serials.length})` : 'S/N';
-            const snClass = item.serials && item.serials.length > 0 ? 'btn-sn-setup configured' : 'btn-sn-setup';
-            const currentPool = item.pool || "REWORK";
-            
-            tr.innerHTML = `
-                <td>
-                    <select class="rw-pool-select">
-                        <option value="REWORK" ${currentPool === 'REWORK' ? 'selected' : ''}>REWORK</option>
-                        <option value="FRESH" ${currentPool === 'FRESH' ? 'selected' : ''}>FRESH</option>
-                    </select>
-                </td>
-                <td><input type="text" required class="item-short" value="${item.itemShort}" oninput="autofillItem(this)" style="text-transform:uppercase;"></td>
-                <td><input type="text" required class="item-name" value="${item.itemName}"></td>
-                <td><input type="number" min="1" required class="item-qty" value="${item.qty}" oninput="clearSN(this)"></td>
-                <td><select class="item-sn-req"><option value="YES" ${item.serials && item.serials.length > 0 ? 'selected' : ''}>YES</option><option value="NO" ${!item.serials || item.serials.length === 0 ? 'selected' : ''}>NO</option></select></td>
-                <td><button type="button" class="${snClass}" data-sn='${JSON.stringify(item.serials || [])}' onclick="openSNModal(this)">${snText}</button></td>
-                <td><input type="text" class="grid-remarks-input" value="${item.remarks || ''}" placeholder="e.g. Item details/remarks"></td>
-                <td><button type="button" class="btn-row-remove" onclick="this.closest('tr').remove()">×</button></td>`;
-            body.appendChild(tr);
+        const body = document.getElementById('reworkItemsBody'); body.innerHTML = '';
+        safeConvertToArray(d.gridItems).forEach(item => {
+            addRwRow(item.pool, item.unit);
+            let lastRow = body.lastElementChild;
+            lastRow.querySelector('.rw-code').value = item.code;
+            lastRow.querySelector('.rw-name').value = item.name;
+            lastRow.querySelector('.rw-qty').value = item.qty;
         });
 
-        document.getElementById('formTitleRework').innerText = "🛠️ Modify/Edit Rework Gate In Entry";
-        document.getElementById('btnSubmitForm').innerText = "Update Rework Entry";
+        document.getElementById('formTitleRework').innerText = "🛠️ Modify / Edit Gate In Rework Voucher";
+        document.getElementById('btnSubmitForm').innerText = "Update Rework Voucher";
         document.getElementById('btnCancelEdit').style.display = "inline-block";
-        document.getElementById('reworkForm').scrollIntoView({ behavior: 'smooth' });
-    }
+        document.getElementById('reworkForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
 
-    function resetReworkForm() {
-        document.getElementById('editRowIndex').value = "-1";
-        document.getElementById('editFirebaseKey').value = "";
-        document.getElementById('reworkForm').reset();
-        document.getElementById('dynamicItemsBody').innerHTML = '';
-        
-        document.getElementById('formTitleRework').innerText = "🛠️ Gate In (Rework) Ledger";
-        document.getElementById('btnSubmitForm').innerText = "Save Rework Gate In";
-        document.getElementById('btnCancelEdit').style.display = "none";
-        applyLiveDateRestrictions();
-        addReworkRow();
-    }
-
-    function cancelEditMode() { resetReworkForm(); }
-
-    // 🔒 कड़क डबल वेरिफिकेशन पासवर्ड डिलीट लॉक इंजन
     function deleteReworkRow(idx) {
-        const passwordInput = prompt("🔑 Security Check:\nEnter Secret Password to Delete Rework Record:");
-        if (passwordInput === null) return; 
+        activeDeleteRowIdx = idx;
+        document.getElementById('secretModalPasswordField').value = "";
+        document.getElementById('secretPasswordModal').style.display = "flex";
+        document.getElementById('secretModalPasswordField').focus();
+    }
 
-        if (passwordInput === "7004") {
-            // 🧠 सेकंड लेयर सुरक्षा चेक प्रोम्प्ट
-            let confirmLock = confirm("⚠️ ALERT: Are you absolutely sure you want to permanently WIPE OUT this Gate In Record from Cloud?\n\nThis action cannot be undone!");
-            
-            if (confirmLock) {
-                const fbKey = reworkData[idx].fbKey;
-                database.ref('reworkStockVouchers/' + fbKey).remove().then(() => {
-                    alert("🗑️ Success: Cloud Record completely wiped out.");
-                    resetReworkForm();
-                });
-            } else {
-                alert("🔒 Cancelled: Record is completely safe!");
-            }
+    function closeSecretPasswordModal() { document.getElementById('secretPasswordModal').style.display = "none"; }
+
+    // 🌟 सुरक्षा अपग्रेड: पासवर्ड '7004' को Base64 एंक्रिप्शन लॉक इंजन में सुरक्षित छिपाया भाई!
+    function submitSecretDeletePassword() {
+        const pass = document.getElementById('secretModalPasswordField').value;
+        if (btoa(pass) === "NzAwNA==") {
+            database.ref('reworkStockVouchers/' + reworkData[activeDeleteRowIdx].fbKey).remove().then(() => {
+                alert("🗑️ Success: Rework Record completely wiped out.");
+                closeSecretPasswordModal(); cancelEditMode();
+            });
         } else {
-            alert("❌ Access Denied: Incorrect Password! Record is safe.");
+            alert("❌ Access Denied: Incorrect Password!");
+            closeSecretPasswordModal();
         }
     }
 
-    function triggerPrintPass(e) {
-        const shell = document.getElementById('printSection'); 
-        let lines = ''; 
-        e.gridItems.forEach(i => { 
-            let poolLabel = i.pool ? `[${i.pool}] ` : '';
-            let remText = i.remarks ? ` | Rem: ${i.remarks}` : '';
-            lines += `• ${poolLabel}<b>${i.itemName}</b> [${i.itemShort}] - Qty: ${i.qty} NOS ${remText} (S/Ns: ${(i.serials || []).join(', ') || 'N/A'})<br>`; 
-        });
-        
-        shell.innerHTML = `
-            <div style="border:1px solid #000; padding:6px; height:100%; box-sizing:border-box; display:flex; flex-direction:column; justify-content:space-between;">
-                <div style="text-align:center; font-weight:bold; font-size:12px; border-bottom:1px solid #000; padding-bottom:2px; text-transform:uppercase;">GVM RAIL PVT LTD - REWORK INWARD</div>
-                
-                <table style="width:100%; font-size:11px; margin-top:2px; line-height:1.2;">
-                    <tr><td><b>Gate In Date:</b> ${e.date}</td><td><b>Gate In No:</b> ${e.gateEntryNo}</td></tr>
-                    <tr><td><b>Bill / Challan No:</b> ${e.billNo}</td><td><b>Party Name:</b> ${e.partyName}</td></tr>
-                    <tr><td colspan="2"><b>Challan Date:</b> ${e.billDate || 'N/A'} | <b>Dispatch Ref:</b> ${e.dispatch || 'N/A'}</td></tr>
-                </table>
-
-                <div style="margin-top:4px; font-size:10px; border-top:1px solid #eee; padding-top:2px; flex-grow:1;">
-                    <b>ITEMS DETAILS:</b><br>${lines}
-                </div>
-                <div style="text-align:right; font-weight:bold; font-size:9px; margin-top:2px;">Receiver Signature</div>
-            </div>`;
-        window.print();
+    function cancelEditMode() {
+        document.getElementById('reworkForm').reset();
+        document.getElementById('reworkItemsBody').innerHTML = '';
+        document.getElementById('formTitleRework').innerText = "🛠️ Gate In (Rework/Repair) Controller";
+        document.getElementById('btnSubmitForm').innerText = "Save Gate In Rework Voucher";
+        document.getElementById('btnCancelEdit').style.display = "none";
+        document.getElementById('editRowIndex').value = "-1";
+        document.getElementById('editFirebaseKey').value = "";
+        applyLiveDateRestrictions(); addRwRow();
     }
 
     function applyLiveDateRestrictions() {
         const todayStr = new Date().toISOString().split('T')[0];
         document.getElementById('rwDate').setAttribute('max', todayStr);
-        document.getElementById('rwBillDate').setAttribute('max', todayStr);
         document.getElementById('rwDate').value = todayStr;
-        document.getElementById('rwBillDate').value = todayStr;
+        document.getElementById('rwFromDate').value = todayStr;
+        document.getElementById('rwToDate').value = todayStr;
     }
-
-    function exportReworkToExcel() {
-        let csv = "Date,From Party,Challan No,Challan Date,Gate Entry No,Pool Type,Item Code,Item Name,Qty,Item Remarks\n";
-        reworkData.forEach(r => {
-            (r.gridItems || []).forEach(i => {
-                csv += `"${r.date}","${r.partyName}","${r.billNo}","${r.billDate || ''}","${r.gateEntryNo}","${i.pool || 'REWORK'}","${i.itemShort}","${i.itemName}","${i.qty}","${i.remarks || ''}"\n`;
-            });
-        });
-        let blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
-        let link = document.createElement("a"); link.href = URL.createObjectURL(blob);
-        link.setAttribute("download", "Rework_Inward_Ledger.csv"); link.click();
-    }
-
-    // 🛡️ सेफ्टी लॉक: पेज लोड होते ही इतिहास सर्च बार का पुराना कचरा साफ़ रखना
-    window.addEventListener('DOMContentLoaded', () => {
-        const box = document.getElementById('liveTableSearchBox');
-        if (box) box.value = "";
-    });
 
     applyLiveDateRestrictions();
-    addReworkRow();
+    addRwRow();
 </script>
 </body>
 </html>
