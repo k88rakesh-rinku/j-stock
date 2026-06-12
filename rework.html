@@ -23,7 +23,6 @@
         .search-input-box { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; width: 280px; text-transform: uppercase; }
         .limit-dropdown-select { padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; cursor: pointer; background: #fff; font-weight: bold; }
 
-        /* 🔒 स्टार मास्क पासवर्डmodal overlay */
         .secret-modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 9999; }
         .secret-modal-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); text-align: center; width: 320px; }
         .secret-modal-card h4 { margin: 0 0 12px 0; color: #1e3a8a; }
@@ -261,7 +260,7 @@
             let name = row.querySelector('.rw-name').value.trim();
 
             if (seenCodes.includes(cleanStr(rawCode))) {
-                alert(`🚫 Duplicate Row Code Detected: ${rawCode}`);
+                alert(`🚫 Duplicate Row Code Detected: ${rawCode} in this grid list!`);
                 blockSubmit = true; break;
             }
             seenCodes.push(cleanStr(rawCode));
@@ -282,7 +281,7 @@
         };
 
         if(idx === -1) {
-            database.ref('reworkStockVouchers').push(rwVoucher).then(() => { alert("🎉 Rework Inward Voucher Saved!"); cancelEditMode(); });
+            database.ref('reworkStockVouchers').push(rwVoucher).then(() => { alert("🎉 Gate In Rework Voucher Saved!"); cancelEditMode(); });
         } else {
             database.ref('reworkStockVouchers/' + fbKey).set(rwVoucher).then(() => { alert("🎯 Rework Voucher Updated!"); cancelEditMode(); });
         }
@@ -319,11 +318,51 @@
             b.innerHTML += `<tr>
                 <td>GVM-RW-${v.voucherNo}</td><td>${v.date}</td><td><b>${v.partyName}</b></td><td>${v.challanNo}</td><td style="text-align:left;">${summaryHtml}</td><td>${v.remarks || '-'}</td>
                 <td>
+                    <button type="button" class="btn-print-receipt" onclick='triggerGateInReceipt(${JSON.stringify(v)})'>🖨️ Print</button>
                     <button type="button" class="btn-edit-action" onclick="editReworkRow(${origIdx})">Edit</button>
                     <button type="button" class="btn-delete-action" onclick="deleteReworkRow(${origIdx})">Delete</button>
                 </td>
             </tr>`;
         });
+    }
+
+    // 🌟 जादुई गेट-इन प्रिंट इंजन ( डिज़ाइन और सिंकिंग के साथ पूरी तरह फिट भाई)
+    function triggerGateInReceipt(v) {
+        if(!v) return;
+        const shell = document.getElementById('printSection');
+        let rowsHtml = "";
+        safeConvertToArray(v.gridItems).forEach(item => {
+            rowsHtml += `<tr>
+                <td style="border:1px solid #000; padding:4px; font-weight:bold;">${item.code}</td>
+                <td style="border:1px solid #000; padding:4px;">${item.name || 'Material Info'}</td>
+                <td style="border:1px solid #000; padding:4px; text-align:center; font-weight:bold;">${item.pool}</td>
+                <td style="border:1px solid #000; padding:4px; text-align:center; font-weight:bold;">${item.qty} ${item.unit || 'NOS'}</td>
+            </tr>`;
+        });
+
+        shell.innerHTML = `
+            <div style="border:1px solid #000; padding:6px; height:100%; box-sizing:border-box; display:flex; flex-direction:column; justify-content:space-between;">
+                <div style="text-align:center; font-weight:bold; font-size:12px; border-bottom:1px solid #000; padding-bottom:2px; text-transform:uppercase;">GVM RAIL PVT LTD - GATE IN REWORK REPORT</div>
+                <table style="width:100%; font-size:11px; margin-top:2px; line-height:1.2;">
+                    <tr><td><b>Inward Voucher:</b> GVM-RW-${v.voucherNo}</td><td><b>Gate In Date:</b> ${v.date}</td></tr>
+                    <tr><td><b>Party Name:</b> ${v.partyName}</td><td><b>Challan Ref:</b> ${v.challanNo}</td></tr>
+                    <tr><td colspan="2"><b>Tested/Received By:</b> ${v.testedBy || 'N/A'}</td></tr>
+                    <tr><td colspan="2"><b>Diagnostic Notes:</b> ${v.remarks || 'N/A'}</td></tr>
+                </table>
+                <table style="width:100%; border-collapse:collapse; margin-top:5px; font-size:10px;">
+                    <thead>
+                        <tr style="background:#eee;">
+                            <th style="border:1px solid #000; padding:4px; text-align:left;">Part / Model Code</th>
+                            <th style="border:1px solid #000; padding:4px; text-align:left;">Description</th>
+                            <th style="border:1px solid #000; padding:4px;">Stock Pool</th>
+                            <th style="border:1px solid #000; padding:4px;">Qty</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rowsHtml}</tbody>
+                </table>
+                <div style="text-align:right; font-weight:bold; font-size:9px; margin-top:15px;">Receiver Authorized Signature</div>
+            </div>`;
+        window.print();
     }
 
     window.editReworkRow = function(origIdx) {
@@ -360,7 +399,6 @@
 
     function closeSecretPasswordModal() { document.getElementById('secretPasswordModal').style.display = "none"; }
 
-    // 🌟 सुरक्षा अपग्रेड: पासवर्ड '7004' को Base64 एंक्रिप्शन लॉक इंजन में सुरक्षित छिपाया भाई!
     function submitSecretDeletePassword() {
         const pass = document.getElementById('secretModalPasswordField').value;
         if (btoa(pass) === "NzAwNA==") {
