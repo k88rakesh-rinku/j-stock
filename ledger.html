@@ -226,9 +226,15 @@
 
     let catalogFlatList = []; let inboundVouchers = []; let reworkInboundVouchers = []; let outwardDispatches = []; let bomFormulaList = [];
     
-    // 🌟 सुरक्षा महा-अपग्रेड: अब स्पेस और डैश दोनों उड़ेंगे ताकि कोड मिसमैच न हो भाई!
+    // 🌟 सुरक्षा गियर: इंटरनल कम्पेरिजन के लिए स्पेस/डैश हटेंगे, लेकिन फ्रंट पर कोड ओरिजिनल रहेगा राकेश भाई!
     const cleanStr = (str) => String(str || "").trim().toUpperCase().replace(/[\s\-]+/g, '');
     function safeConvertToArray(rawVal) { return rawVal ? (Array.isArray(rawVal) ? rawVal : Object.values(rawVal)) : []; }
+
+    // 🌟 ज़ीरो और फ़ॉर्मैटिंग फ़िक्स हेल्पर इंजन
+    const formatQtyDisplay = (val) => {
+        let num = parseFloat(val || 0);
+        return num % 1 === 0 ? num.toString() : num.toFixed(3);
+    };
 
     function switchLedgerTab(tabId, btn) {
         document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
@@ -257,13 +263,13 @@
 
         inboundVouchers.forEach(v => {
             if(!v) return;
-            let currentPoNo = v.poNo ? cleanStr(v.poNo) : "";
+            let currentPoNo = v.poNo ? v.poNo.trim().toUpperCase() : "";
             let entryDate = v.gateInDate || v.billDate || v.date || "";
             safeConvertToArray(v.gridItems).forEach(item => {
                 if(!item) return;
                 let innerCode = item.modelCode || item.itemCode || item.code || "";
                 if(!innerCode) return;
-                let key = currentPoNo + "|||" + cleanStr(innerCode);
+                let key = currentPoNo + "|||" + innerCode.trim().toUpperCase();
                 poSummaryMap[key] = (poSummaryMap[key] || 0) + parseFloat(item.qty || item.receiveQty || item.quantity || 0);
                 if (entryDate && (!poDateMap[key] || entryDate > poDateMap[key])) poDateMap[key] = entryDate;
             });
@@ -271,30 +277,30 @@
 
         let filteredCatalog = catalogFlatList.filter(c => {
             if(!c || !c.poNumber) return false;
-            let key = cleanStr(c.poNumber) + "|||" + cleanStr(c.code);
+            let key = c.poNumber.trim().toUpperCase() + "|||" + c.code.trim().toUpperCase();
             let received = poSummaryMap[key] || 0;
             let poQty = parseFloat(c.qty || c.poTotalQty || 0);
             let isCompleted = (poQty - received) <= 0;
             if(poFilter === 'ACTIVE' && isCompleted) return false;
             if(poFilter === 'COMPLETED' && !isCompleted) return false;
-            return cleanStr(c.poNumber).includes(searchStr) || cleanStr(c.code).includes(searchStr) || cleanStr(c.name).includes(searchStr);
+            return c.poNumber.toUpperCase().includes(searchStr) || c.code.toUpperCase().includes(searchStr) || c.name.toUpperCase().includes(searchStr);
         });
 
         if(limitVal !== 'ALL') filteredCatalog = filteredCatalog.slice(0, parseInt(limitVal));
 
         filteredCatalog.forEach(c => {
-            let key = cleanStr(c.poNumber) + "|||" + cleanStr(c.code);
+            let key = c.poNumber.trim().toUpperCase() + "|||" + c.code.trim().toUpperCase();
             let received = poSummaryMap[key] || 0;
             let poQty = parseFloat(c.qty || c.poTotalQty || 0);
             let pending = poQty - received; if(pending < 0) pending = 0;
             let unit = c.poUnit || "NOS";
             let lastDate = poDateMap[key] ? poDateMap[key] : "-";
 
-            tbody.innerHTML += `<tr><td><code>${c.poNumber}</code></td><td><code>${c.code}</code></td><td>${c.name}</td><td><b>${poQty.toFixed(2)} ${unit}</b></td><td style="color:#0284c7;">${received.toFixed(2)} ${unit}</td><td style="color:${pending>0?'#dc2626':'#16a34a'}">${pending.toFixed(2)} ${unit}</td><td style="color:#475569; font-weight:bold;">${lastDate}</td><td>${pending===0?'✅ Complete':'⏳ Active'}</td></tr>`;
+            tbody.innerHTML += `<tr><td><code>${c.poNumber}</code></td><td><code>${c.code}</code></td><td>${c.name}</td><td><b>${formatQtyDisplay(poQty)} ${unit}</b></td><td style="color:#0284c7;">${formatQtyDisplay(received)} ${unit}</td><td style="color:${pending>0?'#dc2626':'#16a34a'}">${formatQtyDisplay(pending)} ${unit}</td><td style="color:#475569; font-weight:bold;">${lastDate}</td><td>${pending===0?'✅ Complete':'⏳ Active'}</td></tr>`;
         });
     }
 
-    // 2. LIVE FRESH STOCK TABLE (Mergining Fresh inward bills + Rework passed to fresh)
+    // 2. LIVE FRESH STOCK TABLE (Consolidated)
     function renderPhysicalStockTable() {
         const tbody = document.getElementById('physicalStockBody'); tbody.innerHTML = '';
         const searchStr = document.getElementById('stockSearchBox').value.trim().toUpperCase();
@@ -302,84 +308,86 @@
 
         let globalFreshInMap = {}; let itemNamesMap = {}; let itemUnitsMap = {}; let freshDateMap = {};
 
-        // A. Fresh Inward Bills Scanner (Root Level + Grid Level)
+        // A. Fresh Inward Bills Scanner
         inboundVouchers.forEach(v => {
             if (!v) return;
             let entryDate = v.gateInDate || v.billDate || v.date || "";
             
             let baseCode = v.modelCode || v.itemCode || v.code || v.partCode || "";
             if (baseCode) {
-                let code = cleanStr(baseCode);
-                globalFreshInMap[code] = (globalFreshInMap[code] || 0) + parseFloat(v.qty || v.receiveQty || v.passedQty || v.quantity || 0);
-                if (v.modelName || v.itemName) itemNamesMap[code] = String(v.modelName || v.itemName || '').toUpperCase();
-                if (v.unit) itemUnitsMap[code] = cleanStr(v.unit);
-                if (entryDate && (!freshDateMap[code] || entryDate > freshDateMap[code])) freshDateMap[code] = entryDate;
+                let displayKey = baseCode.trim().toUpperCase(); // 🌟 डैश रीस्टोर लॉक
+                let internalMatchKey = cleanStr(baseCode);
+                globalFreshInMap[displayKey] = (globalFreshInMap[displayKey] || 0) + parseFloat(v.qty || v.receiveQty || v.passedQty || v.quantity || 0);
+                if (v.modelName || v.itemName) itemNamesMap[displayKey] = String(v.modelName || v.itemName || '').toUpperCase();
+                if (v.unit) itemUnitsMap[displayKey] = v.unit.trim().toUpperCase();
+                if (entryDate && (!freshDateMap[displayKey] || entryDate > freshDateMap[displayKey])) freshDateMap[displayKey] = entryDate;
             }
 
             safeConvertToArray(v.gridItems).forEach(item => {
                 if(!item) return;
                 let innerCode = item.modelCode || item.itemCode || item.code || item.partCode || "";
                 if (!innerCode) return;
-                let code = cleanStr(innerCode);
-                globalFreshInMap[code] = (globalFreshInMap[code] || 0) + parseFloat(item.qty || item.receiveQty || item.quantity || 0);
-                itemNamesMap[code] = String(item.modelName || item.itemName || itemNamesMap[code] || '').toUpperCase();
-                itemUnitsMap[code] = cleanStr(item.unit || itemUnitsMap[code] || 'NOS');
-                if (entryDate && (!freshDateMap[code] || entryDate > freshDateMap[code])) freshDateMap[code] = entryDate;
+                let displayKey = innerCode.trim().toUpperCase(); // 🌟 डैश रीस्टोर लॉक
+                globalFreshInMap[displayKey] = (globalFreshInMap[displayKey] || 0) + parseFloat(item.qty || item.receiveQty || item.quantity || 0);
+                itemNamesMap[displayKey] = String(item.modelName || item.itemName || itemNamesMap[displayKey] || '').toUpperCase();
+                itemUnitsMap[displayKey] = (item.unit || itemUnitsMap[displayKey] || 'NOS').trim().toUpperCase();
+                if (entryDate && (!freshDateMap[displayKey] || entryDate > freshDateMap[displayKey])) freshDateMap[displayKey] = entryDate;
             });
         });
 
-        // B. Rework Vouchers Passed into FRESH Scanner (Root Level + Grid Level)
+        // B. Rework Vouchers Passed into FRESH Scanner
         reworkInboundVouchers.forEach(v => {
             if (!v) return;
             let entryDate = v.date || v.gateInDate || "";
             
             let baseCode = v.modelCode || v.itemCode || v.code || v.itemShort || "";
-            let basePool = cleanStr(v.pool || 'REWORK');
+            let basePool = String(v.pool || 'REWORK').trim().toUpperCase();
             if (baseCode && basePool === "FRESH") {
-                let code = cleanStr(baseCode);
-                globalFreshInMap[code] = (globalFreshInMap[code] || 0) + parseFloat(v.qty || v.receiveQty || v.passedQty || v.quantity || 0);
-                if (v.modelName || v.itemName) itemNamesMap[code] = String(v.modelName || v.itemName || '').toUpperCase();
-                if (v.unit) itemUnitsMap[code] = cleanStr(v.unit);
-                if (entryDate && (!freshDateMap[code] || entryDate > freshDateMap[code])) freshDateMap[code] = entryDate;
+                let displayKey = baseCode.trim().toUpperCase(); // 🌟 डैश रीस्टोर लॉक
+                globalFreshInMap[displayKey] = (globalFreshInMap[displayKey] || 0) + parseFloat(v.qty || v.receiveQty || v.passedQty || v.quantity || 0);
+                if (v.modelName || v.itemName) itemNamesMap[displayKey] = String(v.modelName || v.itemName || '').toUpperCase();
+                if (v.unit) itemUnitsMap[displayKey] = v.unit.trim().toUpperCase();
+                if (entryDate && (!freshDateMap[displayKey] || entryDate > freshDateMap[displayKey])) freshDateMap[displayKey] = entryDate;
             }
 
             safeConvertToArray(v.gridItems).forEach(item => {
                 if(!item) return;
                 let innerCode = item.itemShort || item.modelCode || item.code || item.partCode || "";
                 if (!innerCode) return;
-                let code = cleanStr(innerCode);
-                let rowPool = cleanStr(item.pool || 'REWORK');
+                let displayKey = innerCode.trim().toUpperCase(); // 🌟 डैश रीस्टोर लॉक
+                let rowPool = String(item.pool || 'REWORK').trim().toUpperCase();
                 
                 if(rowPool === "FRESH") {
-                    globalFreshInMap[code] = (globalFreshInMap[code] || 0) + parseFloat(item.qty || item.receiveQty || item.quantity || item.passedQty || 0);
-                    if (entryDate && (!freshDateMap[code] || entryDate > freshDateMap[code])) freshDateMap[code] = entryDate;
+                    globalFreshInMap[displayKey] = (globalFreshInMap[displayKey] || 0) + parseFloat(item.qty || item.receiveQty || item.quantity || item.passedQty || 0);
+                    if (entryDate && (!freshDateMap[displayKey] || entryDate > freshDateMap[displayKey])) freshDateMap[displayKey] = entryDate;
                 }
-                if(item.itemName || item.modelName) itemNamesMap[code] = String(item.itemName || item.modelName).toUpperCase();
-                if(item.unit) itemUnitsMap[code] = cleanStr(item.unit);
+                if(item.itemName || item.modelName) itemNamesMap[displayKey] = String(item.itemName || item.modelName).toUpperCase();
+                if(item.unit) itemUnitsMap[displayKey] = item.unit.trim().toUpperCase();
             });
         });
 
-        // C. Gate Out Dispatches & BOM Auto Deduction Tracker
+        // C. Gate Out Dispatches Tracker
         let globalFreshOutMap = {};
         outwardDispatches.forEach(g => {
             if (!g) return;
             let entryDate = g.date || "";
             safeConvertToArray(g.gridItems).forEach(item => {
                 if(!item || !item.code) return;
-                let mainCode = cleanStr(item.code); let mainQty = parseFloat(item.qty || 0);
-                let rowPool = cleanStr(item.pool || 'FRESH');
+                let mainDisplayKey = item.code.trim().toUpperCase();
+                let mainQty = parseFloat(item.qty || 0);
+                let rowPool = String(item.pool || 'FRESH').trim().toUpperCase();
                 
                 if(rowPool === 'FRESH') {
-                    globalFreshOutMap[mainCode] = (globalFreshOutMap[mainCode] || 0) + mainQty;
-                    if (entryDate && (!freshDateMap[mainCode] || entryDate > freshDateMap[mainCode])) freshDateMap[mainCode] = entryDate;
+                    globalFreshOutMap[mainDisplayKey] = (globalFreshOutMap[mainDisplayKey] || 0) + mainQty;
+                    if (entryDate && (!freshDateMap[mainDisplayKey] || entryDate > freshDateMap[mainDisplayKey])) freshDateMap[mainDisplayKey] = entryDate;
                     
-                    let targetBOM = bomFormulaList.find(b => b && cleanStr(b.mainCode) === mainCode);
+                    let targetBOM = bomFormulaList.find(b => b && cleanStr(b.mainCode) === cleanStr(item.code));
                     if(targetBOM) {
                         safeConvertToArray(targetBOM.accessories).forEach(acc => {
                             if(acc && acc.code) {
-                                let accCode = cleanStr(acc.code);
-                                globalFreshOutMap[accCode] = (globalFreshOutMap[accCode] || 0) + (parseFloat(acc.qty || 0) * mainQty);
-                                if (entryDate && (!freshDateMap[accCode] || entryDate > freshDateMap[accCode])) freshDateMap[accCode] = entryDate;
+                                let accDisplayKey = acc.code.trim().toUpperCase();
+                                globalFreshOutMap[accDisplayKey] = (globalFreshOutMap[accDisplayKey] || 0) + (parseFloat(acc.qty || 0) * mainQty);
+                                if (entryDate && (!freshDateMap[accDisplayKey] || entryDate > freshDateMap[accDisplayKey])) freshDateMap[accDisplayKey] = entryDate;
                             }
                         });
                     }
@@ -387,7 +395,7 @@
             });
         });
 
-        catalogFlatList.forEach(c => { if(c && c.code) { let code = cleanStr(c.code); itemNamesMap[code] = String(c.name).toUpperCase(); if(c.poUnit) itemUnitsMap[code] = cleanStr(c.poUnit); } });
+        catalogFlatList.forEach(c => { if(c && c.code) { let displayKey = c.code.trim().toUpperCase(); itemNamesMap[displayKey] = String(c.name).toUpperCase(); if(c.poUnit) itemUnitsMap[displayKey] = c.poUnit.trim().toUpperCase(); } });
         let filteredCodes = Object.keys(itemNamesMap).filter(code => code.includes(searchStr) || itemNamesMap[code].includes(searchStr));
         if(limitVal !== 'ALL') filteredCodes = filteredCodes.slice(0, parseInt(limitVal));
 
@@ -398,8 +406,8 @@
 
             tbody.innerHTML += `<tr>
                 <td><code>${code}</code></td><td>${itemNamesMap[code] || 'GENERIC ITEM'}</td>
-                <td style="color:#16a34a; font-weight:bold;">${tin.toFixed(3)} ${unit}</td><td style="color:#64748b;">${tout.toFixed(3)} ${unit}</td>
-                <td><span class="badge-stock ${live>0?'badge-plus':'badge-zero'}">${live.toFixed(3)} ${unit}</span></td>
+                <td style="color:#16a34a; font-weight:bold;">${formatQtyDisplay(tin)} ${unit}</td><td style="color:#64748b;">${formatQtyDisplay(tout)} ${unit}</td>
+                <td><span class="badge-stock ${live>0?'badge-plus':'badge-zero'}">${formatQtyDisplay(live)} ${unit}</span></td>
                 <td style="color:#475569; font-weight:bold;">${lastDate}</td>
                 <td><button type="button" class="btn-view-action" onclick="openItemLifecycleModal('${code}', 'FRESH')">👁️ View</button></td>
             </tr>`;
@@ -419,28 +427,28 @@
             let entryDate = v.date || "";
             
             let baseCode = v.modelCode || v.itemCode || v.code || v.itemShort || "";
-            let basePool = cleanStr(v.pool || 'REWORK');
+            let basePool = String(v.pool || 'REWORK').trim().toUpperCase();
             if (baseCode && basePool === "REWORK") {
-                let code = cleanStr(baseCode);
-                globalReworkInMap[code] = (globalReworkInMap[code] || 0) + parseFloat(v.qty || v.receiveQty || v.passedQty || v.quantity || 0);
-                if (v.modelName || v.itemName) itemNamesMap[code] = String(v.modelName || v.itemName || '').toUpperCase();
-                if (v.unit) itemUnitsMap[code] = cleanStr(v.unit);
-                if (entryDate && (!reworkDateMap[code] || entryDate > reworkDateMap[code])) reworkDateMap[code] = entryDate;
+                let displayKey = baseCode.trim().toUpperCase();
+                globalReworkInMap[displayKey] = (globalReworkInMap[displayKey] || 0) + parseFloat(v.qty || v.receiveQty || v.passedQty || v.quantity || 0);
+                if (v.modelName || v.itemName) itemNamesMap[displayKey] = String(v.modelName || v.itemName || '').toUpperCase();
+                if (v.unit) itemUnitsMap[displayKey] = v.unit.trim().toUpperCase();
+                if (entryDate && (!reworkDateMap[displayKey] || entryDate > reworkDateMap[displayKey])) reworkDateMap[displayKey] = entryDate;
             }
 
             safeConvertToArray(v.gridItems).forEach(item => {
                 if(!item) return;
                 let innerCode = item.itemShort || item.modelCode || item.code || item.partCode || "";
                 if (!innerCode) return;
-                let code = cleanStr(innerCode);
-                let rowPool = cleanStr(item.pool || 'REWORK');
+                let displayKey = innerCode.trim().toUpperCase();
+                let rowPool = String(item.pool || 'REWORK').trim().toUpperCase();
                 
                 if(rowPool === "REWORK") {
-                    globalReworkInMap[code] = (globalReworkInMap[code] || 0) + parseFloat(item.qty || item.receiveQty || item.quantity || item.passedQty || 0);
-                    if (entryDate && (!reworkDateMap[code] || entryDate > reworkDateMap[code])) reworkDateMap[code] = entryDate;
+                    globalReworkInMap[displayKey] = (globalReworkInMap[displayKey] || 0) + parseFloat(item.qty || item.receiveQty || item.quantity || item.passedQty || 0);
+                    if (entryDate && (!reworkDateMap[displayKey] || entryDate > reworkDateMap[displayKey])) reworkDateMap[displayKey] = entryDate;
                 }
-                if(item.itemName || item.modelName) itemNamesMap[code] = String(item.itemName || item.modelName).toUpperCase();
-                if(item.unit) itemUnitsMap[code] = cleanStr(item.unit);
+                if(item.itemName || item.modelName) itemNamesMap[displayKey] = String(item.itemName || item.modelName).toUpperCase();
+                if(item.unit) itemUnitsMap[displayKey] = item.unit.trim().toUpperCase();
             });
         });
 
@@ -449,15 +457,15 @@
             if (!g) return;
             let entryDate = g.date || "";
             safeConvertToArray(g.gridItems).forEach(item => {
-                if(item && item.code && cleanStr(item.pool || 'FRESH') === 'REWORK') {
-                    let code = cleanStr(item.code);
-                    globalReworkOutMap[code] = (globalReworkOutMap[code] || 0) + parseFloat(item.qty || 0);
-                    if (entryDate && (!reworkDateMap[code] || entryDate > reworkDateMap[code])) reworkDateMap[code] = entryDate;
+                if(item && item.code && String(item.pool || 'FRESH').trim().toUpperCase() === 'REWORK') {
+                    let displayKey = item.code.trim().toUpperCase();
+                    globalReworkOutMap[displayKey] = (globalReworkOutMap[displayKey] || 0) + parseFloat(item.qty || 0);
+                    if (entryDate && (!reworkDateMap[displayKey] || entryDate > reworkDateMap[displayKey])) reworkDateMap[displayKey] = entryDate;
                 }
             });
         });
 
-        catalogFlatList.forEach(c => { if(c && c.code) { let code = cleanStr(c.code); itemNamesMap[code] = String(c.name).toUpperCase(); if(c.poUnit) itemUnitsMap[code] = cleanStr(c.poUnit); } });
+        catalogFlatList.forEach(c => { if(c && c.code) { let displayKey = c.code.trim().toUpperCase(); itemNamesMap[displayKey] = String(c.name).toUpperCase(); if(c.poUnit) itemUnitsMap[displayKey] = c.poUnit.trim().toUpperCase(); } });
         let filteredCodes = Object.keys(globalReworkInMap).filter(code => code.includes(searchStr) || itemNamesMap[code].includes(searchStr));
         if(limitVal !== 'ALL') filteredCodes = filteredCodes.slice(0, parseInt(limitVal));
 
@@ -468,8 +476,8 @@
 
             tbody.innerHTML += `<tr>
                 <td><code>${code}</code></td><td>${itemNamesMap[code] || 'REPAIR MATERIAL'}</td>
-                <td style="color:#0369a1; font-weight:bold;">${rin.toFixed(3)} ${unit}</td><td style="color:#64748b;">${rout.toFixed(3)} ${unit}</td>
-                <td><span class="badge-stock ${live>0?'badge-rework':'badge-zero'}">${live.toFixed(3)} ${unit}</span></td>
+                <td style="color:#0369a1; font-weight:bold;">${formatQtyDisplay(rin)} ${unit}</td><td style="color:#64748b;">${formatQtyDisplay(rout)} ${unit}</td>
+                <td><span class="badge-stock ${live>0?'badge-rework':'badge-zero'}">${formatQtyDisplay(live)} ${unit}</span></td>
                 <td style="color:#475569; font-weight:bold;">${lastDate}</td>
                 <td><button type="button" class="btn-view-action" onclick="openItemLifecycleModal('${code}', 'REWORK')">👁️ View</button></td>
             </tr>`;
@@ -482,10 +490,10 @@
 
     function openItemLifecycleModal(targetCode, poolType) {
         let cleanTarget = cleanStr(targetCode);
-        currentActiveModalCode = cleanTarget;
+        currentActiveModalCode = targetCode.trim().toUpperCase(); // 🌟 यहाँ कोड बिल्कुल हुबहू रहेगा भाई
         currentActiveModalPool = poolType;
 
-        document.getElementById('modalPartCodeLabel').innerText = cleanTarget;
+        document.getElementById('modalPartCodeLabel').innerText = currentActiveModalCode;
         
         let inBody = document.getElementById('modalInwardTableBody'); inBody.innerHTML = '';
         let outBody = document.getElementById('modalOutwardTableBody'); outBody.innerHTML = '';
@@ -500,14 +508,14 @@
                 let baseCode = v.modelCode || v.itemCode || v.code || v.partCode || "";
                 if (baseCode && cleanStr(baseCode) === cleanTarget) {
                     let qty = parseFloat(v.qty || v.receiveQty || v.passedQty || v.quantity || 0);
-                    inBody.innerHTML += `<tr><td>${billDate}</td><td>Bill: ${refNo} (Root)</td><td>${vName}</td><td><span style="color:#16a34a;">FRESH</span></td><td><b>${qty.toFixed(3)} ${v.unit || 'NOS'}</b></td></tr>`;
+                    inBody.innerHTML += `<tr><td>${billDate}</td><td>Bill: ${refNo} (Root)</td><td>${vName}</td><td><span style="color:#16a34a;">FRESH</span></td><td><b>${formatQtyDisplay(qty)} ${v.unit || 'NOS'}</b></td></tr>`;
                 }
 
                 safeConvertToArray(v.gridItems).forEach(item => {
                     let innerCode = item.modelCode || item.itemCode || item.code || item.partCode || "";
                     if(item && cleanStr(innerCode) === cleanTarget) {
                         let qty = parseFloat(item.qty || item.receiveQty || item.quantity || 0);
-                        inBody.innerHTML += `<tr><td>${billDate}</td><td>Bill: ${refNo}</td><td>${vName}</td><td><span style="color:#16a34a;">FRESH</span></td><td><b>${qty.toFixed(3)} ${item.unit || 'NOS'}</b></td></tr>`;
+                        inBody.innerHTML += `<tr><td>${billDate}</td><td>Bill: ${refNo}</td><td>${vName}</td><td><span style="color:#16a34a;">FRESH</span></td><td><b>${formatQtyDisplay(qty)} ${item.unit || 'NOS'}</b></td></tr>`;
                     }
                 });
             });
@@ -520,19 +528,19 @@
             let pName = v.partyName || v.clientName || "-";
 
             let baseCode = v.modelCode || v.itemCode || v.code || v.itemShort || "";
-            let basePool = cleanStr(v.pool || 'REWORK');
+            let basePool = String(v.pool || 'REWORK').trim().toUpperCase();
             if (baseCode && cleanStr(baseCode) === cleanTarget && basePool === poolType) {
                 let qty = parseFloat(v.qty || v.receiveQty || v.passedQty || v.quantity || 0);
-                inBody.innerHTML += `<tr><td>${entryDate}</td><td>GP Root: ${refNo}</td><td>${pName}</td><td><span style="color:#0369a1;">${basePool}</span></td><td><b>${qty.toFixed(3)} ${v.unit || 'NOS'}</b></td></tr>`;
+                inBody.innerHTML += `<tr><td>${entryDate}</td><td>GP Root: ${refNo}</td><td>${pName}</td><td><span style="color:#0369a1;">${basePool}</span></td><td><b>${formatQtyDisplay(qty)} ${v.unit || 'NOS'}</b></td></tr>`;
             }
 
             safeConvertToArray(v.gridItems).forEach(item => {
                 if(!item) return;
                 let innerCode = item.itemShort || item.modelCode || item.code || item.partCode || "";
-                let rowPool = cleanStr(item.pool || 'REWORK');
+                let rowPool = String(item.pool || 'REWORK').trim().toUpperCase();
                 if(cleanStr(innerCode) === cleanTarget && rowPool === poolType) {
                     let qty = parseFloat(item.qty || item.receiveQty || item.quantity || item.passedQty || 0);
-                    inBody.innerHTML += `<tr><td>${entryDate}</td><td>GP Entry: ${refNo}</td><td>${pName}</td><td><span style="color:#0369a1;">${rowPool}</span></td><td><b>${qty.toFixed(3)} ${item.unit || 'NOS'}</b></td></tr>`;
+                    inBody.innerHTML += `<tr><td>${entryDate}</td><td>GP Entry: ${refNo}</td><td>${pName}</td><td><span style="color:#0369a1;">${rowPool}</span></td><td><b>${formatQtyDisplay(qty)} ${item.unit || 'NOS'}</b></td></tr>`;
                 }
             });
         });
@@ -549,10 +557,10 @@
                 let innerCode = item.code || item.modelCode || item.itemCode || "";
                 let mainCode = cleanStr(innerCode);
                 let mainQty = parseFloat(item.qty || 0);
-                let rowPool = cleanStr(item.pool || 'FRESH');
+                let rowPool = String(item.pool || 'FRESH').trim().toUpperCase();
 
                 if(mainCode === cleanTarget && rowPool === poolType) {
-                    outBody.innerHTML += `<tr><td>${outDate}</td><td>GO-${vNo} (${docType})</td><td>Loc: ${loc}</td><td>${item.pool}</td><td><b>${mainQty.toFixed(3)} ${item.unit || 'NOS'}</b></td></tr>`;
+                    outBody.innerHTML += `<tr><td>${outDate}</td><td>GO-${vNo} (${docType})</td><td>Loc: ${loc}</td><td>${item.pool}</td><td><b>${formatQtyDisplay(mainQty)} ${item.unit || 'NOS'}</b></td></tr>`;
                 }
 
                 if(poolType === 'FRESH' && rowPool === 'FRESH') {
@@ -563,7 +571,7 @@
                                 let accCode = cleanStr(acc.code);
                                 if (accCode === cleanTarget) {
                                     let totalCut = parseFloat(acc.qty) * mainQty;
-                                    outBody.innerHTML += `<tr><td>${outDate}</td><td>BOM Cut (Main: ${mainCode})</td><td>Loc: ${loc}</td><td>FRESH (BOM)</td><td style="color:#ef4444;"><b>${totalCut.toFixed(3)} ${acc.unit || 'NOS'}</b></td></tr>`;
+                                    outBody.innerHTML += `<tr><td>${outDate}</td><td>BOM Cut (Main: ${innerCode})</td><td>Loc: ${loc}</td><td>FRESH (BOM)</td><td style="color:#ef4444;"><b>${formatQtyDisplay(totalCut)} ${acc.unit || 'NOS'}</b></td></tr>`;
                                 }
                             }
                         });
@@ -583,12 +591,9 @@
     function exportModalStatementToCSV() {
         let csvRows = [];
         let matchedItemName = "GENERIC ITEM";
-        let matchedParties = [];
 
         catalogFlatList.forEach(c => {
-            if(c && cleanStr(c.code) === currentActiveModalCode) {
-                matchedItemName = c.name;
-            }
+            if(c && cleanStr(c.code) === cleanStr(currentActiveModalCode)) { matchedItemName = c.name; }
         });
 
         csvRows.push([`"Item Code:",,,"${currentActiveModalCode}"`].join(","));
@@ -605,14 +610,14 @@
                 let gateId = v.gateInNo || `G-${1000 + index}`;
 
                 let baseCode = v.modelCode || v.itemCode || v.code || "";
-                if (baseCode && cleanStr(baseCode) === currentActiveModalCode) {
+                if (baseCode && cleanStr(baseCode) === cleanStr(currentActiveModalCode)) {
                     let qty = parseFloat(v.qty || v.receiveQty || 0);
                     csvRows.push([`"${gateId}"`, `"${billDate}"`, `"Bill: ${refNo}"`, `"${qty.toFixed(3)}"`, `"${currentActiveModalPool}"`].join(","));
                 }
 
                 safeConvertToArray(v.gridItems).forEach(item => {
                     let innerCode = item.modelCode || item.itemCode || item.code || "";
-                    if(item && cleanStr(innerCode) === currentActiveModalCode) {
+                    if(item && cleanStr(innerCode) === cleanStr(currentActiveModalCode)) {
                         let qty = parseFloat(item.qty || item.receiveQty || 0);
                         csvRows.push([`"${gateId}"`, `"${billDate}"`, `"Bill: ${refNo}"`, `"${qty.toFixed(3)}"`, `"${currentActiveModalPool}"`].join(","));
                     }
@@ -627,16 +632,16 @@
             let gateId = v.gateEntryNo || `GP-${2000 + index}`;
 
             let baseCode = v.modelCode || v.itemCode || v.code || v.itemShort || "";
-            let basePool = cleanStr(v.pool || 'REWORK');
-            if (baseCode && cleanStr(baseCode) === currentActiveModalCode && basePool === currentActiveModalPool) {
+            let basePool = String(v.pool || 'REWORK').trim().toUpperCase();
+            if (baseCode && cleanStr(baseCode) === cleanStr(currentActiveModalCode) && basePool === currentActiveModalPool) {
                 let qty = parseFloat(v.qty || v.receiveQty || 0);
                 csvRows.push([`"${gateId}"`, `"${gateInDate}"`, `"GP Root: ${refNo}"`, `"${qty.toFixed(3)}"`, `"${currentActiveModalPool}"`].join(","));
             }
 
             safeConvertToArray(v.gridItems).forEach(item => {
                 let innerCode = item.itemShort || item.modelCode || item.code || "";
-                let rowPool = cleanStr(item.pool || 'REWORK');
-                if(cleanStr(innerCode) === currentActiveModalCode && rowPool === currentActiveModalPool) {
+                let rowPool = String(item.pool || 'REWORK').trim().toUpperCase();
+                if(cleanStr(innerCode) === cleanStr(currentActiveModalCode) && rowPool === currentActiveModalPool) {
                     let qty = parseFloat(item.qty || item.receiveQty || 0);
                     csvRows.push([`"${gateId}"`, `"${gateInDate}"`, `"GP Entry: ${refNo}"`, `"${qty.toFixed(3)}"`, `"${currentActiveModalPool}"`].join(","));
                 }
@@ -696,20 +701,20 @@
             
             let baseCode = v.modelCode || v.itemCode || v.code || "";
             if (baseCode) {
-                let pCode = cleanStr(baseCode);
+                let pCode = baseCode.trim().toUpperCase();
                 let pName = String(v.modelName || v.itemName || "GENERIC ITEM").toUpperCase().replace(/"/g, '""');
                 let qty = parseFloat(v.qty || v.receiveQty || 0);
-                let unit = cleanStr(v.unit || "NOS");
+                let unit = (v.unit || "NOS").trim().toUpperCase();
                 csvRows.push(['"' + billDate + '"', '"' + billNo + '"', '"' + vendorName + '"', '"' + pCode + '"', '"' + pName + '"', '"' + qty.toFixed(3) + '"', '"' + unit + '"'].join(","));
             }
 
             safeConvertToArray(v.gridItems).forEach(item => {
                 if (!item) return;
                 let innerCode = item.modelCode || item.itemCode || item.code || "";
-                let pCode = cleanStr(innerCode);
+                let pCode = innerCode.trim().toUpperCase();
                 let pName = String(item.modelName || "GENERIC ITEM").toUpperCase().replace(/"/g, '""');
                 let qty = parseFloat(item.qty || item.receiveQty || 0);
-                let unit = cleanStr(item.unit || "NOS");
+                let unit = (item.unit || "NOS").trim().toUpperCase();
                 csvRows.push(['"' + billDate + '"', '"' + billNo + '"', '"' + vendorName + '"', '"' + pCode + '"', '"' + pName + '"', '"' + qty.toFixed(3) + '"', '"' + unit + '"'].join(","));
             });
         });
