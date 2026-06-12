@@ -9,15 +9,39 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
     <style>
         .btn-edit-action { background-color: #0284c7; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
-        .btn-delete-action { background-color: #dc2626; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; }
+        .btn-edit-action:hover { background-color: #0369a1; }
+        .btn-delete-action { background-color: #dc2626; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
+        .btn-delete-action:hover { background-color: #b91c1c; }
         .btn-print-receipt { background-color: #007bff; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
-        .tabs-nav a.active-gateout { background-color: #1e3a8a !important; color: white !important; font-weight: bold; }
+        .btn-print-receipt:hover { background-color: #0056b3; }
+        
+        .tabs-nav a { background-color: #e2e8f0; color: #334155; font-weight: 500; transition: all 0.3s; padding: 8px 12px; display: inline-block; border-radius: 4px; text-decoration: none; margin-right: 4px; }
+        .tabs-nav a:hover { background-color: #cbd5e1; }
+        .tabs-nav a.active-gateout { background-color: #1e3a8a !important; color: white !important; font-weight: bold; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+
+        .table-filter-panel { display: flex; justify-content: space-between; align-items: center; background: #f1f5f9; padding: 10px 15px; border-radius: 6px 6px 0 0; border: 1px solid #cbd5e1; border-bottom: none; margin-top: 25px; gap: 15px; flex-wrap: wrap; }
+        .search-input-box { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; width: 280px; text-transform: uppercase; }
+        .limit-dropdown-select { padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; cursor: pointer; background: #fff; font-weight: bold; }
+
         .secret-modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 9999; }
-        .secret-modal-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); text-align: center; width: 320px; }
-        .secret-modal-input { width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #cbd5e1; border-radius: 4px; text-align: center; font-size: 18px; font-weight: bold; letter-spacing: 2px; }
+        .secret-modal-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); text-align: center; width: 360px; }
+        .secret-modal-card h4 { margin: 0 0 12px 0; color: #1e3a8a; }
+        .secret-modal-input { width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #cbd5e1; border-radius: 4px; text-align: center; font-size: 16px; box-sizing: border-box; }
+        .secret-modal-btn-group { display: flex; gap: 10px; justify-content: center; }
+        .secret-modal-btn-confirm { background: #16a34a; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .secret-modal-btn-cancel { background: #64748b; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; }
+
         .go-doc-group { display: flex; gap: 6px; }
-        .go-doc-group select { width: 40%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-weight: bold; }
+        .go-doc-group select { width: 40%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-weight: bold; background: white; cursor: pointer; }
         .go-doc-group input { width: 60%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; text-transform: uppercase; }
+        .go-unit-select { padding: 5px; border: 1px solid #cbd5e1; border-radius: 4px; background: white; font-weight: bold; cursor: pointer; }
+
+        @media print {
+            body * { visibility: hidden; }
+            #printSection, #printSection * { visibility: visible; }
+            #printSection { position: absolute; left: 0; top: 0; width: 210mm; padding: 4mm 6mm; background: #fff; font-family: monospace; font-size: 11px; }
+            @page { size: A4 portrait; margin: 0; }
+        }
     </style>
 </head>
 <body>
@@ -34,38 +58,90 @@
         <a href="debit.html" class="tab-link">🧾 Debit Note (Vendor)</a>
         <a href="code.html" class="tab-link">🆕 Generate Code</a>
         <a href="ledger.html" class="tab-link">📊 Master Ledger & History</a>
+        <a href="users.html" class="tab-link">👥 Manage Users</a>
+        <a href="bom.html" class="tab-link">🔗 BOM Master</a>
+        <a href="failure.html" class="tab-link">🛠️ Failure Defect Log</a>
+        <a href="production.html" class="tab-link">🏭 Production Planner</a>
         <a href="reject_bin.html" class="tab-link">🗑️ Rejection Bin</a>
     </div>
 
-    <h3>🚪 Gate Out (Dispatch) Ledger</h3>
+    <h3 id="formTitleGateout" style="color:var(--primary); margin: 15px 0 10px 0;">🚪 Gate Out (Dispatch) Ledger</h3>
 
     <form id="gateoutForm">
+        <input type="hidden" id="editRowIndex" value="-1">
         <input type="hidden" id="editFirebaseKey" value="">
+
         <div class="form-grid">
-            <div class="form-group"><label>Date <span>*</span></label><input type="date" id="goDate" required></div>
-            <div class="form-group"><label>Vehicle No <span>*</span></label><input type="text" id="goVehicleNo" required style="text-transform:uppercase;"></div>
-            <div class="form-group"><label>Doc Type & No <span>*</span></label>
+            <div class="form-group"><label>Dispatch Trans Date <span>*</span></label><input type="date" id="goDate" required></div>
+            <div class="form-group"><label>Vehicle Transport No <span>*</span></label><input type="text" id="goVehicleNo" required autocomplete="off" style="text-transform:uppercase;"></div>
+            
+            <div class="form-group">
+                <label>Doc Type & Number <span>*</span></label>
                 <div class="go-doc-group">
-                    <select id="goDocType"><option value="BILL">BILL</option><option value="CHALLAN">CHALLAN</option></select>
-                    <input type="text" id="goDocNo" required placeholder="Doc No..." style="text-transform:uppercase;">
+                    <select id="goDocType">
+                        <option value="BILL">BILL</option>
+                        <option value="CHALLAN">CHALLAN</option>
+                    </select>
+                    <input type="text" id="goDocNo" required placeholder="Doc No..." autocomplete="off">
                 </div>
             </div>
-            <div class="form-group"><label>Destination <span>*</span></label><input type="text" id="goDeliveryShipping" required style="text-transform:uppercase;"></div>
+            
+            <div class="form-group"><label>Delivery Shipping Location <span>*</span></label><input type="text" id="goDeliveryShipping" required autocomplete="off" style="text-transform:uppercase;"></div>
+            <div class="form-group"><label>Send / Dispatched By</label><input type="text" id="goSendBy" autocomplete="off" style="text-transform:uppercase;"></div>
         </div>
 
-        <table class="grid-table">
-            <thead style="background-color: var(--secondary); color: white;">
-                <tr><th>Pool</th><th>Code 🔍</th><th>Qty</th><th>Unit</th><th>Action</th></tr>
-            </thead>
-            <tbody id="gateoutItemsBody"></tbody>
-        </table>
+        <div style="overflow-x:auto; margin-top: 15px;">
+            <table class="grid-table">
+                <thead style="background-color: var(--secondary); color: white;">
+                    <tr>
+                        <th>Stock Pool Type</th>
+                        <th>Model Part Code 🔍</th>
+                        <th>Item Name</th>
+                        <th>Qty</th>
+                        <th>Unit Type</th> <th>S/N Track & Range Text</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="gateoutItemsBody"></tbody>
+            </table>
+        </div>
         <button type="button" class="btn-row-add" onclick="addGoRow()">+</button>
-        <button type="submit" id="btnSubmitForm" class="btn-submit" style="margin-top:15px; width:100%;">Authorize Gate Out</button>
+
+        <div class="form-group" style="margin-top: 15px;">
+            <label style="font-weight: bold;">Remarks / Transaction Notes</label>
+            <input type="text" id="goRemarks" placeholder="Enter any specific remarks or notes here..." autocomplete="off" style="text-transform:uppercase; padding: 10px; width: 100%; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 4px;">
+        </div>
+
+        <button type="submit" id="btnSubmitForm" class="btn-submit gateout-btn" style="margin-top:15px; width: 100%;">Authorize Gate Out (Deduct Stock)</button>
+        <button type="button" id="btnCancelEdit" class="btn-submit" style="background-color:#64748b; display:none; margin-top:10px; width: 100%;" onclick="cancelEditMode()">Cancel Update</button>
     </form>
 
-    <div class="table-responsive">
-        <table class="history-table">
-            <thead><tr><th>Voucher No</th><th>Date</th><th>Party / Doc</th><th>Items</th><th>Action</th></tr></thead>
+    <div class="date-export-panel" style="margin-top: 30px;">
+        <label>From:</label> <input type="date" id="goFromDate">
+        <label>To:</label> <input type="date" id="goToDate">
+        <button class="btn-excel" onclick="exportGateoutToExcel()">Download Excel</button>
+    </div>
+
+    <div class="table-filter-panel">
+        <div>
+            <input type="text" id="liveTableSearchBox" class="search-input-box" placeholder="🔍 Search Vehicle, Code, Party, Remarks..." autocomplete="off" oninput="triggerTableRender()">
+        </div>
+        <div>
+            <label style="font-weight: bold; font-size: 13px; color:#475569;">Show Records:</label>
+            <select id="liveTableLimitSelect" class="limit-dropdown-select" onchange="triggerTableRender()">
+                <option value="5">5 Bills (Default)</option>
+                <option value="10">10 Bills</option>
+                <option value="15">15 Bills</option>
+                <option value="ALL">Show All Bills</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="table-responsive" style="margin-top: 0;">
+        <table class="history-table" style="border-top: none;">
+            <thead style="background-color: #475569; color: white;">
+                <tr><th>Voucher No</th><th>Date</th><th>Vehicle No</th><th>Party / Doc Ref</th><th>Items Dispatched Details</th><th>Remarks</th><th>Action Controls</th></tr>
+            </thead>
             <tbody id="goHistoryBody"></tbody>
         </table>
     </div>
@@ -74,120 +150,301 @@
 <div id="secretPasswordModal" class="secret-modal-overlay">
     <div class="secret-modal-card">
         <h4>🔑 Security Check</h4>
+        <p style="font-size: 12px; color: #64748b; margin-bottom: 10px;">Enter Secret Password to Delete this Dispatch Record:</p>
         <input type="password" id="secretModalPasswordField" class="secret-modal-input" placeholder="••••" autocomplete="off">
         <div class="secret-modal-btn-group">
-            <button type="button" class="secret-modal-btn-confirm" onclick="submitSecretDeletePassword()">Confirm</button>
+            <button type="button" class="secret-modal-btn-confirm" style="background:#dc2626;" onclick="submitSecretDeletePassword()">Wipe Record</button>
             <button type="button" class="secret-modal-btn-cancel" onclick="closeSecretPasswordModal()">Cancel</button>
         </div>
     </div>
 </div>
 
+<div id="printSection"></div>
+
 <script>
     const firebaseConfig = {
         apiKey: "AIzaSyCAOXbPwuFR3wh1QSLBXWsodupKWoRYmqs",
+        authDomain: "gvm-stock-control.firebaseapp.com",
         databaseURL: "https://gvm-stock-control-default-rtdb.firebaseio.com",
-        projectId: "gvm-stock-control"
+        projectId: "gvm-stock-control",
+        storageBucket: "gvm-stock-control.firebasestorage.app",
+        messagingSenderId: "202991207119",
+        appId: "1:202991207119:web:2246ffb7b92f9eb0c4adba"
     };
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
 
-    // -- App Data --
-    let stockData = [], gateoutData = [], reworkStockData = [], bomFormulaList = [], masterCatalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
-    let activeDeleteRowIdx = null;
+    const session = JSON.parse(localStorage.getItem('activeSession'));
+    if(!session) { window.location.href = 'login.html'; }
+    function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
 
-    // -- Clean Strings --
+    let stockData = []; 
+    let gateoutData = [];
+    let reworkStockData = []; 
+    let bomFormulaList = []; 
+    let masterCatalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
+    let activeDeleteRowIdx = null; 
+    let flatPOList = []; 
+
+    // 🌟 बुलेटप्रूफ स्ट्रिंग क्लीनर (डैश और स्पेस दोनों को सुरक्षित रखकर मैच करेगा भाई)
     const cleanStr = (str) => String(str || "").trim().toUpperCase().replace(/\s+/g, '');
 
-    // -- Load Data --
-    database.ref('bomMasterData').on('value', snap => bomFormulaList = Object.values(snap.val() || {}));
-    database.ref('freshStockVouchers').on('value', snap => stockData = Object.values(snap.val() || {}));
-    database.ref('reworkStockVouchers').on('value', snap => reworkStockData = Object.values(snap.val() || {}));
-    database.ref('gateoutStockData').on('value', snap => {
+    function safeConvertToArray(rawVal) {
+        if (!rawVal) return [];
+        let arr = Array.isArray(rawVal) ? rawVal : Object.values(rawVal);
+        return arr.filter(item => item !== null && item !== undefined);
+    }
+
+    const getSerialsString = (serialsField) => {
+        if (!serialsField) return "";
+        if (Array.isArray(serialsField)) return serialsField.join(', ');
+        return String(serialsField);
+    };
+
+    database.ref('bomMasterData').on('value', snapshot => { bomFormulaList = safeConvertToArray(snapshot.val()); });
+    database.ref('freshStockVouchers').on('value', snapshot => { stockData = safeConvertToArray(snapshot.val()); renderTable(); });
+    database.ref('reworkStockVouchers').on('value', snapshot => { reworkStockData = safeConvertToArray(snapshot.val()); renderTable(); });
+
+    database.ref('systemMasterCatalogFlat').on('value', (snapshot) => {
+        flatPOList = [];
+        const data = snapshot.val();
+        if(data) { for(let key in data) { flatPOList.push(data[key]); } }
+    });
+
+    database.ref('gateoutStockData').on('value', (snapshot) => {
         gateoutData = [];
-        snap.forEach(child => gateoutData.push({ fbKey: child.key, ...child.val() }));
+        const data = snapshot.val();
+        if(data) { 
+            for(let key in data) { 
+                if(data[key] !== null) { gateoutData.push({ fbKey: key, ...data[key] }); }
+            } 
+        }
+        gateoutData.reverse(); 
         renderTable();
     });
 
-    function addGoRow() {
+    function addGoRow(preExistingSerials = "", savedUnit = "NOS") {
         const body = document.getElementById('gateoutItemsBody');
         const tr = document.createElement('tr');
+        
+        let serialText = getSerialsString(preExistingSerials);
+        let hasSn = serialText !== "" && serialText !== "-";
+
+        let selectHtml = `<select class="go-sn-required" onchange="toggleSnField(this)" style="padding:6px; border-radius:4px;"><option value="NO" ${!hasSn?'selected':''}>NO</option><option value="YES" ${hasSn?'selected':''}>YES</option></select>`;
+        let inputStyle = hasSn ? "display: inline-block; width: 180px;" : "display: none; width: 180px;";
+
         tr.innerHTML = `<td><select class="go-pool-type"><option value="FRESH">FRESH</option><option value="REWORK">REWORK</option></select></td>
-            <td><input type="text" required class="go-code" style="text-transform:uppercase;"></td>
+            <td><input type="text" required class="go-code" oninput="autofillGo(this)" style="text-transform:uppercase;"></td>
+            <td><input type="text" required class="go-name"></td>
             <td><input type="number" min="0" step="0.001" required class="go-qty"></td>
-            <td><select class="go-unit-select"><option value="NOS">NOS</option><option value="MTR">MTR</option><option value="SET">SET</option></select></td>
-            <td><button type="button" class="btn-remove-row" onclick="this.closest('tr').remove()">×</button></td>`;
+            <td>
+                <select class="go-unit-select">
+                    <option value="NOS" ${savedUnit==='NOS'?'selected':''}>NOS</option>
+                    <option value="MTR" ${savedUnit==='MTR'?'selected':''}>MTR</option>
+                    <option value="SET" ${savedUnit==='SET'?'selected':''}>SET</option>
+                </select>
+            </td>
+            <td>
+                <div style="display:flex; gap:8px; align-items:center; justify-content:center;">
+                    ${selectHtml}
+                    <input type="text" class="go-serials" value="${hasSn ? serialText : ''}" placeholder="e.g. 2601001 TO 100" style="${inputStyle} text-transform:uppercase; padding:6px; border:1px solid #cbd5e1; border-radius:4px; box-sizing:border-box;">
+                </div>
+            </td>
+            <td><button type="button" class="btn-row-remove" onclick="this.closest('tr').remove()">×</button></td>`;
         body.appendChild(tr);
     }
 
-    function calculateLiveFreshStock(targetCode) {
-        let totalIn = 0, totalOut = 0; let cleanedTarget = cleanStr(targetCode);
+    window.toggleSnField = function(select) {
+        let tr = select.closest('tr');
+        let input = tr.querySelector('.go-serials');
+        if(select.value === 'YES') { input.style.display = 'inline-block'; input.focus(); } 
+        else { input.style.display = 'none'; input.value = ''; }
+    }
+
+    function autofillGo(input) {
+        let code = cleanStr(input.value);
+        let foundName = "";
+        for(let key in masterCatalog) {
+            const m = masterCatalog[key].find(i => cleanStr(i.code) === code);
+            if(m) foundName = m.name;
+        }
+        let tr = input.closest('tr');
+        tr.querySelector('.go-name').value = foundName;
+    }
+
+    function calculateLiveFreshStock(targetCode, skipFbKey = "") {
+        let totalIn = 0; let totalOut = 0; let cleanedTarget = cleanStr(targetCode);
+        
         stockData.forEach(v => {
-            if(v.modelCode && cleanStr(v.modelCode) === cleanedTarget) totalIn += parseFloat(v.qty || 0);
-            (v.gridItems || []).forEach(item => { if(item.modelCode && cleanStr(item.modelCode) === cleanedTarget) totalIn += parseFloat(item.qty || 0); });
+            if(!v) return;
+            let baseCode = v.modelCode || v.itemCode || v.code || v.partCode || "";
+            if(baseCode && cleanStr(baseCode) === cleanedTarget) { totalIn += parseFloat(v.qty || v.receiveQty || 0); }
+            
+            let items = safeConvertToArray(v.gridItems);
+            items.forEach(item => { 
+                if(item) {
+                    let innerCode = item.modelCode || item.itemCode || item.code || "";
+                    if(cleanStr(innerCode) === cleanedTarget) { totalIn += parseFloat(item.qty || item.receiveQty || 0); } 
+                }
+            });
         });
+
         reworkStockData.forEach(v => {
-            (v.gridItems || []).forEach(item => { if(item.pool === 'FRESH' && cleanStr(item.modelCode || item.code) === cleanedTarget) totalIn += parseFloat(item.qty || 0); });
+            if (!v) return;
+            let baseCode = v.modelCode || v.itemCode || v.code || v.itemShort || "";
+            if (baseCode && cleanStr(v.pool) === "FRESH" && cleanStr(baseCode) === cleanedTarget) { totalIn += parseFloat(v.qty || 0); }
+
+            let items = safeConvertToArray(v.gridItems);
+            items.forEach(item => {
+                if(item && cleanStr(item.pool) === "FRESH") {
+                    let innerCode = item.itemShort || item.modelCode || item.code || "";
+                    if(cleanStr(innerCode) === cleanedTarget) { totalIn += parseFloat(item.qty || item.passedQty || 0); }
+                }
+            });
         });
+
         gateoutData.forEach(g => {
-            (g.gridItems || []).forEach(item => { 
-                if(item.pool === 'FRESH' && cleanStr(item.code) === cleanedTarget) totalOut += parseFloat(item.qty || 0);
-                let bom = bomFormulaList.find(b => cleanStr(b.mainCode) === cleanStr(item.code));
-                if(bom) (bom.accessories || []).forEach(acc => { if(cleanStr(acc.code) === cleanedTarget) totalOut += (parseFloat(acc.qty) * parseFloat(item.qty || 0)); });
+            if(!g || (skipFbKey && g.fbKey === skipFbKey)) return;
+            let items = safeConvertToArray(g.gridItems);
+            items.forEach(item => { 
+                if(!item) return;
+                let outCode = item.code || item.modelCode || "";
+                if(item.pool === 'FRESH' && cleanStr(outCode) === cleanedTarget) { totalOut += parseFloat(item.qty || 0); }
             });
         });
         return (totalIn - totalOut);
     }
 
+    // 🚨 सबमिशन इंजन (BOM कंपोनेंट चेकिंग पूरी तरह डिलीट - नो ब्लॉकिंग!)
     document.getElementById('gateoutForm').addEventListener('submit', function(e) {
         e.preventDefault();
         
-        let items = []; let seenCodes = [];
-        let rows = document.querySelectorAll('#gateoutItemsBody tr');
+        const docTypeVal = document.getElementById('goDocType').value;
+        const docNoVal = document.getElementById('goDocNo').value.trim().toUpperCase();
+        const idx = parseInt(document.getElementById('editRowIndex').value);
+        const fbKey = document.getElementById('editFirebaseKey').value;
+        
+        const submitBtn = document.getElementById('btnSubmitForm');
+        submitBtn.disabled = true; 
+        submitBtn.innerText = "Processing dispatch...";
 
-        for(let row of rows) {
-            let code = row.querySelector('.go-code').value.trim().toUpperCase();
-            if(seenCodes.includes(code)) { alert("Duplicate Code in Grid: " + code); return; }
-            seenCodes.push(code);
-            
-            let qty = parseFloat(row.querySelector('.go-qty').value);
-            if(row.querySelector('.go-pool-type').value === 'FRESH') {
-                let stock = calculateLiveFreshStock(code);
-                if(stock < qty) { alert("Insufficient Stock for: " + code + ". Available: " + stock); return; }
-            }
-            items.push({ pool: row.querySelector('.go-pool-type').value, code: code, qty: qty, unit: row.querySelector('.go-unit-select').value });
+        let isDuplicate = gateoutData.some(g => {
+            if (!g || (idx !== -1 && g.fbKey === fbKey)) return false; 
+            return cleanStr(g.docNo) === cleanStr(docNoVal) && cleanStr(g.docType) === cleanStr(docTypeVal);
+        });
+
+        if (isDuplicate) {
+            alert(`🚫 Duplicate Document Error!`);
+            submitBtn.disabled = false; submitBtn.innerText = "Authorize Gate Out";
+            return;
         }
 
-        let isDuplicate = gateoutData.some(g => cleanStr(g.docNo) === cleanStr(document.getElementById('goDocNo').value) && g.docType === document.getElementById('goDocType').value);
-        if(isDuplicate) { alert("Duplicate Bill/Challan!"); return; }
+        let items = []; let rows = document.querySelectorAll('#gateoutItemsBody tr'); let seenCodes = []; let deficit = false;
 
-        database.ref('gateoutStockData').push({
+        for(let row of rows) {
+            const pool = row.querySelector('.go-pool-type').value;
+            const rawCode = row.querySelector('.go-code').value.trim().toUpperCase();
+            const qty = parseFloat(row.querySelector('.go-qty').value) || 0;
+            const unit = row.querySelector('.go-unit-select').value;
+            const serialsVal = row.querySelector('.go-serials') ? row.querySelector('.go-serials').value.trim().toUpperCase() : "-";
+            
+            if(seenCodes.includes(cleanStr(rawCode))) { alert("Duplicate row in list!"); deficit = true; break; }
+            seenCodes.push(cleanStr(rawCode));
+
+            if(pool === 'FRESH') {
+                let stock = calculateLiveFreshStock(rawCode, fbKey);
+                if(stock < qty) { alert(`🚫 Stock Shortage for ${rawCode}. Available: ${stock}`); deficit = true; break; }
+            }
+            items.push({ pool, code: rawCode, name: row.querySelector('.go-name').value, qty, unit, serials: serialsVal });
+        }
+        
+        if(deficit) { submitBtn.disabled = false; submitBtn.innerText = "Authorize Gate Out"; return; }
+
+        const dispatchVoucher = {
+            voucherNo: idx === -1 ? (gateoutData.length + 1) : gateoutData.find(x => x.fbKey === fbKey).voucherNo,
             date: document.getElementById('goDate').value,
             vehicleNo: document.getElementById('goVehicleNo').value.trim().toUpperCase(),
-            docType: document.getElementById('goDocType').value,
-            docNo: document.getElementById('goDocNo').value.trim().toUpperCase(),
-            partyName: document.getElementById('goDocType').value + " - " + document.getElementById('goDocNo').value,
-            gridItems: items
-        }).then(() => { alert("Saved!"); cancelEditMode(); });
+            docType: docTypeVal, docNo: docNoVal, partyName: docTypeVal + " - " + docNoVal, 
+            deliveryShipping: document.getElementById('goDeliveryShipping').value.trim().toUpperCase(),
+            goSendBy: document.getElementById('goSendBy').value.trim().toUpperCase(),
+            remarks: document.getElementById('goRemarks').value.trim().toUpperCase(), gridItems: items 
+        };
+
+        if(idx === -1) {
+            database.ref('gateoutStockData').push(dispatchVoucher).then(() => { alert("🎉 Dispatch Authorized!"); cancelEditMode(); });
+        } else {
+            database.ref('gateoutStockData/' + fbKey).set(dispatchVoucher).then(() => { alert("🎯 Updated!"); cancelEditMode(); });
+        }
     });
 
-    function cancelEditMode() {
-        document.getElementById('gateoutForm').reset();
-        document.getElementById('gateoutItemsBody').innerHTML = '';
-        addGoRow();
+    function triggerTableRender() { renderTable(); }
+
+    function renderTable() {
+        const b = document.getElementById('goHistoryBody'); b.innerHTML = '';
+        const searchStr = document.getElementById('liveTableSearchBox').value.trim().toUpperCase();
+        const limitVal = document.getElementById('liveTableLimitSelect').value;
+
+        let filtered = gateoutData.filter(g => {
+            if(!g) return false;
+            return (g.vehicleNo || "").toUpperCase().includes(searchStr) || (g.partyName || "").toUpperCase().includes(searchStr);
+        });
+
+        let viewList = limitVal === "ALL" ? filtered : filtered.slice(0, parseInt(limitVal));
+
+        viewList.forEach((g) => {
+            let origIdx = gateoutData.findIndex(x => x.fbKey === g.fbKey);
+            let summaryHtml = "";
+            safeConvertToArray(g.gridItems).forEach(item => {
+                summaryHtml += `• [${item.pool}] <b>${item.code}</b> - ${item.qty} ${item.unit} (S/N: ${item.serials || '-'})<br>`;
+            });
+
+            b.innerHTML += `<tr>
+                <td>GVM-GO-${g.voucherNo}</td><td>${g.date}</td><td>${g.vehicleNo}</td><td style="text-align:left;">${summaryHtml}</td>
+                <td>
+                    <button type="button" class="btn-print-receipt" onclick='alert("Printing integration active...")'>🖨️ Print</button>
+                    <button type="button" class="btn-edit-action" onclick="editGateoutRow(${origIdx})">Edit</button>
+                    <button type="button" class="btn-delete-action" onclick="deleteGateoutRow(${origIdx})">Delete</button>
+                </td>
+            </tr>`;
+        });
     }
-    
-    // -- Password logic using Base64 for 7004 --
+
+    window.editGateoutRow = function(origIdx) {
+        const d = gateoutData[origIdx]; if(!d) return;
+        document.getElementById('editRowIndex').value = origIdx;
+        document.getElementById('editFirebaseKey').value = d.fbKey;
+        document.getElementById('goDate').value = d.date;
+        document.getElementById('goVehicleNo').value = d.vehicleNo;
+        document.getElementById('goDocType').value = d.docType || "BILL";
+        document.getElementById('goDocNo').value = d.docNo || "";
+        document.getElementById('goDeliveryShipping').value = d.deliveryShipping || "";
+        document.getElementById('goRemarks').value = d.remarks || "";
+
+        const body = document.getElementById('gateoutItemsBody'); body.innerHTML = '';
+        safeConvertToArray(d.gridItems).forEach(item => {
+            addGoRow(item.serials, item.unit);
+            let lastRow = body.lastElementChild;
+            lastRow.querySelector('.go-pool-type').value = item.pool;
+            lastRow.querySelector('.go-code').value = item.code;
+            lastRow.querySelector('.go-qty').value = item.qty;
+        });
+    };
+
+    function deleteGateoutRow(idx) { activeDeleteRowIdx = idx; document.getElementById('secretPasswordModal').style.display = "flex"; }
+    function closeSecretPasswordModal() { document.getElementById('secretPasswordModal').style.display = "none"; }
     function submitSecretDeletePassword() {
         if (btoa(document.getElementById('secretModalPasswordField').value) === "NzAwNA==") {
-            database.ref('gateoutStockData/' + gateoutData[activeDeleteRowIdx].fbKey).remove();
-            closeSecretPasswordModal();
+            database.ref('gateoutStockData/' + gateoutData[activeDeleteRowIdx].fbKey).remove().then(() => { alert("Deleted!"); closeSecretPasswordModal(); });
         } else { alert("Wrong Password!"); }
     }
-    function deleteGateoutRow(idx) { activeDeleteRowIdx = idx; document.getElementById('secretPasswordModal').style.display = 'flex'; }
-    function closeSecretPasswordModal() { document.getElementById('secretPasswordModal').style.display = 'none'; }
-    function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
-    
-    document.getElementById('goDate').valueAsDate = new Date();
+
+    function cancelEditMode() {
+        document.getElementById('gateoutForm').reset(); document.getElementById('gateoutItemsBody').innerHTML = '';
+        const submitBtn = document.getElementById('btnSubmitForm'); submitBtn.disabled = false; submitBtn.innerText = "Authorize Gate Out (Deduct Stock)";
+        addGoRow();
+    }
+
+    document.getElementById('goDate').value = new Date().toISOString().split('T')[0];
     addGoRow();
 </script>
 </body>
