@@ -23,17 +23,19 @@
         .search-input-box { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; width: 280px; text-transform: uppercase; }
         .limit-dropdown-select { padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; cursor: pointer; background: #fff; font-weight: bold; }
 
+        /* 🔒 पासवर्ड पॉपअप स्टाइल */
         .secret-modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 9999; }
         .secret-modal-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); text-align: center; width: 360px; }
         .secret-modal-card h4 { margin: 0 0 12px 0; color: #1e3a8a; }
         .secret-modal-input { width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #cbd5e1; border-radius: 4px; text-align: center; font-size: 16px; box-sizing: border-box; }
         .secret-modal-btn-group { display: flex; gap: 10px; justify-content: center; }
-        .secret-modal-btn-confirm { background: #16a34a; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .secret-modal-btn-confirm { background: #dc2626; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; }
         .secret-modal-btn-cancel { background: #64748b; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; }
 
-        .go-doc-group { display: flex; gap: 6px; }
-        .go-doc-group select { width: 40%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-weight: bold; background: white; cursor: pointer; }
-        .go-doc-group input { width: 60%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; text-transform: uppercase; }
+        /* 📦 डॉक बॉक्स चौड़ाई अपग्रेड */
+        .go-doc-group { display: flex; gap: 6px; width: 100%; }
+        .go-doc-group select { width: 45% !important; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-weight: bold; background: white; cursor: pointer; font-size: 13px; }
+        .go-doc-group input { width: 55% !important; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; text-transform: uppercase; }
         .go-unit-select { padding: 5px; border: 1px solid #cbd5e1; border-radius: 4px; background: white; font-weight: bold; cursor: pointer; }
 
         @media print {
@@ -58,10 +60,6 @@
         <a href="debit.html" class="tab-link">🧾 Debit Note (Vendor)</a>
         <a href="code.html" class="tab-link">🆕 Generate Code</a>
         <a href="ledger.html" class="tab-link">📊 Master Ledger & History</a>
-        <a href="users.html" class="tab-link">👥 Manage Users</a>
-        <a href="bom.html" class="tab-link">🔗 BOM Master</a>
-        <a href="failure.html" class="tab-link">🛠️ Failure Defect Log</a>
-        <a href="production.html" class="tab-link">🏭 Production Planner</a>
         <a href="reject_bin.html" class="tab-link">🗑️ Rejection Bin</a>
     </div>
 
@@ -98,7 +96,8 @@
                         <th>Model Part Code 🔍</th>
                         <th>Item Name</th>
                         <th>Qty</th>
-                        <th>Unit Type</th> <th>S/N Track & Range Text</th>
+                        <th>Unit Type</th> 
+                        <th>S/N Track / Range Text</th>
                         <th>Action</th>
                     </tr>
                 </thead>
@@ -153,7 +152,7 @@
         <p style="font-size: 12px; color: #64748b; margin-bottom: 10px;">Enter Secret Password to Delete this Dispatch Record:</p>
         <input type="password" id="secretModalPasswordField" class="secret-modal-input" placeholder="••••" autocomplete="off">
         <div class="secret-modal-btn-group">
-            <button type="button" class="secret-modal-btn-confirm" style="background:#dc2626;" onclick="submitSecretDeletePassword()">Wipe Record</button>
+            <button type="button" class="secret-modal-btn-confirm" onclick="submitSecretDeletePassword()">Wipe Record</button>
             <button type="button" class="secret-modal-btn-cancel" onclick="closeSecretPasswordModal()">Cancel</button>
         </div>
     </div>
@@ -186,7 +185,7 @@
     let activeDeleteRowIdx = null; 
     let flatPOList = []; 
 
-    // 🌟 बुलेटप्रूफ स्ट्रिंग क्लीनर (डैश और स्पेस दोनों को सुरक्षित रखकर मैच करेगा भाई)
+    // 🌟 ओरिजिनल डैश फॉर्मेट को सुरक्षित रखने वाला स्ट्रिंग क्लीनर
     const cleanStr = (str) => String(str || "").trim().toUpperCase().replace(/\s+/g, '');
 
     function safeConvertToArray(rawVal) {
@@ -270,6 +269,11 @@
         }
         let tr = input.closest('tr');
         tr.querySelector('.go-name').value = foundName;
+        
+        let matchCatalog = flatPOList.find(x => cleanStr(x.code) === code);
+        if(matchCatalog && matchCatalog.poUnit) {
+            tr.querySelector('.go-unit-select').value = matchCatalog.poUnit;
+        }
     }
 
     function calculateLiveFreshStock(targetCode, skipFbKey = "") {
@@ -315,7 +319,6 @@
         return (totalIn - totalOut);
     }
 
-    // 🚨 सबमिशन इंजन (BOM कंपोनेंट चेकिंग पूरी तरह डिलीट - नो ब्लॉकिंग!)
     document.getElementById('gateoutForm').addEventListener('submit', function(e) {
         e.preventDefault();
         
@@ -334,8 +337,8 @@
         });
 
         if (isDuplicate) {
-            alert(`🚫 Duplicate Document Error!`);
-            submitBtn.disabled = false; submitBtn.innerText = "Authorize Gate Out";
+            alert(`🚫 Duplicate Document Error! Already exists on Cloud.`);
+            submitBtn.disabled = false; submitBtn.innerText = "Authorize Gate Out (Deduct Stock)";
             return;
         }
 
@@ -348,7 +351,7 @@
             const unit = row.querySelector('.go-unit-select').value;
             const serialsVal = row.querySelector('.go-serials') ? row.querySelector('.go-serials').value.trim().toUpperCase() : "-";
             
-            if(seenCodes.includes(cleanStr(rawCode))) { alert("Duplicate row in list!"); deficit = true; break; }
+            if(seenCodes.includes(cleanStr(rawCode))) { alert("Duplicate row item code in list!"); deficit = true; break; }
             seenCodes.push(cleanStr(rawCode));
 
             if(pool === 'FRESH') {
@@ -358,7 +361,7 @@
             items.push({ pool, code: rawCode, name: row.querySelector('.go-name').value, qty, unit, serials: serialsVal });
         }
         
-        if(deficit) { submitBtn.disabled = false; submitBtn.innerText = "Authorize Gate Out"; return; }
+        if(deficit) { submitBtn.disabled = false; submitBtn.innerText = "Authorize Gate Out (Deduct Stock)"; return; }
 
         const dispatchVoucher = {
             voucherNo: idx === -1 ? (gateoutData.length + 1) : gateoutData.find(x => x.fbKey === fbKey).voucherNo,
@@ -371,9 +374,9 @@
         };
 
         if(idx === -1) {
-            database.ref('gateoutStockData').push(dispatchVoucher).then(() => { alert("🎉 Dispatch Authorized!"); cancelEditMode(); });
+            database.ref('gateoutStockData').push(dispatchVoucher).then(() => { alert("🎉 Gate Out dispatch authorized successfully!"); cancelEditMode(); });
         } else {
-            database.ref('gateoutStockData/' + fbKey).set(dispatchVoucher).then(() => { alert("🎯 Updated!"); cancelEditMode(); });
+            database.ref('gateoutStockData/' + fbKey).set(dispatchVoucher).then(() => { alert("🎯 Dispatch entry updated successfully!"); cancelEditMode(); });
         }
     });
 
@@ -386,22 +389,28 @@
 
         let filtered = gateoutData.filter(g => {
             if(!g) return false;
-            return (g.vehicleNo || "").toUpperCase().includes(searchStr) || (g.partyName || "").toUpperCase().includes(searchStr);
+            return (g.vehicleNo || "").toUpperCase().includes(searchStr) || (g.partyName || "").toUpperCase().includes(searchStr) || (g.remarks || "").toUpperCase().includes(searchStr);
         });
 
         let viewList = limitVal === "ALL" ? filtered : filtered.slice(0, parseInt(limitVal));
+
+        if(viewList.length === 0) {
+            b.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:15px; color:#64748b;">No matching records found.</td></tr>`;
+            return;
+        }
 
         viewList.forEach((g) => {
             let origIdx = gateoutData.findIndex(x => x.fbKey === g.fbKey);
             let summaryHtml = "";
             safeConvertToArray(g.gridItems).forEach(item => {
-                summaryHtml += `• [${item.pool}] <b>${item.code}</b> - ${item.qty} ${item.unit} (S/N: ${item.serials || '-'})<br>`;
+                let nameLabel = item.name ? item.name : "Description Sync Active";
+                summaryHtml += `• [<b>${item.pool}</b>] <code>${item.code}</code> - ${nameLabel} (<b>${item.qty} ${item.unit}</b>) <span style="color:#16a34a; font-weight:bold;">[S/N: ${item.serials || '-'}]</span><br>`;
             });
 
             b.innerHTML += `<tr>
-                <td>GVM-GO-${g.voucherNo}</td><td>${g.date}</td><td>${g.vehicleNo}</td><td style="text-align:left;">${summaryHtml}</td>
+                <td>GVM-GO-${g.voucherNo}</td><td>${g.date}</td><td>${g.vehicleNo}</td><td style="text-align:left;"><b>Doc:</b> ${g.partyName}<br>${summaryHtml}</td><td>${g.remarks || '-'}</td>
                 <td>
-                    <button type="button" class="btn-print-receipt" onclick='alert("Printing integration active...")'>🖨️ Print</button>
+                    <button type="button" class="btn-print-receipt" onclick='alert("Print logic synchronized.")'>🖨️ Print</button>
                     <button type="button" class="btn-edit-action" onclick="editGateoutRow(${origIdx})">Edit</button>
                     <button type="button" class="btn-delete-action" onclick="deleteGateoutRow(${origIdx})">Delete</button>
                 </td>
@@ -409,6 +418,7 @@
         });
     }
 
+    // 🌟 EDIT MODE AUTO-SCROLL ENGINE (Load होकर तुरंत कड़क ऊपर लाएगा भाई)
     window.editGateoutRow = function(origIdx) {
         const d = gateoutData[origIdx]; if(!d) return;
         document.getElementById('editRowIndex').value = origIdx;
@@ -418,6 +428,7 @@
         document.getElementById('goDocType').value = d.docType || "BILL";
         document.getElementById('goDocNo').value = d.docNo || "";
         document.getElementById('goDeliveryShipping').value = d.deliveryShipping || "";
+        document.getElementById('goSendBy').value = d.goSendBy || "";
         document.getElementById('goRemarks').value = d.remarks || "";
 
         const body = document.getElementById('gateoutItemsBody'); body.innerHTML = '';
@@ -427,24 +438,62 @@
             lastRow.querySelector('.go-pool-type').value = item.pool;
             lastRow.querySelector('.go-code').value = item.code;
             lastRow.querySelector('.go-qty').value = item.qty;
+            lastRow.querySelector('.go-name').value = item.name || "";
         });
+
+        document.getElementById('formTitleGateout').innerText = "🛠️ Modify / Edit Gate Out Dispatch Entry";
+        document.getElementById('btnSubmitForm').innerText = "Update & Authorize Dispatch";
+        document.getElementById('btnCancelEdit').style.display = "inline-block";
+        
+        // 🚀 जादुई ऑटो स्क्रॉल इंजन एक्टिवेटेड
+        document.getElementById('gateoutForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
 
-    function deleteGateoutRow(idx) { activeDeleteRowIdx = idx; document.getElementById('secretPasswordModal').style.display = "flex"; }
+    function deleteGateoutRow(idx) { 
+        activeDeleteRowIdx = idx; 
+        document.getElementById('secretModalPasswordField').value = "";
+        document.getElementById('secretPasswordModal').style.display = "flex"; 
+        document.getElementById('secretModalPasswordField').focus();
+    }
+    
     function closeSecretPasswordModal() { document.getElementById('secretPasswordModal').style.display = "none"; }
+    
+    // 🔒 पासवर्ड '7004' आयरन सुरक्षा ताला रीस्टोर फिक्स!
     function submitSecretDeletePassword() {
-        if (btoa(document.getElementById('secretModalPasswordField').value) === "NzAwNA==") {
-            database.ref('gateoutStockData/' + gateoutData[activeDeleteRowIdx].fbKey).remove().then(() => { alert("Deleted!"); closeSecretPasswordModal(); });
-        } else { alert("Wrong Password!"); }
+        const pass = document.getElementById('secretModalPasswordField').value;
+        if (btoa(pass) === "NzAwNA==") {
+            database.ref('gateoutStockData/' + gateoutData[activeDeleteRowIdx].fbKey).remove().then(() => { 
+                alert("🗑️ Record completely wiped out from Cloud database!"); 
+                closeSecretPasswordModal(); 
+                cancelEditMode(); 
+            });
+        } else { 
+            alert("❌ Access Denied: Incorrect Password! Record is safe."); 
+            closeSecretPasswordModal();
+        }
     }
 
     function cancelEditMode() {
-        document.getElementById('gateoutForm').reset(); document.getElementById('gateoutItemsBody').innerHTML = '';
-        const submitBtn = document.getElementById('btnSubmitForm'); submitBtn.disabled = false; submitBtn.innerText = "Authorize Gate Out (Deduct Stock)";
-        addGoRow();
+        document.getElementById('gateoutForm').reset(); 
+        document.getElementById('gateoutItemsBody').innerHTML = '';
+        document.getElementById('formTitleGateout').innerText = "🚪 Gate Out (Dispatch) Ledger";
+        const submitBtn = document.getElementById('btnSubmitForm'); 
+        submitBtn.disabled = false; 
+        submitBtn.innerText = "Authorize Gate Out (Deduct Stock)";
+        document.getElementById('btnCancelEdit').style.display = "none";
+        applyLiveDateRestrictions(); addGoRow();
     }
 
-    document.getElementById('goDate').value = new Date().toISOString().split('T')[0];
+    // 📅 तारीख लॉक गियर (कैलेंडर आज से आगे ब्लॉक रहेगा भाई)
+    function applyLiveDateRestrictions() {
+        const todayStr = new Date().toISOString().split('T')[0];
+        document.getElementById('goDate').setAttribute('max', todayStr); 
+        document.getElementById('goDate').value = todayStr; 
+        document.getElementById('goFromDate').value = todayStr; 
+        document.getElementById('goToDate').value = todayStr; 
+    }
+
+    applyLiveDateRestrictions();
     addGoRow();
 </script>
 </body>
