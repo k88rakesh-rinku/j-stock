@@ -20,7 +20,6 @@
         .btn-delete-action { background-color: #dc2626; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; }
         .btn-print-receipt { background-color: #007bff; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
         
-        /* 🌟 डेट पैनल के आगे चमचमाता हुआ नया सर्च बटन */
         .date-export-panel { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; background: #f8fafc; padding: 12px 15px; border-radius: 6px; border: 1px solid #cbd5e1; margin-top: 25px; }
         .btn-search-trigger { background: #1e3a8a; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 13px; }
         .btn-search-trigger:hover { background: #0f172a; }
@@ -215,7 +214,6 @@
     let activeDeleteRowIdx = null; 
     let isInternallyUpdatingPO = false;
     
-    // 🌟 रेंडरिंग कंट्रोल के लिए लॉक वेरिएबल्स
     let filterFromDate = "";
     let filterToDate = "";
 
@@ -381,39 +379,43 @@
         }
     });
 
-    // 🌟 नया जोड़ा: सर्च बटन क्लिक करने पर कंबाइंड डेट लॉक एक्टिवेट करने का लॉजिक भाई
     function triggerSearchByDate() {
         filterFromDate = document.getElementById('freshFromDate').value;
         filterToDate = document.getElementById('freshToDate').value;
-        renderTable(); // फ़िल्टर के साथ टेबल रिफ्रेश करें
+        renderTable(); 
     }
 
     function triggerTableRender() { renderTable(); }
 
-    // 🌟 सुपर ओवरहॉल: डेट रेंज + ड्रॉपडाउन लिमिट को सिंक करके रेंडर करना भाई
     function renderTable() {
         const body = document.getElementById('tableBody'); body.innerHTML = '';
         const searchStr = document.getElementById('liveTableSearchBox').value.trim().toUpperCase();
         const limitVal = document.getElementById('liveTableLimitSelect').value;
 
-        // स्टेप १: पहले टेक्स्ट सर्च और सिलेक्टेड डेट रेंज दोनों को मिलाकर डेटा फ़िल्टर करो भाई
         let filtered = stockData.filter(i => {
             if(!i) return false;
             
-            // टेक्स्ट मैचिंग
             let matchText = (i.billNo || "").toUpperCase().includes(searchStr) || 
                              (i.companyName || "").toUpperCase().includes(searchStr);
             
-            // डेट रेंज मैचिंग (अगर बटन से डेट सेट की गई है)
+            // मटीरियल ग्रिड टेक्स्ट मैच सर्च बैकएंड गियर
+            let matchGridItems = false;
+            if (i.gridItems) {
+                matchGridItems = Object.values(i.gridItems).some(item => {
+                    if (!item) return false;
+                    return (item.modelCode || "").toUpperCase().includes(searchStr) || 
+                           (item.modelName || "").toUpperCase().includes(searchStr);
+                });
+            }
+
             let matchDate = true;
             let voucherDate = i.gateInDate || i.billDate || "";
             if (filterFromDate && voucherDate < filterFromDate) matchDate = false;
             if (filterToDate && voucherDate > filterToDate) matchDate = false;
 
-            return matchText && matchDate;
+            return (matchText || matchGridItems) && matchDate;
         });
 
-        // स्टेप २: अब चुनी हुई डेट्स के अंदर ही ड्रॉपडाउन की लिमिट लगाओ (जैसे ५, १० या ALL)
         let viewList = limitVal === "ALL" ? filtered : filtered.slice(0, parseInt(limitVal));
 
         if(viewList.length === 0) {
@@ -425,7 +427,10 @@
             let origIdx = stockData.findIndex(x => x.fbKey === i.fbKey);
             let itemsHtml = "";
             (i.gridItems || []).forEach(item => {
-                itemsHtml += `• <code>${item.modelCode}</code> - ${item.modelName} (<b>${item.qty} ${item.unit}</b>)<br>`;
+                // 🌟 सुरक्षा कवच सुधार: अगर यूनिट या नाम undefined (खाली) हो, तो कोड क्रैश होने के बजाय ब्लैंक स्पेस हैंडल करेगा भाई!
+                let displayUnit = item.unit ? item.unit : "NOS";
+                let displayName = item.modelName ? item.modelName : "Material Specification Sync";
+                itemsHtml += `• <code>${item.modelCode}</code> - ${displayName} (<b>${item.qty} ${displayUnit}</b>)<br>`;
             });
 
             body.innerHTML += `<tr>
@@ -489,7 +494,6 @@
         document.getElementById('freshFromDate').value = todayStr;
         document.getElementById('freshToDate').value = todayStr;
         
-        // डिफ़ॉल्ट रूप से आज की डेट फ़िल्टर वेरिएबल्स में लॉक करें
         filterFromDate = todayStr;
         filterToDate = todayStr;
     }
