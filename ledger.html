@@ -49,10 +49,14 @@
         .sub-modal-table td { padding: 8px; border: 1px solid #e2e8f0; font-size: 12px; }
         .btn-modal-download { background: #0284c7; color: white; border: none; padding: 6px 12px; font-size: 12px; border-radius: 4px; font-weight: bold; cursor: pointer; }
 
-        /* 🌟 नया अपग्रेड: पॉपअप के अंदर लाइव सर्च बार का सुंदर डिज़ाइन */
-        .modal-search-wrapper { background: #f8fafc; border: 1px solid #cbd5e1; padding: 10px 15px; border-radius: 6px; margin: 10px 0 15px 0; display: flex; align-items: center; gap: 10px; }
-        .modal-search-box { padding: 8px 12px; border: 1px solid #94a3b8; border-radius: 4px; font-size: 13px; width: 100%; text-transform: uppercase; font-weight: bold; color: #1e3a8a; background: #fff; box-sizing: border-box; }
-        .modal-search-box:focus { border-color: #1e3a8a; outline: none; box-shadow: 0 0 0 2px rgba(30,58,138,0.2); }
+        /* 🌟 नया अपग्रेड: पॉपअप के अंदर लाइव सर्च + डेट रेंज फ़िल्टर पैनल */
+        .modal-search-wrapper { background: #f8fafc; border: 1px solid #cbd5e1; padding: 12px 15px; border-radius: 6px; margin: 10px 0 15px 0; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .modal-search-box { padding: 8px 12px; border: 1px solid #94a3b8; border-radius: 4px; font-size: 13px; flex: 1; min-width: 200px; text-transform: uppercase; font-weight: bold; color: #1e3a8a; background: #fff; box-sizing: border-box; }
+        .modal-search-box:focus { border-color: #1e3a8a; outline: none; }
+        .modal-date-group { display: flex; gap: 8px; align-items: center; background: #f1f5f9; padding: 4px 10px; border-radius: 4px; border: 1px solid #cbd5e1; }
+        .modal-date-input { padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 12px; font-weight: bold; cursor: pointer; }
+        .btn-modal-clear-date { background: #64748b; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 11px; }
+        .btn-modal-clear-date:hover { background: #475569; }
     </style>
 </head>
 <body>
@@ -200,7 +204,15 @@
         
         <div class="modal-search-wrapper">
             <span style="font-weight: bold; font-size: 13px; color: #1e3a8a; white-space: nowrap;">🔍 Filter Popup Records:</span>
-            <input type="text" id="modalBillSearchBox" class="modal-search-box" placeholder="Type Bill No, Challan No, Party, or Location to search in this Popup..." oninput="filterModalTablesByBill()">
+            <input type="text" id="modalBillSearchBox" class="modal-search-box" placeholder="Type Bill, Party, Location to filter..." oninput="filterModalTablesByBill()">
+            
+            <div class="modal-date-group">
+                <label style="font-size: 11px; font-weight: bold; color: #475569;">From:</label>
+                <input type="date" id="modalFromDate" class="modal-date-input" onchange="filterModalTablesByBill()">
+                <label style="font-size: 11px; font-weight: bold; color: #475569;">To:</label>
+                <input type="date" id="modalToDate" class="modal-date-input" onchange="filterModalTablesByBill()">
+                <button type="button" class="btn-modal-clear-date" onclick="clearModalDateFilters()">Clear Date</button>
+            </div>
         </div>
 
         <h4 style="color:#16a34a; margin: 10px 0 5px 0;">📥 Inward Logs (Store Received History)</h4>
@@ -236,11 +248,9 @@
 
     let catalogFlatList = []; let inboundVouchers = []; let reworkInboundVouchers = []; let outwardDispatches = []; let bomFormulaList = [];
     
-    // 🌟 सुरक्षा गियर: इंटरनल कम्पेरिजन के लिए स्पेस/डैश हटेंगे, लेकिन फ्रंट पर कोड ओरिजिनल रहेगा भाई!
     const cleanStr = (str) => String(str || "").trim().toUpperCase().replace(/[\s\-]+/g, '');
     function safeConvertToArray(rawVal) { return rawVal ? (Array.isArray(rawVal) ? rawVal : Object.values(rawVal)) : []; }
 
-    // 🌟 ज़ीरो और फ़ॉर्मैटिंग फ़िक्स हेल्पर इंजन
     const formatQtyDisplay = (val) => {
         let num = parseFloat(val || 0);
         return num % 1 === 0 ? num.toString() : num.toFixed(3);
@@ -318,7 +328,6 @@
 
         let globalFreshInMap = {}; let itemNamesMap = {}; let itemUnitsMap = {}; let freshDateMap = {};
 
-        // A. Fresh Inward Bills Scanner
         inboundVouchers.forEach(v => {
             if (!v) return;
             let entryDate = v.gateInDate || v.billDate || v.date || "";
@@ -501,7 +510,14 @@
         currentActiveModalPool = poolType;
 
         document.getElementById('modalPartCodeLabel').innerText = currentActiveModalCode;
-        document.getElementById('modalBillSearchBox').value = ""; // 🌟 नया पॉपअप खुलते ही सर्च बॉक्स खाली करें
+        
+        // 🌟 पॉपअप कैलेंडर पर फ़्यूचर डेट लॉक गियर और इनपुट रीसेट
+        const todayStr = new Date().toISOString().split('T')[0];
+        document.getElementById('modalFromDate').setAttribute('max', todayStr);
+        document.getElementById('modalToDate').setAttribute('max', todayStr);
+        document.getElementById('modalBillSearchBox').value = ""; 
+        document.getElementById('modalFromDate').value = "";
+        document.getElementById('modalToDate').value = "";
         
         let inBody = document.getElementById('modalInwardTableBody'); inBody.innerHTML = '';
         let outBody = document.getElementById('modalOutwardTableBody'); outBody.innerHTML = '';
@@ -572,7 +588,7 @@
                 }
 
                 if(poolType === 'FRESH' && rowPool === 'FRESH') {
-                    let targetBOM = bomFormulaList.find(b => b && cleanStr(b.mainCode) === cleanStr(item.code));
+                    let targetBOM = bomFormulaList.find(b => b && cleanStr(b.mainCode) === mainCode);
                     if(targetBOM && targetBOM.accessories) {
                         safeConvertToArray(targetBOM.accessories).forEach(acc => {
                             if(acc && acc.code) {
@@ -594,33 +610,48 @@
         document.getElementById('itemHistoryModal').style.display = 'flex';
     }
 
-    // 🌟 नया जोड़ा: पॉपअप के अंदर लाइव रो-फ़िल्टर सर्च करने वाला सुपर फ़ंक्शन
+    // 🌟 महा-अपग्रेड: पॉपअप के अंदर लाइव बिल टेक्स्ट फ़िल्टर + डेट रेंज कंबाइंड इंजन भाई
     function filterModalTablesByBill() {
         const query = document.getElementById('modalBillSearchBox').value.trim().toUpperCase();
+        const fromDate = document.getElementById('modalFromDate').value;
+        const toDate = document.getElementById('modalToDate').value;
         
-        // 1. इनवर्ड लॉग्स टेबल फ़िल्टर गियर
+        // Inward Table Filter Rows Logic
         const inwardRows = document.querySelectorAll('#modalInwardTableBody tr');
         inwardRows.forEach(row => {
-            if(row.cells.length > 1) { // केवल डेटा वाली रो को फ़िल्टर करे
-                if (row.innerText.toUpperCase().includes(query)) {
-                    row.style.display = "";
-                } else {
-                    row.style.display = "none";
-                }
+            if(row.cells.length > 1) { 
+                let rowDate = row.cells[0].innerText.trim();
+                let textMatch = row.innerText.toUpperCase().includes(query);
+                let dateMatch = true;
+
+                if (fromDate && rowDate < fromDate) dateMatch = false;
+                if (toDate && rowDate > toDate) dateMatch = false;
+
+                row.style.display = (textMatch && dateMatch) ? "" : "none";
             }
         });
 
-        // 2. आउटवर्ड लॉग्स टेबल फ़िल्टर गियर
+        // Outward Table Filter Rows Logic
         const outwardRows = document.querySelectorAll('#modalOutwardTableBody tr');
         outwardRows.forEach(row => {
             if(row.cells.length > 1) {
-                if (row.innerText.toUpperCase().includes(query)) {
-                    row.style.display = "";
-                } else {
-                    row.style.display = "none";
-                }
+                let rowDate = row.cells[0].innerText.trim();
+                let textMatch = row.innerText.toUpperCase().includes(query);
+                let dateMatch = true;
+
+                if (fromDate && rowDate < fromDate) dateMatch = false;
+                if (toDate && rowDate > toDate) dateMatch = false;
+
+                row.style.display = (textMatch && dateMatch) ? "" : "none";
             }
         });
+    }
+
+    // 🌟 डेट रेंज फ़िल्टर रीसेट हेल्पर गियर
+    function clearModalDateFilters() {
+        document.getElementById('modalFromDate').value = "";
+        document.getElementById('modalToDate').value = "";
+        filterModalTablesByBill();
     }
 
     function closeHistoryModal() { document.getElementById('itemHistoryModal').style.display = 'none'; }
