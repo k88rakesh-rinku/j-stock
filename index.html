@@ -20,7 +20,12 @@
         .btn-delete-action { background-color: #dc2626; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; }
         .btn-print-receipt { background-color: #007bff; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
         
-        .table-filter-panel { display: flex; justify-content: space-between; align-items: center; background: #f1f5f9; padding: 10px 15px; border-radius: 6px 6px 0 0; border: 1px solid #cbd5e1; border-bottom: none; margin-top: 25px; gap: 15px; flex-wrap: wrap; }
+        /* 🌟 डेट पैनल के आगे चमचमाता हुआ नया सर्च बटन */
+        .date-export-panel { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; background: #f8fafc; padding: 12px 15px; border-radius: 6px; border: 1px solid #cbd5e1; margin-top: 25px; }
+        .btn-search-trigger { background: #1e3a8a; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 13px; }
+        .btn-search-trigger:hover { background: #0f172a; }
+
+        .table-filter-panel { display: flex; justify-content: space-between; align-items: center; background: #f1f5f9; padding: 10px 15px; border-radius: 6px 6px 0 0; border: 1px solid #cbd5e1; border-bottom: none; margin-top: 15px; gap: 15px; flex-wrap: wrap; }
         .search-input-box { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; width: 280px; text-transform: uppercase; }
         .limit-dropdown-select { padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; cursor: pointer; background: #fff; font-weight: bold; }
         .po-dropdown-select { padding: 10px; border: 1px solid #0284c7; border-radius: 4px; font-size: 14px; background: #f0f9ff; font-weight: bold; color: #1e3a8a; cursor: pointer; width: 100%; box-sizing: border-box; }
@@ -136,10 +141,11 @@
         <button type="button" id="btnCancelEdit" class="btn-submit" style="background-color:#64748b; display:none; margin-top:10px; width:100%;" onclick="cancelEditMode()">Cancel Update</button>
     </form>
 
-    <div class="date-export-panel" style="margin-top: 30px;">
-        <label>From:</label> <input type="date" id="freshFromDate">
-        <label>To:</label> <input type="date" id="freshToDate">
-        <button class="btn-excel" onclick="exportFreshToExcel()">Download Excel</button>
+    <div class="date-export-panel">
+        <label style="font-weight:bold; font-size:13px;">From:</label> <input type="date" id="freshFromDate">
+        <label style="font-weight:bold; font-size:13px;">To:</label> <input type="date" id="freshToDate">
+        <button class="btn-search-trigger" onclick="triggerSearchByDate()">🔍 Filter & Search Records</button>
+        <button class="btn-excel" onclick="exportFreshToExcel()" style="margin-left:auto;">Download Excel</button>
     </div>
 
     <div class="table-filter-panel">
@@ -206,9 +212,12 @@
     let masterCatalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
     let flatPOList = []; 
     let tempGridItems = [];
-    let lastActiveFocusedInputId = "companyName";
     let activeDeleteRowIdx = null; 
     let isInternallyUpdatingPO = false;
+    
+    // 🌟 रेंडरिंग कंट्रोल के लिए लॉक वेरिएबल्स
+    let filterFromDate = "";
+    let filterToDate = "";
 
     const cleanStr = (str) => String(str || "").trim().toUpperCase().replace(/\s+/g, '');
 
@@ -229,7 +238,6 @@
 
     function updatePODropdownOptions(filteredPOs, currentEditingPONo = null) {
         const selectBox = document.getElementById('poNo');
-        // 🌟 टेक्स्ट को छोटा कर दिया भाई ताकि बॉक्स साइज एकदम परफेक्ट दिखे
         selectBox.innerHTML = '<option value="WITHOUT PO">WITHOUT PO</option>';
 
         let validPOs = filteredPOs.filter(p => {
@@ -373,15 +381,45 @@
         }
     });
 
+    // 🌟 नया जोड़ा: सर्च बटन क्लिक करने पर कंबाइंड डेट लॉक एक्टिवेट करने का लॉजिक भाई
+    function triggerSearchByDate() {
+        filterFromDate = document.getElementById('freshFromDate').value;
+        filterToDate = document.getElementById('freshToDate').value;
+        renderTable(); // फ़िल्टर के साथ टेबल रिफ्रेश करें
+    }
+
     function triggerTableRender() { renderTable(); }
 
+    // 🌟 सुपर ओवरहॉल: डेट रेंज + ड्रॉपडाउन लिमिट को सिंक करके रेंडर करना भाई
     function renderTable() {
         const body = document.getElementById('tableBody'); body.innerHTML = '';
         const searchStr = document.getElementById('liveTableSearchBox').value.trim().toUpperCase();
         const limitVal = document.getElementById('liveTableLimitSelect').value;
 
-        let filtered = stockData.filter(i => (i.billNo || "").toUpperCase().includes(searchStr) || (i.companyName || "").toUpperCase().includes(searchStr));
+        // स्टेप १: पहले टेक्स्ट सर्च और सिलेक्टेड डेट रेंज दोनों को मिलाकर डेटा फ़िल्टर करो भाई
+        let filtered = stockData.filter(i => {
+            if(!i) return false;
+            
+            // टेक्स्ट मैचिंग
+            let matchText = (i.billNo || "").toUpperCase().includes(searchStr) || 
+                             (i.companyName || "").toUpperCase().includes(searchStr);
+            
+            // डेट रेंज मैचिंग (अगर बटन से डेट सेट की गई है)
+            let matchDate = true;
+            let voucherDate = i.gateInDate || i.billDate || "";
+            if (filterFromDate && voucherDate < filterFromDate) matchDate = false;
+            if (filterToDate && voucherDate > filterToDate) matchDate = false;
+
+            return matchText && matchDate;
+        });
+
+        // स्टेप २: अब चुनी हुई डेट्स के अंदर ही ड्रॉपडाउन की लिमिट लगाओ (जैसे ५, १० या ALL)
         let viewList = limitVal === "ALL" ? filtered : filtered.slice(0, parseInt(limitVal));
+
+        if(viewList.length === 0) {
+            body.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:15px; color:#64748b;">No records found for the selected Date Range / Search query.</td></tr>`;
+            return;
+        }
 
         viewList.forEach((i) => {
             let origIdx = stockData.findIndex(x => x.fbKey === i.fbKey);
@@ -438,21 +476,22 @@
         document.getElementById('btnCancelEdit').style.display = "none"; applyLiveDateRestrictions();
     }
 
-    // 🌟 कड़क ताला सुधार: फॉर्म के साथ-साथ अब नीचे के फ्रॉम/टू एक्सपोर्ट डेट फिल्टर्स भी पूरी तरह लॉक हैं भाई!
     function applyLiveDateRestrictions() {
         const todayStr = new Date().toISOString().split('T')[0];
         
-        // मुख्य फॉर्म की तारीखों पर ताला
         document.getElementById('billDate').setAttribute('max', todayStr);
         document.getElementById('gateInDate').setAttribute('max', todayStr);
         document.getElementById('billDate').value = todayStr;
         document.getElementById('gateInDate').value = todayStr;
 
-        // 🔒 नीचे वाले एक्सेल एक्सपोर्ट कैलेंडर पर भी फ़्यूचर डेट लॉक फिक्स
         document.getElementById('freshFromDate').setAttribute('max', todayStr);
         document.getElementById('freshToDate').setAttribute('max', todayStr);
         document.getElementById('freshFromDate').value = todayStr;
         document.getElementById('freshToDate').value = todayStr;
+        
+        // डिफ़ॉल्ट रूप से आज की डेट फ़िल्टर वेरिएबल्स में लॉक करें
+        filterFromDate = todayStr;
+        filterToDate = todayStr;
     }
     applyLiveDateRestrictions();
 </script>
