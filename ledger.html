@@ -440,4 +440,331 @@
                 globalReworkInMap[displayKey] = (globalReworkInMap[displayKey] || 0) + parseFloat(v.qty || v.receiveQty || v.passedQty || v.quantity || 0);
                 if (v.modelName || v.itemName) itemNamesMap[displayKey] = String(v.modelName || v.itemName || '').toUpperCase();
                 if (v.unit) itemUnitsMap[displayKey] = v.unit.trim().toUpperCase();
-                if (entryDate && (!reworkDateMap
+                if (entryDate && (!reworkDateMap[displayKey] || entryDate > reworkDateMap[displayKey])) reworkDateMap[displayKey] = entryDate;
+            }
+
+            safeConvertToArray(v.gridItems).forEach(item => {
+                if(!item) return;
+                let innerCode = item.itemShort || item.modelCode || item.code || item.partCode || "";
+                if (!innerCode) return;
+                let displayKey = innerCode.trim().toUpperCase();
+                let rowPool = String(item.pool || 'REWORK').trim().toUpperCase();
+                
+                if(rowPool === "REWORK") {
+                    globalReworkInMap[displayKey] = (globalReworkInMap[displayKey] || 0) + parseFloat(item.qty || item.receiveQty || item.quantity || item.passedQty || 0);
+                    if (entryDate && (!reworkDateMap[displayKey] || entryDate > reworkDateMap[displayKey])) reworkDateMap[displayKey] = entryDate;
+                }
+                if(item.itemName || item.modelName) itemNamesMap[displayKey] = String(item.itemName || item.modelName).toUpperCase();
+                if(item.unit) itemUnitsMap[displayKey] = item.unit.trim().toUpperCase();
+            });
+        });
+
+        let globalReworkOutMap = {};
+        outwardDispatches.forEach(g => {
+            if (!g) return;
+            let entryDate = g.date || "";
+            safeConvertToArray(g.gridItems).forEach(item => {
+                if(item && item.code && String(item.pool || 'FRESH').trim().toUpperCase() === 'REWORK') {
+                    let displayKey = item.code.trim().toUpperCase();
+                    globalReworkOutMap[displayKey] = (globalReworkOutMap[displayKey] || 0) + parseFloat(item.qty || 0);
+                    if (entryDate && (!reworkDateMap[displayKey] || entryDate > reworkDateMap[displayKey])) reworkDateMap[displayKey] = entryDate;
+                }
+            });
+        });
+
+        catalogFlatList.forEach(c => { if(c && c.code) { let displayKey = c.code.trim().toUpperCase(); itemNamesMap[displayKey] = String(c.name).toUpperCase(); if(c.poUnit) itemUnitsMap[displayKey] = c.poUnit.trim().toUpperCase(); } });
+        let filteredCodes = Object.keys(globalReworkInMap).filter(code => code.includes(searchStr) || itemNamesMap[code].includes(searchStr));
+        if(limitVal !== 'ALL') filteredCodes = filteredCodes.slice(0, parseInt(limitVal));
+
+        filteredCodes.forEach(code => {
+            let rin = globalReworkInMap[code] || 0; let rout = globalReworkOutMap[code] || 0; let live = rin - rout; if(live < 0) live = 0;
+            let unit = itemUnitsMap[code] || "NOS";
+            let lastDate = reworkDateMap[code] ? reworkDateMap[code] : "-";
+
+            tbody.innerHTML += `<tr>
+                <td><code>${code}</code></td><td>${itemNamesMap[code] || 'REPAIR MATERIAL'}</td>
+                <td style="color:#0369a1; font-weight:bold;">${formatQtyDisplay(rin)} ${unit}</td><td style="color:#64748b;">${formatQtyDisplay(rout)} ${unit}</td>
+                <td><span class="badge-stock ${live>0?'badge-rework':'badge-zero'}">${formatQtyDisplay(live)} ${unit}</span></td>
+                <td style="color:#475569; font-weight:bold;">${lastDate}</td>
+                <td><button type="button" class="btn-view-action" onclick="openItemLifecycleModal('${code}', 'REWORK')">👁️ View</button></td>
+            </tr>`;
+        });
+    }
+
+    // 4. VIEW POPUP HISTORY STATEMENT ENGINE
+    let currentActiveModalCode = "";
+    let currentActiveModalPool = "";
+
+    function openItemLifecycleModal(targetCode, poolType) {
+        let cleanTarget = cleanStr(targetCode);
+        currentActiveModalCode = targetCode.trim().toUpperCase(); 
+        currentActiveModalPool = poolType;
+
+        document.getElementById('modalPartCodeLabel').innerText = currentActiveModalCode;
+        document.getElementById('modalBillSearchBox').value = ""; // 🌟 नया पॉपअप खुलते ही सर्च बॉक्स खाली करें
+        
+        let inBody = document.getElementById('modalInwardTableBody'); inBody.innerHTML = '';
+        let outBody = document.getElementById('modalOutwardTableBody'); outBody.innerHTML = '';
+
+        if(poolType === 'FRESH') {
+            inboundVouchers.forEach(v => {
+                if(!v) return;
+                let billDate = v.gateInDate || v.billDate || v.date || "-";
+                let refNo = v.billNo || v.invoiceNo || v.gateInNo || "-";
+                let vName = v.companyName || v.vendorName || v.supplier || "-";
+
+                let baseCode = v.modelCode || v.itemCode || v.code || v.partCode || "";
+                if (baseCode && cleanStr(baseCode) === cleanTarget) {
+                    let qty = parseFloat(v.qty || v.receiveQty || v.passedQty || v.quantity || 0);
+                    inBody.innerHTML += `<tr><td>${billDate}</td><td>Bill: ${refNo} (Root)</td><td>${vName}</td><td><span style="color:#16a34a;">FRESH</span></td><td><b>${formatQtyDisplay(qty)} ${v.unit || 'NOS'}</b></td></tr>`;
+                }
+
+                safeConvertToArray(v.gridItems).forEach(item => {
+                    let innerCode = item.modelCode || item.itemCode || item.code || item.partCode || "";
+                    if(item && cleanStr(innerCode) === cleanTarget) {
+                        let qty = parseFloat(item.qty || item.receiveQty || item.quantity || 0);
+                        inBody.innerHTML += `<tr><td>${billDate}</td><td>Bill: ${refNo}</td><td>${vName}</td><td><span style="color:#16a34a;">FRESH</span></td><td><b>${formatQtyDisplay(qty)} ${item.unit || 'NOS'}</b></td></tr>`;
+                    }
+                });
+            });
+        }
+
+        reworkInboundVouchers.forEach(v => {
+            if(!v) return;
+            let entryDate = v.date || v.gateInDate || "-";
+            let refNo = v.gateEntryNo || v.gpNo || v.challanNo || "-";
+            let pName = v.partyName || v.clientName || "-";
+
+            let baseCode = v.modelCode || v.itemCode || v.code || v.itemShort || "";
+            let basePool = String(v.pool || 'REWORK').trim().toUpperCase();
+            if (baseCode && cleanStr(baseCode) === cleanTarget && basePool === poolType) {
+                let qty = parseFloat(v.qty || v.receiveQty || v.passedQty || v.quantity || 0);
+                inBody.innerHTML += `<tr><td>${entryDate}</td><td>GP Root: ${refNo}</td><td>${pName}</td><td><span style="color:#0369a1;">${basePool}</span></td><td><b>${formatQtyDisplay(qty)} ${v.unit || 'NOS'}</b></td></tr>`;
+            }
+
+            safeConvertToArray(v.gridItems).forEach(item => {
+                if(!item) return;
+                let innerCode = item.itemShort || item.modelCode || item.code || item.partCode || "";
+                let rowPool = String(item.pool || 'REWORK').trim().toUpperCase();
+                if(cleanStr(innerCode) === cleanTarget && rowPool === poolType) {
+                    let qty = parseFloat(item.qty || item.receiveQty || item.quantity || item.passedQty || 0);
+                    inBody.innerHTML += `<tr><td>${entryDate}</td><td>GP Entry: ${refNo}</td><td>${pName}</td><td><span style="color:#0369a1;">${rowPool}</span></td><td><b>${formatQtyDisplay(qty)} ${item.unit || 'NOS'}</b></td></tr>`;
+                }
+            });
+        });
+
+        outwardDispatches.forEach(g => {
+            if(!g) return;
+            let outDate = g.date || "-";
+            let vNo = g.voucherNo || g.gateOutNo || "-";
+            let docType = g.docType || "CHALLAN";
+            let loc = g.deliveryShipping || g.destination || "-";
+
+            safeConvertToArray(g.gridItems).forEach(item => {
+                if(!item) return;
+                let innerCode = item.code || item.modelCode || item.itemCode || "";
+                let mainCode = cleanStr(innerCode);
+                let mainQty = parseFloat(item.qty || 0);
+                let rowPool = String(item.pool || 'FRESH').trim().toUpperCase();
+
+                if(mainCode === cleanTarget && rowPool === poolType) {
+                    outBody.innerHTML += `<tr><td>${outDate}</td><td>GO-${vNo} (${docType})</td><td>Loc: ${loc}</td><td>${item.pool}</td><td><b>${formatQtyDisplay(mainQty)} ${item.unit || 'NOS'}</b></td></tr>`;
+                }
+
+                if(poolType === 'FRESH' && rowPool === 'FRESH') {
+                    let targetBOM = bomFormulaList.find(b => b && cleanStr(b.mainCode) === cleanStr(item.code));
+                    if(targetBOM && targetBOM.accessories) {
+                        safeConvertToArray(targetBOM.accessories).forEach(acc => {
+                            if(acc && acc.code) {
+                                let accCode = cleanStr(acc.code);
+                                if (accCode === cleanTarget) {
+                                    let totalCut = parseFloat(acc.qty) * mainQty;
+                                    outBody.innerHTML += `<tr><td>${outDate}</td><td>BOM Cut (Main: ${innerCode})</td><td>Loc: ${loc}</td><td>FRESH (BOM)</td><td style="color:#ef4444;"><b>${formatQtyDisplay(totalCut)} ${acc.unit || 'NOS'}</b></td></tr>`;
+                                }
+                            }
+                        });
+                    }
+                }
+            });
+        });
+
+        if(!inBody.innerHTML) inBody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#64748b;">No Inward transaction history found for this pool.</td></tr>`;
+        if(!outBody.innerHTML) outBody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#64748b;">No Outward dispatch history found for this pool.</td></tr>`;
+
+        document.getElementById('itemHistoryModal').style.display = 'flex';
+    }
+
+    // 🌟 नया जोड़ा: पॉपअप के अंदर लाइव रो-फ़िल्टर सर्च करने वाला सुपर फ़ंक्शन
+    function filterModalTablesByBill() {
+        const query = document.getElementById('modalBillSearchBox').value.trim().toUpperCase();
+        
+        // 1. इनवर्ड लॉग्स टेबल फ़िल्टर गियर
+        const inwardRows = document.querySelectorAll('#modalInwardTableBody tr');
+        inwardRows.forEach(row => {
+            if(row.cells.length > 1) { // केवल डेटा वाली रो को फ़िल्टर करे
+                if (row.innerText.toUpperCase().includes(query)) {
+                    row.style.display = "";
+                } else {
+                    row.style.display = "none";
+                }
+            }
+        });
+
+        // 2. आउटवर्ड लॉग्स टेबल फ़िल्टर गियर
+        const outwardRows = document.querySelectorAll('#modalOutwardTableBody tr');
+        outwardRows.forEach(row => {
+            if(row.cells.length > 1) {
+                if (row.innerText.toUpperCase().includes(query)) {
+                    row.style.display = "";
+                } else {
+                    row.style.display = "none";
+                }
+            }
+        });
+    }
+
+    function closeHistoryModal() { document.getElementById('itemHistoryModal').style.display = 'none'; }
+
+    function exportModalStatementToCSV() {
+        let csvRows = [];
+        let matchedItemName = "GENERIC ITEM";
+
+        catalogFlatList.forEach(c => {
+            if(c && cleanStr(c.code) === cleanStr(currentActiveModalCode)) { matchedItemName = c.name; }
+        });
+
+        csvRows.push([`"Item Code:",,,"${currentActiveModalCode}"`].join(","));
+        csvRows.push([`"Item Name:",,,"${matchedItemName.toUpperCase().replace(/"/g, '""')}"`].join(","));
+        csvRows.push([]); 
+
+        csvRows.push(['"Gate Id"', '"Gate in Date"', '"Reference Doc"', '"Quantity Ledger"', '"Pool Type"'].join(","));
+        
+        if(currentActiveModalPool === 'FRESH') {
+            inboundVouchers.forEach((v, index) => {
+                if(!v) return;
+                let billDate = v.billDate || v.gateInDate || v.date || "-";
+                let refNo = v.billNo || v.invoiceNo || "-";
+                let gateId = v.gateInNo || `G-${1000 + index}`;
+
+                let baseCode = v.modelCode || v.itemCode || v.code || "";
+                if (baseCode && cleanStr(baseCode) === cleanStr(currentActiveModalCode)) {
+                    let qty = parseFloat(v.qty || v.receiveQty || 0);
+                    csvRows.push([`"${gateId}"`, `"${billDate}"`, `"Bill: ${refNo}"`, `"${qty.toFixed(3)}"`, `"${currentActiveModalPool}"`].join(","));
+                }
+
+                safeConvertToArray(v.gridItems).forEach(item => {
+                    let innerCode = item.modelCode || item.itemCode || item.code || "";
+                    if(item && cleanStr(innerCode) === cleanStr(currentActiveModalCode)) {
+                        let qty = parseFloat(item.qty || item.receiveQty || 0);
+                        csvRows.push([`"${gateId}"`, `"${billDate}"`, `"Bill: ${refNo}"`, `"${qty.toFixed(3)}"`, `"${currentActiveModalPool}"`].join(","));
+                    }
+                });
+            });
+        } 
+        
+        reworkInboundVouchers.forEach((v, index) => {
+            if(!v) return;
+            let gateInDate = v.date || "-";
+            let refNo = v.gateEntryNo || v.challanNo || "-";
+            let gateId = v.gateEntryNo || `GP-${2000 + index}`;
+
+            let baseCode = v.modelCode || v.itemCode || v.code || v.itemShort || "";
+            let basePool = String(v.pool || 'REWORK').trim().toUpperCase();
+            if (baseCode && cleanStr(baseCode) === cleanStr(currentActiveModalCode) && basePool === currentActiveModalPool) {
+                let qty = parseFloat(v.qty || v.receiveQty || 0);
+                csvRows.push([`"${gateId}"`, `"${gateInDate}"`, `"GP Root: ${refNo}"`, `"${qty.toFixed(3)}"`, `"${currentActiveModalPool}"`].join(","));
+            }
+
+            safeConvertToArray(v.gridItems).forEach(item => {
+                let innerCode = item.itemShort || item.modelCode || item.code || "";
+                let rowPool = String(item.pool || 'REWORK').trim().toUpperCase();
+                if(cleanStr(innerCode) === cleanStr(currentActiveModalCode) && rowPool === currentActiveModalPool) {
+                    let qty = parseFloat(item.qty || item.receiveQty || 0);
+                    csvRows.push([`"${gateId}"`, `"${gateInDate}"`, `"GP Entry: ${refNo}"`, `"${qty.toFixed(3)}"`, `"${currentActiveModalPool}"`].join(","));
+                }
+            });
+        });
+
+        const csvContent = "\uFEFF" + csvRows.join("\n");
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `Statement_${currentActiveModalCode}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    function downloadTableToCSV(tableId, filename) {
+        const table = document.getElementById(tableId);
+        if(!table) return;
+        let csvRows = [];
+        const rows = table.querySelectorAll("tr");
+        for (let i = 0; i < rows.length; i++) {
+            let rowData = [];
+            const cols = rows[i].querySelectorAll("th, td");
+            for (let j = 0; j < cols.length; j++) {
+                if((tableId === "freshStockTableHead" || tableId === "reworkStockTableHead") && j === cols.length - 1) continue; 
+                let cellText = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, "").trim().replace(/"/g, '""');
+                rowData.push('"' + cellText + '"');
+            }
+            csvRows.push(rowData.join(","));
+        }
+        const csvContent = "\uFEFF" + csvRows.join("\n");
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", filename);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    function exportPoLedgerToExcel() { downloadTableToCSV("poLedgerTableHead", "PO_Matrix_Ledger_Report.csv"); }
+    function exportReworkStockToExcel() { downloadTableToCSV("reworkStockTableHead", "Live_Rework_Inventory_Report.csv"); }
+    
+    function exportPhysicalStockToExcel() { 
+        if (inboundVouchers.length === 0) { alert("ಡೇಟाबेस में कोई रिकॉर्ड नहीं मिला!"); return; }
+        let csvRows = [];
+        csvRows.push(['"Inward Date"', '"Bill No / Ref"', '"Vendor / Company Name"', '"Model Part Code"', '"Item Description"', '"Received Qty"', '"Unit"'].join(","));
+        
+        inboundVouchers.forEach(v => {
+            if (!v) return;
+            let billDate = v.gateInDate || v.billDate || v.date || "-";
+            let billNo = (v.billNo || v.invoiceNo || "-").replace(/"/g, '""');
+            let vendorName = (v.companyName || v.vendorName || "-").replace(/"/g, '""');
+            
+            let baseCode = v.modelCode || v.itemCode || v.code || "";
+            if (baseCode) {
+                let pCode = baseCode.trim().toUpperCase();
+                let pName = String(v.modelName || v.itemName || "GENERIC ITEM").toUpperCase().replace(/"/g, '""');
+                let qty = parseFloat(v.qty || v.receiveQty || 0);
+                let unit = (v.unit || "NOS").trim().toUpperCase();
+                csvRows.push(['"' + billDate + '"', '"' + billNo + '"', '"' + vendorName + '"', '"' + pCode + '"', '"' + pName + '"', '"' + qty.toFixed(3) + '"', '"' + unit + '"'].join(","));
+            }
+
+            safeConvertToArray(v.gridItems).forEach(item => {
+                if (!item) return;
+                let innerCode = item.modelCode || item.itemCode || item.code || "";
+                let pCode = innerCode.trim().toUpperCase();
+                let pName = String(item.modelName || "GENERIC ITEM").toUpperCase().replace(/"/g, '""');
+                let qty = parseFloat(item.qty || item.receiveQty || 0);
+                let unit = (item.unit || "NOS").trim().toUpperCase();
+                csvRows.push(['"' + billDate + '"', '"' + billNo + '"', '"' + vendorName + '"', '"' + pCode + '"', '"' + pName + '"', '"' + qty.toFixed(3) + '"', '"' + unit + '"'].join(","));
+            });
+        });
+        const csvContent = "\uFEFF" + csvRows.join("\n");
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", "Detailed_Fresh_Inward_Bill_Report.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+</script>
+</body>
+</html>
