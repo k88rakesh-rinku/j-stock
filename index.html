@@ -79,9 +79,9 @@
                     <input type="text" id="companyName" placeholder="e.g. SIEMENS, VINYAS, OWN" required autocomplete="off" style="text-transform:uppercase;" oninput="fetchPurchasePOOptions()">
                 </div>
                 <div class="form-group">
-                    <label>PO Number (Select Order) <span>*</span></label>
+                    <label>PO Number / WITHOUT PO <span>*</span></label>
                     <select id="poNo" class="po-dropdown-select" required>
-                        <option value="">-- PO NUMBER --</option>
+                        <option value="">-- SELECT PO --</option>
                     </select>
                 </div>
             </div>
@@ -229,7 +229,8 @@
 
     function updatePODropdownOptions(filteredPOs, currentEditingPONo = null) {
         const selectBox = document.getElementById('poNo');
-        selectBox.innerHTML = '<option value="WITHOUT PO">WITHOUT PO (NO PO LINKED)</option>';
+        // 🌟 टेक्स्ट को छोटा कर दिया भाई ताकि बॉक्स साइज एकदम परफेक्ट दिखे
+        selectBox.innerHTML = '<option value="WITHOUT PO">WITHOUT PO</option>';
 
         let validPOs = filteredPOs.filter(p => {
             if(p.hasPO === "NO" || !p.poNumber || p.poNumber === "-") return false;
@@ -265,7 +266,7 @@
         if(isInternallyUpdatingPO) return; 
         const compName = document.getElementById('companyName').value.trim().toUpperCase();
         if(!compName) { 
-            document.getElementById('poNo').innerHTML = '<option value="WITHOUT PO">WITHOUT PO (NO PO LINKED)</option>'; 
+            document.getElementById('poNo').innerHTML = '<option value="WITHOUT PO">WITHOUT PO</option>'; 
             return; 
         }
         let matches = flatPOList.filter(x => x.company === compName);
@@ -428,7 +429,6 @@
     }
 
     function triggerGateInReceipt(i) {
-        // प्रिंट लॉजिक एक्टिव...
         window.print();
     }
 
@@ -438,12 +438,21 @@
         document.getElementById('btnCancelEdit').style.display = "none"; applyLiveDateRestrictions();
     }
 
+    // 🌟 कड़क ताला सुधार: फॉर्म के साथ-साथ अब नीचे के फ्रॉम/टू एक्सपोर्ट डेट फिल्टर्स भी पूरी तरह लॉक हैं भाई!
     function applyLiveDateRestrictions() {
         const todayStr = new Date().toISOString().split('T')[0];
+        
+        // मुख्य फॉर्म की तारीखों पर ताला
         document.getElementById('billDate').setAttribute('max', todayStr);
         document.getElementById('gateInDate').setAttribute('max', todayStr);
         document.getElementById('billDate').value = todayStr;
         document.getElementById('gateInDate').value = todayStr;
+
+        // 🔒 नीचे वाले एक्सेल एक्सपोर्ट कैलेंडर पर भी फ़्यूचर डेट लॉक फिक्स
+        document.getElementById('freshFromDate').setAttribute('max', todayStr);
+        document.getElementById('freshToDate').setAttribute('max', todayStr);
+        document.getElementById('freshFromDate').value = todayStr;
+        document.getElementById('freshToDate').value = todayStr;
     }
     applyLiveDateRestrictions();
 </script>
