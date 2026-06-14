@@ -35,9 +35,13 @@
         .modal-content { background: white; padding: 25px; border-radius: 8px; width: 100%; max-width: 400px; box-shadow: 0 20px 40px rgba(15, 23, 42, 0.2); text-align: center; }
         
         .btn-edit-action { background-color: #0284c7; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
+        .btn-edit-action:hover { background-color: #0369a1; }
         .btn-delete-action { background-color: #dc2626; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; }
+        .btn-delete-action:hover { background-color: #b91c1c; }
         .btn-print-receipt { background-color: #007bff; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
+        .btn-print-receipt:hover { background-color: #0056b3; }
         .btn-send-supplier { background-color: #16a34a; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
+        .btn-send-supplier:hover { background-color: #117e3a; }
 
         .tabs-nav a { background-color: #e2e8f0; color: #334155; font-weight: 500; transition: all 0.3s; padding: 8px 12px; display: inline-block; border-radius: 4px; text-decoration: none; margin-right: 4px; }
         .tabs-nav a:hover { background-color: #cbd5e1; }
@@ -321,7 +325,6 @@
             loggedBy: session.userId || "System Admin"
         };
 
-        // 🌟 पाथ फिक्स: यह अब सिर्फ फेलियर लॉग के अलग खाते 'freshFailureLogData' पर डेटा भेजेगा भाई!
         if(!key) {
             payload.status = "PENDING_DEBIT_NOTE";
             payload.debitNo = "-";
@@ -344,7 +347,6 @@
         }
     });
 
-    // 🌟 पाथ फिक्स: फेलियर डेटा सिंक के लिए रीस्टोर इंजन लॉक
     database.ref('freshFailureLogData').on('value', (snapshot) => {
         rawBinData = [];
         const data = snapshot.val();
@@ -443,7 +445,7 @@
                 <td><span class="${badge}">${txt}</span></td>
                 <td>
                     ${actionBtn}
-                    <button type="button" class="btn-print-receipt" onclick="triggerPrintRecord('${row.fbKey}')">🖨️ Print</button>
+                    <button type="button" class="btn-edit-action" style="background:#475569;" onclick="triggerPrintRecord('${row.fbKey}')">🖨️ Print</button>
                     <button type="button" class="btn-edit-action" onclick="requestSecurityGate('${row.fbKey}', 'EDIT')">Edit</button>
                     <button type="button" class="btn-delete-action" onclick="requestSecurityGate('${row.fbKey}', 'DELETE')">Delete</button>
                 </td>
