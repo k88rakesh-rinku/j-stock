@@ -35,16 +35,19 @@
         .modal-content { background: white; padding: 25px; border-radius: 8px; width: 100%; max-width: 400px; box-shadow: 0 20px 40px rgba(15, 23, 42, 0.2); text-align: center; }
         
         .btn-edit-action { background-color: #0284c7; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
+        .btn-edit-action:hover { background-color: #0369a1; }
         .btn-delete-action { background-color: #dc2626; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; }
+        .btn-delete-action:hover { background-color: #b91c1c; }
+        .btn-print-receipt { background-color: #007bff; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
+        .btn-print-receipt:hover { background-color: #0056b3; }
         .btn-send-supplier { background-color: #16a34a; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
+        .btn-send-supplier:hover { background-color: #117e3a; }
 
         .tabs-nav a { background-color: #e2e8f0; color: #334155; font-weight: 500; transition: all 0.3s; padding: 8px 12px; display: inline-block; border-radius: 4px; text-decoration: none; margin-right: 4px; }
         .tabs-nav a:hover { background-color: #cbd5e1; }
-        .tabs-nav a.active-bin { background-color: #1e3a8a !important; color: white !important; font-weight: bold; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        .tabs-nav a.active-failure { background-color: #1e3a8a !important; color: white !important; font-weight: bold; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
 
         .lot-type-select { padding: 10px; border: 1px solid #dc2626; border-radius: 4px; font-size: 14px; background: #fff5f5; font-weight: bold; color: #b91c1c; cursor: pointer; width: 100%; box-sizing: border-box; }
-
-        .date-export-panel { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; background: #f8fafc; padding: 12px 15px; border-radius: 6px; border: 1px solid #cbd5e1; margin-top: 25px; }
 
         @media print {
             body * { visibility: hidden; }
@@ -69,13 +72,13 @@
         <a href="ledger.html" class="tab-link">📊 Master Ledger & History</a>
         <a href="users.html" class="tab-link">👥 Manage Users</a>
         <a href="bom.html" class="tab-link">🔗 BOM Master</a>
-        <a href="failure.html" class="tab-link">🛠️ Failure Defect Log</a>
+        <a href="failure.html" class="tab-link active-failure">🛠️ Failure Defect Log</a>
         <a href="production.html" class="tab-link">🏭 Production Planner</a>
-        <a href="reject_bin.html" class="tab-link active-bin">🗑️ Rejection Bin</a>
+        <a href="reject_bin.html" class="tab-link">🗑️ Rejection Bin</a>
     </div>
 
-    <h3 style="color:#b91c1c; margin: 15px 0 10px 0;">🗑️ Defect Tracking & Supplier Dispatch Hub</h3>
-    <p style="font-size: 13px; color: #64748b; margin-top: 0; margin-bottom: 15px;">rejected material register logs</p>
+    <h3 style="color:#b91c1c; margin: 15px 0 10px 0;">🛠️ Failure Defect Log Register Pool</h3>
+    <p style="font-size: 13px; color: #64748b; margin-top: 0; margin-bottom: 15px;">rejected card material tracking database register</p>
 
     <div class="reject-card">
         <h4 id="formTitleText" style="margin: 0 0 12px 0; color:#b91c1c;">📝 Log New Defective Component Record</h4>
@@ -327,7 +330,7 @@
             payload.debitNo = "-";
             payload.debitDate = "-";
             database.ref('freshRejectionBinData').push(payload).then(() => {
-                alert("🎉 Success: Defect Record logged in Rejection Bin!");
+                alert("🎉 Success: Defect Record logged in Failure Pool!");
                 resetFormEverything();
             });
         } else {
@@ -343,33 +346,6 @@
             });
         }
     });
-
-    database.ref('freshRejectionBinData').on('value', (snapshot) => {
-        rawBinData = [];
-        const data = snapshot.val();
-        if(data) { for(let key in data) { rawBinData.push({ fbKey: key, ...data[key] }); } }
-        rawBinData.reverse();
-        calculateCounters();
-        applyTableRender();
-    });
-
-    function calculateCounters() {
-        let all = rawBinData.length;
-        let pending = rawBinData.filter(r => r.status === "PENDING_DEBIT_NOTE").length;
-        let sent = rawBinData.filter(r => r.status === "DEBIT_NOTE_DONE").length;
-        document.getElementById('countAll').innerText = all;
-        document.getElementById('countPending').innerText = pending;
-        document.getElementById('countSent').innerText = sent;
-    }
-
-    function switchFilter(type) {
-        currentFilter = type;
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        if(type === 'ALL') document.getElementById('tabAll').classList.add('active');
-        if(type === 'PENDING') document.getElementById('tabPending').classList.add('active');
-        if(type === 'SENT') document.getElementById('tabSent').classList.add('active');
-        applyTableRender();
-    }
 
     function triggerBinSearchEngine() {
         searchFromDate = document.getElementById('binFromDate').value;
@@ -442,7 +418,7 @@
                 <td><span class="${badge}">${txt}</span></td>
                 <td>
                     ${actionBtn}
-                    <button type="button" class="btn-edit-action" style="background:#475569;" onclick="triggerPrintRecord('${row.fbKey}')">🖨️ Print</button>
+                    <button type="button" class="btn-print-receipt" onclick="triggerPrintRecord('${row.fbKey}')">🖨️ Print</button>
                     <button type="button" class="btn-edit-action" onclick="requestSecurityGate('${row.fbKey}', 'EDIT')">Edit</button>
                     <button type="button" class="btn-delete-action" onclick="requestSecurityGate('${row.fbKey}', 'DELETE')">Delete</button>
                 </td>
@@ -616,7 +592,7 @@
         let blob = new Blob(["\uFEFF" + csv.join('\n')], { type: 'text/csv;charset=utf-8;' });
         let link = document.createElement("a");
         link.href = URL.createObjectURL(blob); 
-        link.setAttribute("download", `GVM_Defect_Bin_Report_${searchFromDate || 'All'}.csv`);
+        link.setAttribute("download", `GVM_Defect_Failure_Report_${searchFromDate || 'All'}.csv`);
         document.body.appendChild(link); 
         link.click(); 
         document.body.removeChild(link);
