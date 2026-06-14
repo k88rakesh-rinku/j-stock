@@ -325,27 +325,56 @@
             loggedBy: session.userId || "System Admin"
         };
 
+        // 🌟 पाथ फिक्स: अब यह सिर्फ फेलियर लॉग के स्वतंत्र खाते पर ही डेटा चढ़ाएगा भाई!
         if(!key) {
             payload.status = "PENDING_DEBIT_NOTE";
             payload.debitNo = "-";
             payload.debitDate = "-";
-            database.ref('freshRejectionBinData').push(payload).then(() => {
+            database.ref('freshFailureLogData').push(payload).then(() => {
                 alert("🎉 Success: Defect Record logged in Failure Pool!");
                 resetFormEverything();
             });
         } else {
-            database.ref('freshRejectionBinData/' + key).once('value').then(snap => {
+            database.ref('freshFailureLogData/' + key).once('value').then(snap => {
                 let existing = snap.val();
                 payload.status = existing.status || "PENDING_DEBIT_NOTE";
                 payload.debitNo = existing.debitNo || "-";
                 payload.debitDate = existing.debitDate || "-";
-                database.ref('freshRejectionBinData/' + key).set(payload).then(() => {
+                database.ref('freshFailureLogData/' + key).set(payload).then(() => {
                     alert("🎯 Success: Defect Record Configuration Updated!");
                     resetFormEverything();
                 });
             });
         }
     });
+
+    // 🌟 पाथ फिक्स: डेटा सिंक रेंडर के लिए भी 'freshFailureLogData' लॉक कर दिया भाई!
+    database.ref('freshFailureLogData').on('value', (snapshot) => {
+        rawBinData = [];
+        const data = snapshot.val();
+        if(data) { for(let key in data) { rawBinData.push({ fbKey: key, ...data[key] }); } }
+        rawBinData.reverse();
+        calculateCounters();
+        applyTableRender();
+    });
+
+    function calculateCounters() {
+        let all = rawBinData.length;
+        let pending = rawBinData.filter(r => r.status === "PENDING_DEBIT_NOTE").length;
+        let sent = rawBinData.filter(r => r.status === "DEBIT_NOTE_DONE").length;
+        document.getElementById('countAll').innerText = all;
+        document.getElementById('countPending').innerText = pending;
+        document.getElementById('countSent').innerText = sent;
+    }
+
+    function switchFilter(type) {
+        currentFilter = type;
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        if(type === 'ALL') document.getElementById('tabAll').classList.add('active');
+        if(type === 'PENDING') document.getElementById('tabPending').classList.add('active');
+        if(type === 'SENT') document.getElementById('tabSent').classList.add('active');
+        applyTableRender();
+    }
 
     function triggerBinSearchEngine() {
         searchFromDate = document.getElementById('binFromDate').value;
@@ -418,7 +447,7 @@
                 <td><span class="${badge}">${txt}</span></td>
                 <td>
                     ${actionBtn}
-                    <button type="button" class="btn-print-receipt" onclick="triggerPrintRecord('${row.fbKey}')">🖨️ Print</button>
+                    <button type="button" class="btn-edit-action" style="background:#475569;" onclick="triggerPrintRecord('${row.fbKey}')">🖨️ Print</button>
                     <button type="button" class="btn-edit-action" onclick="requestSecurityGate('${row.fbKey}', 'EDIT')">Edit</button>
                     <button type="button" class="btn-delete-action" onclick="requestSecurityGate('${row.fbKey}', 'DELETE')">Delete</button>
                 </td>
@@ -439,7 +468,7 @@
         const dd = document.getElementById('modalDebitDate').value;
         if(!dn) { alert("Debit Note No is mandatory!"); return; }
         
-        database.ref('freshRejectionBinData/' + activeActionKey).update({
+        database.ref('freshFailureLogData/' + activeActionKey).update({
             status: "DEBIT_NOTE_DONE",
             debitNo: dn,
             debitDate: dd
@@ -464,7 +493,7 @@
             closePasswordModal();
             if(activeActionType === 'DELETE') {
                 if(confirm("Are you sure you want to permanently wipe out this defect history row?")) {
-                    database.ref('freshRejectionBinData/' + activeActionKey).remove().then(() => { alert("Record deleted."); });
+                    database.ref('freshFailureLogData/' + activeActionKey).remove().then(() => { alert("Record deleted."); });
                 }
             } else if(activeActionType === 'EDIT') {
                 loadRecordToForm(activeActionKey);
