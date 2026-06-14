@@ -3,39 +3,60 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Field Failure Log - GVM Rail</title>
+    <title>Defect Tracking & Supplier Hub - GVM Rail</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
     <style>
-        .btn-edit-action { background-color: #0284c7; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
-        .btn-edit-action:hover { background-color: #0369a1; }
-        .btn-delete-action { background-color: #dc2626; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; }
-        .btn-delete-action:hover { background-color: #b91c1c; }
+        .reject-card { background: #fff5f5; border: 1px solid #fecaca; padding: 20px; border-radius: 8px; margin-bottom: 25px; }
+        .btn-transfer { background-color: #dc3545; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: bold; transition: background 0.2s; }
+        .btn-transfer:hover { background-color: #bd2130; }
         
+        /* स्टेटस बैज स्टाइलिंग */
+        .status-pending { background-color: #fee2e2; color: #991b1b; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; display: inline-block; border: 1px solid #fca5a5; }
+        .status-cleared { background-color: #dcfce7; color: #15803d; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; display: inline-block; border: 1px solid #bbf7d0; }
+        
+        /* लाइव काउंटर टैब गियर */
+        .counter-tabs { display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; }
+        .tab-btn { padding: 10px 16px; border-radius: 6px; border: 1px solid #cbd5e1; background: #f8fafc; font-weight: bold; font-size: 13px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 8px; }
+        .tab-btn.active { background-color: #1e3a8a; color: white; border-color: #1e3a8a; }
+        .badge-count { background: #ef4444; color: white; padding: 2px 6px; border-radius: 10px; font-size: 11px; }
+        .tab-btn.active .badge-count { background: white; color: #1e3a8a; }
+
+        .sub-components-box { background: #fff; border: 1px solid #cbd5e1; padding: 15px; border-radius: 6px; margin-top: 15px; display: none; position: relative; overflow-x: auto; }
+        
+        /* 🔄 न्यू और ओल्ड लॉट डायनेमिक ग्रिड लेआउट संरचना */
+        .sub-set-row { display: grid; gap: 10px; padding: 10px; border-bottom: 1px solid #f1f5f9; align-items: center; }
+        .sub-set-row input { padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 12px; width: 100%; box-sizing: border-box; text-transform: uppercase; font-weight: bold; }
+        .sub-header-grid { display: grid; gap: 10px; background: #334155; color: white; padding: 8px 10px; border-radius: 4px; font-size: 11px; font-weight: bold; text-align: center; }
+
+        /* पॉपअप मॉडल स्टाइल */
+        .sn-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(15, 23, 42, 0.6); z-index: 9999; justify-content: center; align-items: center; backdrop-filter: blur(2px); }
+        .modal-content { background: white; padding: 25px; border-radius: 8px; width: 100%; max-width: 400px; box-shadow: 0 20px 40px rgba(15, 23, 42, 0.2); text-align: center; }
+        
+        .btn-edit-action { background-color: #0284c7; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
+        .btn-delete-action { background-color: #dc2626; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; }
+        .btn-send-supplier { background-color: #16a34a; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
+
         .tabs-nav a { background-color: #e2e8f0; color: #334155; font-weight: 500; transition: all 0.3s; padding: 8px 12px; display: inline-block; border-radius: 4px; text-decoration: none; margin-right: 4px; }
         .tabs-nav a:hover { background-color: #cbd5e1; }
-        .tabs-nav a.active-failure { background-color: #1e3a8a !important; color: white !important; font-weight: bold; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        .tabs-nav a.active-bin { background-color: #1e3a8a !important; color: white !important; font-weight: bold; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
 
-        .table-filter-panel { display: flex; justify-content: space-between; align-items: center; background: #f1f5f9; padding: 10px 15px; border-radius: 6px 6px 0 0; border: 1px solid #cbd5e1; border-bottom: none; margin-top: 25px; gap: 15px; flex-wrap: wrap; }
-        .search-input-box { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; width: 300px; text-transform: uppercase; }
-        .limit-dropdown-select { padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; cursor: pointer; background: #fff; font-weight: bold; }
+        .lot-type-select { padding: 10px; border: 1px solid #dc2626; border-radius: 4px; font-size: 14px; background: #fff5f5; font-weight: bold; color: #b91c1c; cursor: pointer; width: 100%; box-sizing: border-box; }
 
-        .secret-modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 9999; }
-        .secret-modal-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); text-align: center; width: 320px; }
-        .secret-modal-card h4 { margin: 0 0 12px 0; color: #dc2626; }
-        .secret-modal-input { width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #cbd5e1; border-radius: 4px; text-align: center; font-size: 16px; box-sizing: border-box; }
-        
-        .badge-status { padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; color: white; }
-        .bg-fail { background-color: #dc2626; }
-        .bg-ok { background-color: #16a34a; }
-        .bg-nil { background-color: #64748b; }
+        .date-export-panel { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; background: #f8fafc; padding: 12px 15px; border-radius: 6px; border: 1px solid #cbd5e1; margin-top: 25px; }
+
+        @media print {
+            body * { visibility: hidden; }
+            #printSection, #printSection * { visibility: visible; }
+            #printSection { position: absolute; left: 0; top: 0; width: 210mm; background: #fff; font-family: monospace; padding: 10px; }
+        }
     </style>
 </head>
 <body>
 <div class="container">
     <div class="erp-header">
-        <h1>Material Lifecycle Control & Inventory Ledger Systems</h1>
+        <h1>Material Lifecycle Control & Inventory Ledger Systems <span style="font-size:12px; color:#f87171;">● DEFECT TRACKING ENGINE</span></h1>
         <button class="logout-btn" onclick="logout()">Logout</button>
     </div>
     
@@ -48,107 +69,124 @@
         <a href="ledger.html" class="tab-link">📊 Master Ledger & History</a>
         <a href="users.html" class="tab-link">👥 Manage Users</a>
         <a href="bom.html" class="tab-link">🔗 BOM Master</a>
-        <a href="failure.html" class="tab-link active-failure">🛠️ Failure Defect Log</a>
+        <a href="failure.html" class="tab-link">🛠️ Failure Defect Log</a>
         <a href="production.html" class="tab-link">🏭 Production Planner</a>
-        <a href="reject_bin.html" class="tab-link">🗑️ Rejection Bin</a>
+        <a href="reject_bin.html" class="tab-link active-bin">🗑️ Rejection Bin</a>
     </div>
 
-    <h3 id="formTitleFailure" style="color:#1e3a8a; margin: 15px 0 10px 0;">📋 GP0013 V2 Field Return Failure Registry</h3>
+    <h3 style="color:#b91c1c; margin: 15px 0 10px 0;">🗑️ Defect Tracking & Supplier Dispatch Hub</h3>
+    <p style="font-size: 13px; color: #64748b; margin-top: 0; margin-bottom: 15px;">rejected material register logs</p>
 
-    <form id="failureForm">
-        <input type="hidden" id="editRowIndex" value="-1">
-        <input type="hidden" id="editFirebaseKey" value="">
-
-        <div class="form-grid">
-            <div class="form-group"><label>Controller Serial No. <span>*</span></label><input type="text" id="failController" placeholder="e.g. GR0000" required autocomplete="off" style="text-transform:uppercase;"></div>
-            <div class="form-group"><label>PCB Main Serial (BOTTOM) <span>*</span></label><input type="text" id="failPcbMain" placeholder="e.g. 00000" required autocomplete="off" style="text-transform:uppercase;"></div>
-            <div class="form-group"><label>PCB LED Serial (TOP) <span>*</span></label><input type="text" id="failPcbLed" placeholder="e.g. 00000" required autocomplete="off" style="text-transform:uppercase;"></div>
-            <div class="form-group"><label>Child Card Details</label><input type="text" id="failChildCard" placeholder="e.g. 00000" autocomplete="off" style="text-transform:uppercase;"></div>
+    <div class="reject-card">
+        <h4 id="formTitleText" style="margin: 0 0 12px 0; color:#b91c1c;">📝 Log New Defective Component Record</h4>
+        <form id="freshRejectForm">
+            <input type="hidden" id="editFirebaseKey" value="">
             
-            <div class="form-group"><label>Display Status</label>
-                <select id="statusDisplay"><option value="NIL">NIL</option><option value="OK">OK</option><option value="FAIL">FAIL</option></select>
-            </div>
-            <div class="form-group"><label>Visual Inspection</label>
-                <select id="statusVisual"><option value="OK">OK</option><option value="FAIL">FAIL</option><option value="NIL">NIL</option></select>
-            </div>
-            <div class="form-group"><label>Electrical Test</label>
-                <select id="statusElectrical"><option value="FAIL">FAIL</option><option value="OK">OK</option><option value="NIL">NIL</option></select>
-            </div>
-            
-            <div class="form-group"><label>Problem Description <span>*</span></label><input type="text" id="failProblem" placeholder="e.g. POWER SUPPLY BLINK" required autocomplete="off" style="text-transform:uppercase;"></div>
-            <div class="form-group"><label> Locations</label><input type="text" id="failLocations" placeholder="e.g. A1 B2" autocomplete="off" style="text-transform:uppercase;"></div>
-            <div class="form-group"><label>Action Taken <span>*</span></label><input type="text" id="failAction" placeholder="e.g. REPAIRED" required autocomplete="off" style="text-transform:uppercase;"></div>
-            
-            <div class="form-group"><label>Failure Date</label><input type="date" id="failDate"></div>
-            <div class="form-group"><label>Repair/Dispatch Date</label><input type="date" id="failDispatchDate"></div>
-            <div class="form-group"><label>Received From <span>*</span></label><input type="text" id="failFrom" placeholder="e.g. XXXX,ABC" required autocomplete="off" style="text-transform:uppercase;"></div>
-        </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; align-items: flex-end;">
+                <div class="form-group"><label>Rejection Date <span>*</span></label><input type="date" id="rejDate" required></div>
+                <div class="form-group"><label>Vendor Name <span>*</span></label><input type="text" id="rejVendor" placeholder="Vendor Name" required style="text-transform:uppercase;"></div>
+                
+                <div class="form-group">
+                    <label>Lot Classification Type <span>*</span></label>
+                    <select id="rejLotType" class="lot-type-select" onchange="generateSubAssemblyInputs()" required>
+                        <option value="NEW">NEW REJECTION (FULL TRACK)</option>
+                        <option value="OLD">OLD REJECTION (CARD ONLY)</option>
+                    </select>
+                </div>
 
-        <div class="form-group" style="margin-top: 15px;">
-            <label style="font-weight: bold;">Technical Diagnostic Remarks</label>
-            <input type="text" id="failRemarks" placeholder="Enter fresh board remarks, status OK details etc..." autocomplete="off" style="text-transform:uppercase; padding: 10px; width: 100%; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 4px;">
-        </div>
+                <div class="form-group"><label>Main Board Item Code <span>*</span></label><input type="text" id="rejItemCode" placeholder="e.g. abxxx" required style="text-transform:uppercase;" oninput="autofillRejectItem(this)"></div>
+                <div class="form-group"><label>Model Specification Name</label><input type="text" id="rejItemName" placeholder="Auto-fill Spec Name" readonly style="background:#e2e8f0; font-weight: bold; color: #1e3a8a;"></div>
+                <div class="form-group"><label>Reject Qty (Sets) <span>*</span></label><input type="number" id="rejQty" placeholder="Max 5 Sets" min="1" max="5" required oninput="generateSubAssemblyInputs()"></div>
+            </div>
 
-        <button type="submit" id="btnSubmitForm" class="btn-submit" style="margin-top:15px; width: 100%; background-color: #1e3a8a; color: white; padding: 12px; font-weight: bold; border: none; border-radius: 4px; cursor: pointer;">Save Failure Log to Live Cloud</button>
-        <button type="button" id="btnCancelEdit" class="btn-submit" style="background-color:#64748b; color: white; display:none; margin-top:10px; width: 100%; padding: 12px; border: none; border-radius: 4px;" onclick="cancelEditMode()">Cancel Update</button>
-    </form>
+            <div id="subComponentsContainer" class="sub-components-box">
+                <span style="position:absolute; right:15px; top:12px; cursor:pointer; font-weight:bold; color:#ef4444; font-size:20px;" onclick="closeSerialBoxWithCheck()">×</span>
+                <h5 style="margin: 0 0 10px 0; color:#334155;">🧩 Enter Assembly Component Wise Serial, Barcodes, Problems & Testers</h5>
+                
+                <div id="dynamicHeaderGrid" class="sub-header-grid"></div>
+                <div id="dynamicSetsBody" style="margin-top: 5px;"></div>
+            </div>
 
-    <div class="date-export-panel" style="margin-top: 30px;">
-        <label>From Date:</label> <input type="date" id="exportFromDate">
-        <label>To Date:</label> <input type="date" id="exportToDate">
-        <button class="btn-excel" onclick="exportFailureToExcel()">Download Failure Excel Report</button>
+            <div class="form-group" style="margin-top: 15px;">
+                <label>General Batch Remarks / Notes</label>
+                <input type="text" id="rejRemarks" placeholder="Enter extra diagnostic note here..." autocomplete="off" style="text-transform:uppercase; padding: 10px; width: 100%; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 4px;">
+            </div>
+
+            <button type="submit" id="btnSubmitForm" class="btn-transfer" style="margin-top: 15px; width: 100%;">💾 Save Defect Record To Ledger</button>
+            <button type="button" id="btnCancelEdit" class="btn-transfer" style="background-color:#64748b; display:none; margin-top:10px; width: 100%;" onclick="cancelEditMode()">Cancel Update</button>
+        </form>
     </div>
 
-    <div class="table-filter-panel">
-        <div>
-            <input type="text" id="liveTableSearchBox" class="search-input-box" placeholder="🔍 Search Controller, PCB, From, Problem..." oninput="triggerTableRender()">
-        </div>
-        <div>
-            <label style="font-weight: bold; font-size: 13px; color:#475569;">Show Records:</label>
-            <select id="liveTableLimitSelect" class="limit-dropdown-select" onchange="triggerTableRender()">
-                <option value="5">5 Records (Default)</option>
-                <option value="10">10 Records</option>
-                <option value="15">15 Records</option>
-                <option value="ALL">Show All History</option>
-            </select>
-        </div>
+    <div class="counter-tabs">
+        <button class="tab-btn active" id="tabAll" onclick="switchFilter('ALL')">📋 All History <span class="badge-count" id="countAll">0</span></button>
+        <button class="tab-btn" id="tabPending" onclick="switchFilter('PENDING')">🛑 Pending In Our Stock <span class="badge-count" id="countPending">0</span></button>
+        <button class="tab-btn" id="tabSent" onclick="switchFilter('SENT')">🚚 Sent To Supplier <span class="badge-count" id="countSent">0</span></button>
     </div>
 
+    <div class="table-filter-panel" style="background: #f8fafc; padding: 12px 15px; border: 1px solid #cbd5e1; border-radius: 6px; gap: 10px; margin-bottom: 10px;">
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; flex:1;">
+            <label style="font-weight:bold; font-size:12px; color:#475569;">From:</label>
+            <input type="date" id="binFromDate" style="padding:6px; border:1px solid #cbd5e1; border-radius:4px; font-size:12px;">
+            <label style="font-weight:bold; font-size:12px; color:#475569;">To:</label>
+            <input type="date" id="binToDate" style="padding:6px; border:1px solid #cbd5e1; border-radius:4px; font-size:12px;">
+            <input type="text" id="tableSearchBox" class="search-input-box" style="margin:0; width: 260px; padding:7px 10px;" placeholder="🔍 Search Model, Vendor, SN, Code..." autocomplete="off">
+            <button type="button" class="btn-transfer" style="padding:7px 15px; margin:0; font-size:12px; background:#1e3a8a;" onclick="triggerBinSearchEngine()">🔍 Filter & Search</button>
+        </div>
+        <button class="btn-excel" onclick="downloadRejectExcel()" style="margin:0; padding:8px 14px; background:#16a34a;">📥 Export Filtered List (Excel)</button>
+    </div>
+    
     <div class="table-responsive" style="margin-top: 0;">
-        <table class="history-table" style="border-top: none; min-width: 1500px;">
-            <thead style="background-color: #1e3a8a; color: white;">
+        <table class="history-table" id="rejectMasterTable" style="border-top:none;">
+            <thead style="background-color: #475569; color: white;">
                 <tr>
-                    <th>SR No.</th><th>Controller</th><th>PCB Main (BOTTOM)</th><th>PCB LED (TOP)</th><th>Child Card</th>
-                    <th>Disp</th><th>Vis</th><th>Elec</th><th>Problem Description</th><th>Locations</th>
-                    <th>Action Taken</th><th>Failure Date</th><th>From</th><th>Remarks</th><th>Controls</th>
+                    <th style="width: 4%;">S.N</th><th>Date</th><th>Lot Type</th><th>Vendor Name</th><th>Item Code / Model Name</th><th>Qty</th><th>Sub-Assembly Track & Problem Details</th><th>Debit Info</th><th>Status</th><th style="width:16%;">Action Controls</th>
                 </tr>
             </thead>
-            <tbody id="failureHistoryBody"></tbody>
+            <tbody id="rejectTableBody">
+                <tr><td colspan="10" style="text-align:center; padding:15px; color:#64748b;">Connecting Firebase Ledger Pools...</td></tr>
+            </tbody>
         </table>
     </div>
 </div>
 
-<div id="secretPasswordModal" class="secret-modal-overlay">
-    <div class="secret-modal-card">
-        <h4>🔑 Security Check</h4>
-        <p style="font-size: 12px; color: #64748b; margin-bottom: 10px;">Enter Secret Password to Wipe Defect Record:</p>
-        <input type="password" id="secretModalPasswordField" class="secret-modal-input" placeholder="••••" autocomplete="off">
-        <div style="display: flex; gap: 10px; justify-content: center;">
-            <button type="button" style="background:#dc2626; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer; font-weight:bold;" onclick="submitSecretDeletePassword()">Wipe Record</button>
-            <button type="button" style="background:#64748b; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;" onclick="closeSecretPasswordModal()">Cancel</button>
+<div id="supplierModal" class="sn-modal">
+    <div class="modal-content" style="max-width: 320px;">
+        <h3 style="color:#16a34a; margin-top:0;">🚚 Dispatch to Supplier</h3>
+        <p style="font-size:12px; color:#475569;">Enter Supplier Return Details Below:</p>
+        <div class="form-group" style="text-align:left; margin-bottom:10px;">
+            <label style="font-size:12px; font-weight:bold;">Debit Note No. *</label>
+            <input type="text" id="modalDebitNo" placeholder="e.g. DN-26-0045" style="width:100%; padding:8px; box-sizing:border-box; text-transform:uppercase; margin-top:4px; border:1px solid #cbd5e1; border-radius:4px;">
+        </div>
+        <div class="form-group" style="text-align:left; margin-bottom:15px;">
+            <label style="font-size:12px; font-weight:bold;">Debit Note Date *</label>
+            <input type="date" id="modalDebitDate" style="width:100%; padding:8px; box-sizing:border-box; margin-top:4px; border:1px solid #cbd5e1; border-radius:4px;">
+        </div>
+        <div style="display:flex; gap:10px;">
+            <button type="button" class="btn-transfer" style="background-color:#16a34a; margin:0; width:100%;" onclick="submitSupplierDispatch()">Dispatch</button>
+            <button type="button" class="btn-transfer" style="background-color:#64748b; margin:0; width:100%;" onclick="closeSupplierModal()">Cancel</button>
         </div>
     </div>
 </div>
 
+<div id="passwordModal" class="sn-modal">
+    <div class="modal-content" style="max-width: 300px;">
+        <h3 style="color:#dc2626; margin-top:0;">🔑 Security Check</h3>
+        <p style="font-size:12px; color:#475569;">Enter Password to proceed:</p>
+        <input type="password" id="securityPasswordInput" placeholder="••••" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px; text-align:center; font-size:18px; box-sizing:border-box; margin-bottom:15px; font-weight:bold;" autocomplete="off">
+        <div style="display:flex; gap:10px;">
+            <button type="button" class="btn-transfer" style="background-color:#dc2626; margin:0; width:100%;" onclick="verifySecurityAction()">Confirm</button>
+            <button type="button" class="btn-transfer" style="background-color:#64748b; margin:0; width:100%;" onclick="closePasswordModal()">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<div id="printSection"></div>
+
 <script>
     const firebaseConfig = {
         apiKey: "AIzaSyCAOXbPwuFR3wh1QSLBXWsodupKWoRYmqs",
-        authDomain: "gvm-stock-control.firebaseapp.com",
         databaseURL: "https://gvm-stock-control-default-rtdb.firebaseio.com",
-        projectId: "gvm-stock-control",
-        storageBucket: "gvm-stock-control.firebasestorage.app",
-        messagingSenderId: "202991207119",
-        appId: "1:202991207119:web:2246ffb7b92f9eb0c4adba"
+        projectId: "gvm-stock-control"
     };
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
@@ -157,193 +195,434 @@
     if(!session) { window.location.href = 'login.html'; }
     function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
 
-    let failureData = [];
-    let activeDeleteRowIdx = null;
+    let masterCatalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
+    let rawBinData = [];
+    let currentFilter = 'ALL';
+    let activeActionKey = null;
+    let activeActionType = null;
+    
+    let searchFromDate = "";
+    let searchToDate = "";
 
-    const cleanStr = (str) => String(str || "").trim().toUpperCase().replace(/\s+/g, '');
+    function setLiveDate() { 
+        const todayStr = new Date().toISOString().split('T')[0];
+        document.getElementById('rejDate').value = todayStr; 
+        document.getElementById('binFromDate').value = todayStr; 
+        document.getElementById('binToDate').value = todayStr; 
+        document.getElementById('binFromDate').setAttribute('max', todayStr);
+        document.getElementById('binToDate').setAttribute('max', todayStr);
+        document.getElementById('rejDate').setAttribute('max', todayStr);
+        searchFromDate = todayStr;
+        searchToDate = todayStr;
+    }
 
-    database.ref('fieldFailureVouchers').on('value', (snapshot) => {
-        failureData = [];
-        const data = snapshot.val();
-        if(data) { for(let key in data) { failureData.push({ fbKey: key, ...data[key] }); } }
-        failureData.reverse(); 
-        renderTable();
-    });
+    function autofillRejectItem(input) {
+        let code = input.value.trim().toUpperCase().replace(/[\s\-]+/g, '');
+        let foundName = "";
+        for(let key in masterCatalog) {
+            const m = masterCatalog[key].find(i => i.code.trim().toUpperCase().replace(/[\s\-]+/g, '') === code);
+            if(m) foundName = m.name;
+        }
+        document.getElementById('rejItemName').value = foundName;
+    }
 
-    document.getElementById('failureForm').addEventListener('submit', function(e) {
+    function generateSubAssemblyInputs() {
+        let qty = parseInt(document.getElementById('rejQty').value) || 0;
+        let lotType = document.getElementById('rejLotType').value;
+        const box = document.getElementById('subComponentsContainer');
+        const header = document.getElementById('dynamicHeaderGrid');
+        const body = document.getElementById('dynamicSetsBody');
+        
+        body.innerHTML = "";
+        if(qty > 5) { alert("Max 5 sets allowed!"); document.getElementById('rejQty').value = 5; qty = 5; }
+        
+        if(qty > 0) {
+            box.style.display = "block";
+            if(lotType === "NEW") {
+                header.className = "sub-header-grid";
+                header.style.gridTemplateColumns = "repeat(5, 1fr) 1.2fr 1.2fr 1fr";
+                header.innerHTML = `<div>Main Board SN</div><div>Top LED SN</div><div>CH1 LED SN</div><div>CH2 LED SN</div><div>Bar Code No</div><div>Model Name Specification</div><div>⚠️ Problem / Defect *</div><div>👤 Tested By *</div>`;
+                
+                for(let i = 0; i < qty; i++) {
+                    body.innerHTML += `
+                        <div class="sub-set-row" style="grid-template-columns: repeat(5, 1fr) 1.2fr 1.2fr 1fr;" data-set="${i}">
+                            <input type="text" class="mb-sn" placeholder="MAIN SN" required>
+                            <input type="text" class="top-sn" placeholder="TOP LED" required>
+                            <input type="text" class="ch1-sn" placeholder="CH1 SN" required>
+                            <input type="text" class="ch2-sn" placeholder="CH2 SN" required>
+                            <input type="text" class="bar-sn" placeholder="BARCODE" required>
+                            <input type="text" class="model-spec" placeholder="MODEL SPEC" required style="text-transform:uppercase;">
+                            <input type="text" class="prob-box" placeholder="PROBLEM" required style="text-transform:uppercase;">
+                            <input type="text" class="tester-box" placeholder="TESTED BY" required style="text-transform:uppercase;">
+                        </div>`;
+                }
+            } else {
+                header.className = "sub-header-grid";
+                header.style.gridTemplateColumns = "1.5fr 2fr 1fr";
+                header.innerHTML = `<div>Single Card Serial Number</div><div>⚠️ Problem / Defect Details *</div><div>👤 Tested By *</div>`;
+                
+                for(let i = 0; i < qty; i++) {
+                    body.innerHTML += `
+                        <div class="sub-set-row" style="grid-template-columns: 1.5fr 2fr 1fr;" data-set="${i}">
+                            <input type="text" class="mb-sn" placeholder="CARD SERIAL NO." required>
+                            <input type="text" class="prob-box" placeholder="PROBLEM/FAULT DETAILS" required style="text-transform:uppercase;">
+                            <input type="text" class="tester-box" placeholder="TESTED BY" required style="text-transform:uppercase;">
+                            <input type="hidden" class="top-sn" value="-">
+                            <input type="hidden" class="ch1-sn" value="-">
+                            <input type="hidden" class="ch2-sn" value="-">
+                            <input type="hidden" class="bar-sn" value="-">
+                            <input type="hidden" class="model-spec" value="-">
+                        </div>`;
+                }
+            }
+        } else { box.style.display = "none"; }
+    }
+
+    function closeSerialBoxWithCheck() {
+        let qty = parseInt(document.getElementById('rejQty').value) || 0;
+        if(qty > 0) { alert("🚫 ERROR: Fill all row grids or set Qty field to 0/empty."); } 
+        else { document.getElementById('subComponentsContainer').style.display = "none"; }
+    }
+
+    document.getElementById('freshRejectForm').addEventListener('submit', function(e) {
         e.preventDefault();
-        const idx = parseInt(document.getElementById('editRowIndex').value);
-        const fbKey = document.getElementById('editFirebaseKey').value;
-
-        const failureRecord = {
-            controller: document.getElementById('failController').value.trim().toUpperCase(),
-            pcbMain: document.getElementById('failPcbMain').value.trim().toUpperCase(),
-            pcbLed: document.getElementById('failPcbLed').value.trim().toUpperCase(),
-            childCard: document.getElementById('failChildCard').value.trim().toUpperCase() || "NIL",
-            display: document.getElementById('statusDisplay').value,
-            visual: document.getElementById('statusVisual').value,
-            electrical: document.getElementById('statusElectrical').value,
-            problem: document.getElementById('failProblem').value.trim().toUpperCase(),
-            locations: document.getElementById('failLocations').value.trim().toUpperCase() || "NA",
-            actionTaken: document.getElementById('failAction').value.trim().toUpperCase(),
-            failureDate: document.getElementById('failDate').value || "NIL",
-            dispatchDate: document.getElementById('failDispatchDate').value || "NIL",
-            receivedFrom: document.getElementById('failFrom').value.trim().toUpperCase(),
-            remarks: document.getElementById('failRemarks').value.trim().toUpperCase() || "-"
-        };
-
-        if(idx === -1) {
-            database.ref('fieldFailureVouchers').push(failureRecord).then(() => { alert("🎉 Failure Log saved to Live Cloud!"); cancelEditMode(); });
-        } else {
-            database.ref('fieldFailureVouchers/' + fbKey).set(failureRecord).then(() => { alert("🎯 Failure record updated successfully!"); cancelEditMode(); });
-        }
-    });
-
-    function triggerTableRender() { renderTable(); }
-
-    function renderTable() {
-        const b = document.getElementById('failureHistoryBody'); b.innerHTML = '';
-        if(failureData.length === 0) {
-            b.innerHTML = `<tr><td colspan="15" style="text-align:center; padding:15px; color:#64748b;">No failure logs found on Cloud.</td></tr>`;
-            return;
-        }
-
-        const searchStr = cleanStr(document.getElementById('liveTableSearchBox').value);
-        const limitVal = document.getElementById('liveTableLimitSelect').value;
-
-        let filteredList = failureData.filter(f => {
-            return cleanStr(f.controller).includes(searchStr) || 
-                   cleanStr(f.pcbMain).includes(searchStr) || 
-                   cleanStr(f.pcbLed).includes(searchStr) || 
-                   cleanStr(f.receivedFrom).includes(searchStr) || 
-                   cleanStr(f.problem).includes(searchStr) ||
-                   cleanStr(f.remarks).includes(searchStr);
+        const key = document.getElementById('editFirebaseKey').value;
+        let qty = parseInt(document.getElementById('rejQty').value) || 0;
+        let lotType = document.getElementById('rejLotType').value;
+        
+        let piecesDetails = [];
+        let rows = document.querySelectorAll('#dynamicSetsBody .sub-set-row');
+        rows.forEach(row => {
+            piecesDetails.push({
+                mainBoardSN: row.querySelector('.mb-sn').value.trim().toUpperCase(),
+                topLedSN: row.querySelector('.top-sn').value.trim().toUpperCase(),
+                ch1SN: row.querySelector('.ch1-sn').value.trim().toUpperCase(),
+                ch2SN: row.querySelector('.ch2-sn').value.trim().toUpperCase(),
+                barcodeNo: row.querySelector('.bar-sn').value.trim().toUpperCase(),
+                modelSpec: row.querySelector('.model-spec') ? row.querySelector('.model-spec').value.trim().toUpperCase() : "-",
+                problem: row.querySelector('.prob-box').value.trim().toUpperCase(),
+                testedBy: row.querySelector('.tester-box').value.trim().toUpperCase()
+            });
         });
 
-        if(filteredList.length === 0) {
-            b.innerHTML = `<tr><td colspan="15" style="text-align:center; padding:15px; color:#64748b;">No matching search records found.</td></tr>`;
+        if(rows.length > 0 && piecesDetails.length !== qty) {
+            alert("🚫 ERROR: Row structural count discrepancy. Reset Qty to rebuild.");
             return;
         }
 
-        let viewList = filteredList;
-        if (limitVal !== "ALL") { viewList = filteredList.slice(0, parseInt(limitVal)); }
+        const payload = {
+            date: document.getElementById('rejDate').value,
+            lotClassification: lotType,
+            vendorName: document.getElementById('rejVendor').value.trim().toUpperCase(),
+            itemCode: document.getElementById('rejItemCode').value.trim().toUpperCase(),
+            itemName: document.getElementById('rejItemName').value || "GENERIC MODEL SPEC",
+            totalQty: qty,
+            assemblyDetails: piecesDetails,
+            remarks: document.getElementById('rejRemarks').value.trim().toUpperCase() || "-",
+            loggedBy: session.userId || "System Admin"
+        };
 
-        viewList.forEach((f, index) => {
-            let origIdx = failureData.findIndex(x => x.fbKey === f.fbKey);
-            const getBadge = (val) => val === 'FAIL' ? 'bg-fail' : (val === 'OK' ? 'bg-ok' : 'bg-nil');
+        if(!key) {
+            payload.status = "PENDING_DEBIT_NOTE";
+            payload.debitNo = "-";
+            payload.debitDate = "-";
+            database.ref('freshRejectionBinData').push(payload).then(() => {
+                alert("🎉 Success: Defect Record logged in Rejection Bin!");
+                resetFormEverything();
+            });
+        } else {
+            database.ref('freshRejectionBinData/' + key).once('value').then(snap => {
+                let existing = snap.val();
+                payload.status = existing.status || "PENDING_DEBIT_NOTE";
+                payload.debitNo = existing.debitNo || "-";
+                payload.debitDate = existing.debitDate || "-";
+                database.ref('freshRejectionBinData/' + key).set(payload).then(() => {
+                    alert("🎯 Success: Defect Record Configuration Updated!");
+                    resetFormEverything();
+                });
+            });
+        }
+    });
 
-            b.innerHTML += `<tr>
-                <td><b>${index + 1}</b></td>
-                <td><code>${f.controller || 'NIL'}</code></td>
-                <td>${f.pcbMain || ''}</td>
-                <td>${f.pcbLed || ''}</td>
-                <td><small>${f.childCard || ''}</small></td>
-                <td><span class="badge-status ${getBadge(f.display)}">${f.display || ''}</span></td>
-                <td><span class="badge-status ${getBadge(f.visual)}">${f.visual || ''}</span></td>
-                <td><span class="badge-status ${getBadge(f.electrical)}">${f.electrical || ''}</span></td>
-                <td style="color:#b91c1c; font-weight:bold;">${f.problem || ''}</td>
-                <td><code>${f.locations || ''}</code></td>
-                <td><b>${f.actionTaken || ''}</b></td>
-                <td>${f.failureDate || ''}</td>
-                <td>${f.receivedFrom || ''}</td>
-                <td><small>${f.remarks || ''}</small></td>
+    database.ref('freshRejectionBinData').on('value', (snapshot) => {
+        rawBinData = [];
+        const data = snapshot.val();
+        if(data) { for(let key in data) { rawBinData.push({ fbKey: key, ...data[key] }); } }
+        rawBinData.reverse();
+        calculateCounters();
+        applyTableRender();
+    });
+
+    function calculateCounters() {
+        let all = rawBinData.length;
+        let pending = rawBinData.filter(r => r.status === "PENDING_DEBIT_NOTE").length;
+        let sent = rawBinData.filter(r => r.status === "DEBIT_NOTE_DONE").length;
+        document.getElementById('countAll').innerText = all;
+        document.getElementById('countPending').innerText = pending;
+        document.getElementById('countSent').innerText = sent;
+    }
+
+    function switchFilter(type) {
+        currentFilter = type;
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        if(type === 'ALL') document.getElementById('tabAll').classList.add('active');
+        if(type === 'PENDING') document.getElementById('tabPending').classList.add('active');
+        if(type === 'SENT') document.getElementById('tabSent').classList.add('active');
+        applyTableRender();
+    }
+
+    function triggerBinSearchEngine() {
+        searchFromDate = document.getElementById('binFromDate').value;
+        searchToDate = document.getElementById('binToDate').value;
+        applyTableRender();
+    }
+
+    function applyTableRender() {
+        const tbody = document.getElementById('rejectTableBody');
+        tbody.innerHTML = "";
+        const searchStr = document.getElementById('tableSearchBox').value.trim().toUpperCase();
+
+        let filtered = rawBinData;
+        if(currentFilter === 'PENDING') filtered = rawBinData.filter(r => r.status === "PENDING_DEBIT_NOTE");
+        if(currentFilter === 'SENT') filtered = rawBinData.filter(r => r.status === "DEBIT_NOTE_DONE");
+
+        filtered = filtered.filter(i => {
+            let vDate = i.date || "";
+            if (searchFromDate && vDate < searchFromDate) return false;
+            if (searchToDate && vDate > searchToDate) return false;
+            return true;
+        });
+
+        if(searchStr) {
+            filtered = filtered.filter(r => 
+                (r.vendorName || "").toUpperCase().includes(searchStr) || 
+                (r.itemCode || "").toUpperCase().includes(searchStr) ||
+                (r.itemName || "").toUpperCase().includes(searchStr) ||
+                (r.assemblyDetails || []).some(p => 
+                    (p.mainBoardSN || "").toUpperCase().includes(searchStr) || 
+                    (p.barcodeNo || "").toUpperCase().includes(searchStr) ||
+                    (p.modelSpec || "").toUpperCase().includes(searchStr) ||
+                    (p.problem || "").toUpperCase().includes(searchStr)
+                )
+            );
+        }
+
+        if(filtered.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:15px; color:#64748b;">No records found matching selected date range parameters.</td></tr>`;
+            return;
+        }
+
+        filtered.forEach((row, index) => {
+            let badge = row.status === "PENDING_DEBIT_NOTE" ? "status-pending" : "status-cleared";
+            let txt = row.status === "PENDING_DEBIT_NOTE" ? "🛑 IN STOCK" : "🚚 SENT TO SUPPLIER";
+            let debInfo = row.status === "PENDING_DEBIT_NOTE" ? "-" : `<b>No:</b> ${row.debitNo}<br><b>Date:</b> ${row.debitDate}`;
+            let displayClassification = row.lotClassification ? row.lotClassification : "NEW";
+
+            let innerHtml = "";
+            (row.assemblyDetails || []).forEach((p, i) => {
+                if(displayClassification === "NEW") {
+                    innerHtml += `<b>P${i+1}:</b> [M:${p.mainBoardSN}] [T:${p.topLedSN}] [BC:${p.barcodeNo}] [Model:${p.modelSpec || '-'}] <br><span style="color:#dc3545;font-weight:bold;">↳ Fault: ${p.problem}</span> <span style="color:#0284c7;">[By: ${p.testedBy}]</span><br>`;
+                } else {
+                    innerHtml += `<b>Card S/N:</b> <code>${p.mainBoardSN}</code> <br><span style="color:#dc3545;font-weight:bold;">↳ Fault Detail: ${p.problem}</span> <span style="color:#0284c7;">[By: ${p.testedBy}]</span><br>`;
+                }
+            });
+
+            let actionBtn = row.status === "PENDING_DEBIT_NOTE" ? 
+                `<button type="button" class="btn-send-supplier" onclick="openSupplierModal('${row.fbKey}')">🚚 Send</button>` : "";
+
+            tbody.innerHTML += `<tr>
+                <td style="text-align:center;">${index + 1}</td>
+                <td>${row.date}</td>
+                <td><b style="color:${displayClassification==='NEW'?'#1e3a8a':'#b91c1c'}">${displayClassification}</b></td>
+                <td><b>${row.vendorName}</b></td>
+                <td style="text-align:left;"><code>${row.itemCode}</code><br><span style="font-size:11px; color:#475569; font-weight:bold;">${row.itemName || ''}</span></td>
+                <td style="text-align:center;"><b>${row.totalQty}</b></td>
+                <td style="text-align:left; font-size:11px; line-height:1.4;">${innerHtml}</td>
+                <td style="font-size:11px;">${debInfo}</td>
+                <td><span class="${badge}">${txt}</span></td>
                 <td>
-                    <button type="button" class="btn-edit-action" onclick="editFailureRow(${origIdx})">Edit</button>
-                    <button type="button" class="btn-delete-action" onclick="deleteFailureRow(${origIdx})">Delete</button>
+                    ${actionBtn}
+                    <button type="button" class="btn-edit-action" style="background:#475569;" onclick="triggerPrintRecord('${row.fbKey}')">🖨️ Print</button>
+                    <button type="button" class="btn-edit-action" onclick="requestSecurityGate('${row.fbKey}', 'EDIT')">Edit</button>
+                    <button type="button" class="btn-delete-action" onclick="requestSecurityGate('${row.fbKey}', 'DELETE')">Delete</button>
                 </td>
             </tr>`;
         });
     }
 
-    window.editFailureRow = function(origIdx) {
-        const d = failureData[origIdx];
-        document.getElementById('editRowIndex').value = origIdx;
-        document.getElementById('editFirebaseKey').value = d.fbKey;
+    function openSupplierModal(key) {
+        activeActionKey = key;
+        document.getElementById('modalDebitNo').value = "";
+        document.getElementById('modalDebitDate').value = new Date().toISOString().split('T')[0];
+        document.getElementById('supplierModal').style.display = "flex";
+    }
+    function closeSupplierModal() { document.getElementById('supplierModal').style.display = "none"; }
+    
+    function submitSupplierDispatch() {
+        const dn = document.getElementById('modalDebitNo').value.trim().toUpperCase();
+        const dd = document.getElementById('modalDebitDate').value;
+        if(!dn) { alert("Debit Note No is mandatory!"); return; }
         
-        document.getElementById('failController').value = d.controller || '';
-        document.getElementById('failPcbMain').value = d.pcbMain || '';
-        document.getElementById('failPcbLed').value = d.pcbLed || '';
-        document.getElementById('failChildCard').value = d.childCard === 'NIL' ? '' : (d.childCard || '');
-        document.getElementById('statusDisplay').value = d.display || 'NIL';
-        document.getElementById('statusVisual').value = d.visual || 'OK';
-        document.getElementById('statusElectrical').value = d.electrical || 'FAIL';
-        document.getElementById('failProblem').value = d.problem || '';
-        document.getElementById('failLocations').value = d.locations === 'NA' ? '' : (d.locations || '');
-        document.getElementById('failAction').value = d.actionTaken || '';
-        document.getElementById('failDate').value = d.failureDate === 'NIL' ? '' : (d.failureDate || '');
-        document.getElementById('failDispatchDate').value = d.dispatchDate === 'NIL' ? '' : (d.dispatchDate || '');
-        document.getElementById('failFrom').value = d.receivedFrom || '';
-        document.getElementById('failRemarks').value = d.remarks === '-' ? '' : (d.remarks || '');
+        database.ref('freshRejectionBinData/' + activeActionKey).update({
+            status: "DEBIT_NOTE_DONE",
+            debitNo: dn,
+            debitDate: dd
+        }).then(() => {
+            alert("🚚 Success: Material marked as Sent to Supplier.");
+            closeSupplierModal();
+        });
+    }
 
-        document.getElementById('btnSubmitForm').innerText = "Update Failure Log Entry";
-        document.getElementById('btnCancelEdit').style.display = "inline-block";
-        document.getElementById('failureForm').scrollIntoView({ behavior: 'smooth' });
-    };
+    function requestSecurityGate(key, type) {
+        activeActionKey = key;
+        activeActionType = type;
+        document.getElementById('securityPasswordInput').value = "";
+        document.getElementById('passwordModal').style.display = "flex";
+        setTimeout(() => { document.getElementById('securityPasswordInput').focus(); }, 150);
+    }
+    function closePasswordModal() { document.getElementById('passwordModal').style.display = "none"; }
 
-    window.deleteFailureRow = function(origIdx) {
-        activeDeleteRowIdx = origIdx;
-        document.getElementById('secretModalPasswordField').value = "";
-        document.getElementById('secretPasswordModal').style.display = "flex";
-        document.getElementById('secretModalPasswordField').focus();
-    };
-
-    function closeSecretPasswordModal() { document.getElementById('secretPasswordModal').style.display = "none"; activeDeleteRowIdx = null; }
-
-    function submitSecretDeletePassword() {
-        const pass = document.getElementById('secretModalPasswordField').value;
-        if (pass === "7004") {
-            const fbKey = failureData[activeDeleteRowIdx].fbKey;
-            database.ref('fieldFailureVouchers/' + fbKey).remove().then(() => {
-                alert("🗑️ Success: Defect failure record completely wiped from Cloud.");
-                closeSecretPasswordModal(); cancelEditMode();
-            });
+    function verifySecurityAction() {
+        const pass = document.getElementById('securityPasswordInput').value;
+        if(pass === "7004") {
+            closePasswordModal();
+            if(activeActionType === 'DELETE') {
+                if(confirm("Are you sure you want to permanently wipe out this defect history row?")) {
+                    database.ref('freshRejectionBinData/' + activeActionKey).remove().then(() => { alert("Record deleted."); });
+                }
+            } else if(activeActionType === 'EDIT') {
+                loadRecordToForm(activeActionKey);
+            }
         } else {
-            alert("❌ Access Denied: Incorrect Password!");
-            closeSecretPasswordModal();
+            alert("❌ Access Denied: Invalid Secret Password!");
+            closePasswordModal();
         }
     }
 
-    function cancelEditMode() {
-        document.getElementById('editRowIndex').value = "-1";
-        document.getElementById('editFirebaseKey').value = "";
-        document.getElementById('failureForm').reset();
-        document.getElementById('btnSubmitForm').innerText = "Save Failure Log to Live Cloud";
-        document.getElementById('btnCancelEdit').style.display = "none";
-        applyLiveDateRestrictions();
-    }
+    function loadRecordToForm(key) {
+        const row = rawBinData.find(r => r.fbKey === key);
+        if(!row) return;
 
-    function exportFailureToExcel() {
-        const fromDate = document.getElementById('exportFromDate').value;
-        const toDate = document.getElementById('exportToDate').value;
-        
-        let csv = "SR NO.,Controller,PCB Main (BOTTOM),PCB LED (TOP),Child Card,Display,Visual,Electrical,Problem,Locations,Action Taken,Failure Date,Dispatch Date,From,Remarks\n";
-        
-        let targetList = failureData;
-        if(fromDate && toDate) {
-            targetList = failureData.filter(f => f.failureDate >= fromDate && f.failureDate <= toDate);
-        }
+        document.getElementById('editFirebaseKey').value = key;
+        document.getElementById('rejDate').value = row.date;
+        document.getElementById('rejVendor').value = row.vendorName;
+        document.getElementById('rejLotType').value = row.lotClassification ? row.lotClassification : "NEW";
+        document.getElementById('rejItemCode').value = row.itemCode;
+        document.getElementById('rejItemName').value = row.itemName || "";
+        document.getElementById('rejQty').value = row.totalQty;
+        document.getElementById('rejRemarks').value = row.remarks || "-";
 
-        targetList.forEach((f, idx) => {
-            csv += `"${idx+1}","${f.controller || ''}","${f.pcbMain || ''}","${f.pcbLed || ''}","${f.childCard || ''}","${f.display || ''}","${f.visual || ''}","${f.electrical || ''}","${f.problem || ''}","${f.locations || ''}","${f.actionTaken || ''}","${f.failureDate || ''}","${f.dispatchDate || ''}","${f.receivedFrom || ''}","${f.remarks || ''}"\n`;
+        generateSubAssemblyInputs();
+        
+        let inputs = document.querySelectorAll('#dynamicSetsBody .sub-set-row');
+        (row.assemblyDetails || []).forEach((p, i) => {
+            if(inputs[i]) {
+                inputs[i].querySelector('.mb-sn').value = p.mainBoardSN || "";
+                if(row.lotClassification !== "OLD") {
+                    inputs[i].querySelector('.top-sn').value = p.topLedSN || "";
+                    inputs[i].querySelector('.ch1-sn').value = p.ch1SN || "";
+                    inputs[i].querySelector('.ch2-sn').value = p.ch2SN || "";
+                    inputs[i].querySelector('.bar-sn').value = p.barcodeNo || "";
+                    if(inputs[i].querySelector('.model-spec')) inputs[i].querySelector('.model-spec').value = p.modelSpec || "";
+                }
+                inputs[i].querySelector('.prob-box').value = p.problem || "";
+                inputs[i].querySelector('.tester-box').value = p.testedBy || "";
+            }
         });
 
-        let blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
+        document.getElementById('formTitleText').innerText = "🛠️ Modify Defect Configuration Packet";
+        document.getElementById('btnSubmitForm').innerText = "Update Defect Record";
+        document.getElementById('btnCancelEdit').style.display = "inline-block";
+        document.getElementById('freshRejectForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function resetFormEverything() {
+        document.getElementById('editFirebaseKey').value = "";
+        document.getElementById('freshRejectForm').reset();
+        document.getElementById('subComponentsContainer').style.display = "none";
+        document.getElementById('formTitleText').innerText = "📝 Log New Defective Component Record";
+        document.getElementById('btnSubmitForm').innerText = "Save Defect Record To Ledger";
+        document.getElementById('btnCancelEdit').style.display = "none";
+        setLiveDate();
+    }
+    function cancelEditMode() { resetFormEverything(); }
+
+    function triggerPrintRecord(key) {
+        const row = rawBinData.find(r => r.fbKey === key);
+        if(!row) return;
+        const shell = document.getElementById('printSection');
+        let lines = "";
+        let classif = row.lotClassification ? row.lotClassification : "NEW";
+        
+        (row.assemblyDetails || []).forEach((p, i) => {
+            if(classif === "NEW") {
+                lines += `Piece ${i+1}: Main:${p.mainBoardSN} | Top:${p.topLedSN} | CH1:${p.ch1SN} | CH2:${p.ch2SN} | Bar:${p.barcodeNo} | Spec:${p.modelSpec || '-'}\n↳ Defect: ${p.problem} | Checked By: ${p.testedBy}\n\n`;
+            } else {
+                lines += `Piece ${i+1}: Card Serial No: ${p.mainBoardSN}\n↳ Fault Detail: ${p.problem} | Checked By: ${p.testedBy}\n\n`;
+            }
+        });
+
+        shell.innerHTML = `
+            <div style="border:2px solid #000; padding:15px; font-family:monospace; line-height:1.4;">
+                <h3 style="text-align:center; margin:0;">GVM RAIL PVT LTD - DEFECT AUDIT SLIP</h3>
+                <hr style="border-top:1px dashed #000;">
+                <b>Log Date:</b> ${row.date} | <b>Lot Type:</b> ${classif} | <b>Status:</b> ${row.status === 'PENDING_DEBIT_NOTE' ? 'IN STOCK' : 'SENT TO SUPPLIER'}<br>
+                <b>Vendor Name:</b> ${row.vendorName}<br>
+                <b>Item Code:</b> ${row.itemCode} | <b>Model Spec:</b> ${row.itemName || '-'}<br>
+                <b>Total Qty:</b> ${row.totalQty} Sets<br>
+                <b>Debit Ref:</b> ${row.debitNo || '-'} (Date: ${row.debitDate || '-'})<br>
+                <hr style="border-top:1px dashed #000;">
+                <b>DETAILED COMPONENT TRACK RECORD:</b><br><pre style="font-family:monospace; font-size:11px;">${lines}</pre>
+                <hr style="border-top:1px dashed #000;">
+                <b>General Remarks:</b> ${row.remarks || '-'}<br><br>
+                <div style="text-align:right; font-weight:bold; margin-top:10px;">Quality Inspector Signature</div>
+            </div>`;
+        window.print();
+    }
+
+    function downloadRejectExcel() {
+        const searchStr = document.getElementById('tableSearchBox').value.trim().toUpperCase();
+        let csv = [];
+        csv.push("S.N,Rejection Date,Lot Type,Vendor Name,Item Code,Model Name,Total Qty,Status,Debit Note No,Debit Note Date,Remarks");
+        
+        let filtered = rawBinData;
+        if(currentFilter === 'PENDING') filtered = rawBinData.filter(r => r.status === "PENDING_DEBIT_NOTE");
+        if(currentFilter === 'SENT') filtered = rawBinData.filter(r => r.status === "DEBIT_NOTE_DONE");
+
+        filtered = filtered.filter(i => {
+            let vDate = i.date || "";
+            if (searchFromDate && vDate < searchFromDate) return false;
+            if (searchToDate && vDate > searchToDate) return false;
+            return true;
+        });
+
+        if(searchStr) {
+            filtered = filtered.filter(r => 
+                (r.vendorName || "").toUpperCase().includes(searchStr) || 
+                (r.itemCode || "").toUpperCase().includes(searchStr) ||
+                (r.itemName || "").toUpperCase().includes(searchStr)
+            );
+        }
+
+        filtered.forEach((row, index) => {
+            let statusText = row.status === "PENDING_DEBIT_NOTE" ? "IN STOCK" : "SENT TO SUPPLIER";
+            let classif = row.lotClassification ? row.lotClassification : "NEW";
+            let rRemarks = row.remarks ? row.remarks.replace(/,/g, ' ') : "-";
+            let mName = row.itemName ? row.itemName.replace(/,/g, ' ') : "GENERIC SPEC";
+            
+            csv.push(`${index + 1},${row.date},${classif},${row.vendorName},${row.itemCode},${mName},${row.totalQty},${statusText},${row.debitNo},${row.debitDate},${rRemarks}`);
+        });
+
+        let blob = new Blob(["\uFEFF" + csv.join('\n')], { type: 'text/csv;charset=utf-8;' });
         let link = document.createElement("a");
-        link.href = URL.createObjectURL(blob); link.setAttribute("download", `Field_Failure_Report_${fromDate || 'All'}.csv`);
-        document.body.appendChild(link); link.click(); document.body.removeChild(link);
+        link.href = URL.createObjectURL(blob); 
+        link.setAttribute("download", `GVM_Defect_Bin_Report_${searchFromDate || 'All'}.csv`);
+        document.body.appendChild(link); 
+        link.click(); 
+        document.body.removeChild(link);
     }
 
-    function applyLiveDateRestrictions() {
-        const todayStr = new Date().toISOString().split('T')[0];
-        document.getElementById('failDate').setAttribute('max', todayStr);
-        document.getElementById('failDispatchDate').setAttribute('max', todayStr);
-        document.getElementById('failDate').value = todayStr;
-        document.getElementById('failDispatchDate').value = todayStr;
-        document.getElementById('exportFromDate').value = todayStr;
-        document.getElementById('exportToDate').value = todayStr;
-    }
-
-    applyLiveDateRestrictions();
+    setLiveDate();
 </script>
 </body>
 </html>
