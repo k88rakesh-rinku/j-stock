@@ -27,6 +27,11 @@
         .bg-fail { background-color: #dc2626; }
         .bg-ok { background-color: #16a34a; }
         .bg-nil { background-color: #64748b; }
+
+        .lot-type-select { padding: 10px; border: 1px solid #1e3a8a; border-radius: 4px; font-size: 14px; background: #f0f9ff; font-weight: bold; color: #1e3a8a; cursor: pointer; width: 100%; box-sizing: border-box; }
+        .tabs-nav a { background-color: #e2e8f0; color: #334155; font-weight: 500; transition: all 0.3s; padding: 8px 12px; display: inline-block; border-radius: 4px; text-decoration: none; margin-right: 4px; }
+        .tabs-nav a:hover { background-color: #cbd5e1; }
+        .tabs-nav a.active-failure { background-color: #1e3a8a !important; color: white !important; font-weight: bold; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
     </style>
 </head>
 <body>
@@ -35,16 +40,40 @@
         <h1 style="margin: 0; font-size: 20px;">🛠️ GP0013 V2 Field Failure & Defect Registry</h1>
     </div>
     
-    <!-- 📝 स्वतंत्र एंट्री फॉर्म -->
+    <div class="tabs-nav" style="margin-bottom: 20px;">
+        <a href="index.html" class="tab-link">📦 New Entry (Fresh)</a>
+        <a href="rework.html" class="tab-link">🛠️ Gate In (Rework)</a>
+        <a href="gateout.html" class="tab-link">🚪 Gate Out (Dispatch)</a>
+        <a href="debit.html" class="tab-link">🧾 Debit Note (Vendor)</a>
+        <a href="code.html" class="tab-link">🆕 Generate Code</a>
+        <a href="ledger.html" class="tab-link">📊 Master Ledger & History</a>
+        <a href="users.html" class="tab-link">👥 Manage Users</a>
+        <a href="bom.html" class="tab-link">🔗 BOM Master</a>
+        <a href="failure.html" class="tab-link active-failure">🛠️ Failure Defect Log</a>
+        <a href="production.html" class="tab-link">🏭 Production Planner</a>
+        <a href="reject_bin.html" class="tab-link">🗑️ Rejection Bin</a>
+    </div>
+    
     <form id="failureForm">
         <input type="hidden" id="editRowIndex" value="-1">
         <input type="hidden" id="editFirebaseKey" value="">
 
         <div class="form-grid">
+            <div class="form-group">
+                <label>Lot Classification Type <span>*</span></label>
+                <select id="failLotType" class="lot-type-select" onchange="toggleFormFieldsByLotType()" required>
+                    <option value="NEW">NEW REJECTION (FULL TRACK)</option>
+                    <option value="OLD">OLD REJECTION (CARD ONLY)</option>
+                </select>
+            </div>
             <div class="form-group"><label>Controller Serial No. <span>*</span></label><input type="text" id="failController" placeholder="e.g. GR2601098" required autocomplete="off" style="text-transform:uppercase;"></div>
-            <div class="form-group"><label>PCB Main Serial (BOTTOM) <span>*</span></label><input type="text" id="failPcbMain" placeholder="e.g. KU722T/11/25/0672" required autocomplete="off" style="text-transform:uppercase;"></div>
-            <div class="form-group"><label>PCB LED Serial (TOP) <span>*</span></label><input type="text" id="failPcbLed" placeholder="e.g. BB870L" required autocomplete="off" style="text-transform:uppercase;"></div>
-            <div class="form-group"><label>Child Card Details</label><input type="text" id="failChildCard" placeholder="e.g. AJ842T, AH748T" autocomplete="off" style="text-transform:uppercase;"></div>
+            
+            <div class="form-group dynamic-field"><label>Bar Code No. <span>*</span></label><input type="text" id="failBarcode" placeholder="Enter Barcode" autocomplete="off" style="text-transform:uppercase;"></div>
+            <div class="form-group dynamic-field"><label>Model No. / Specification <span>*</span></label><input type="text" id="failModelSpec" placeholder="e.g. T18 660" autocomplete="off" style="text-transform:uppercase;"></div>
+            
+            <div class="form-group dynamic-field"><label>PCB Main Serial (BOTTOM) <span>*</span></label><input type="text" id="failPcbMain" placeholder="e.g. KU722T/11/25/0672" autocomplete="off" style="text-transform:uppercase;"></div>
+            <div class="form-group dynamic-field"><label>PCB LED Serial (TOP) <span>*</span></label><input type="text" id="failPcbLed" placeholder="e.g. BB870L" autocomplete="off" style="text-transform:uppercase;"></div>
+            <div class="form-group dynamic-field"><label>Child Card Details</label><input type="text" id="failChildCard" placeholder="e.g. AJ842T, AH748T" autocomplete="off" style="text-transform:uppercase;"></div>
             
             <div class="form-group"><label>Display Status</label>
                 <select id="statusDisplay"><option value="NIL">NIL</option><option value="OK">OK</option><option value="FAIL">FAIL</option></select>
@@ -74,17 +103,15 @@
         <button type="button" id="btnCancelEdit" class="btn-submit" style="background-color:#64748b; color: white; display:none; margin-top:10px; width: 100%; padding: 12px; border: none; border-radius: 4px;" onclick="cancelEditMode()">Cancel Update</button>
     </form>
 
-    <!-- 📥 इंडिपेंडेंट एक्सेल डाउनलोड पैनल -->
     <div class="date-export-panel" style="margin-top: 30px;">
         <label>From Date:</label> <input type="date" id="exportFromDate">
         <label>To Date:</label> <input type="date" id="exportToDate">
         <button class="btn-excel" onclick="exportFailureToExcel()">Download Failure Excel Report</button>
     </div>
 
-    <!-- 📊 लाइव सर्च पैनल -->
     <div class="table-filter-panel">
         <div>
-            <input type="text" id="liveTableSearchBox" class="search-input-box" placeholder="🔍 Search Controller, PCB, From, Problem..." oninput="triggerTableRender()">
+            <input type="text" id="liveTableSearchBox" class="search-input-box" placeholder="🔍 Search Controller, Model, PCB, From, Problem..." oninput="triggerTableRender()">
         </div>
         <div>
             <label style="font-weight: bold; font-size: 13px; color:#475569;">Show Records:</label>
@@ -98,10 +125,10 @@
     </div>
 
     <div class="table-responsive" style="margin-top: 0;">
-        <table class="history-table" style="border-top: none; min-width: 1500px;">
+        <table class="history-table" style="border-top: none; min-width: 1600px;">
             <thead style="background-color: #1e3a8a; color: white;">
                 <tr>
-                    <th>SR No.</th><th>Controller</th><th>PCB Main (BOTTOM)</th><th>PCB LED (TOP)</th><th>Child Card</th>
+                    <th>SR No.</th><th>Lot Type</th><th>Controller</th><th>Barcode</th><th>Model No</th><th>PCB Main (BOTTOM)</th><th>PCB LED (TOP)</th><th>Child Card</th>
                     <th>Disp</th><th>Vis</th><th>Elec</th><th>Problem Description</th><th>Locations</th>
                     <th>Action Taken</th><th>Failure Date</th><th>From</th><th>Remarks</th><th>Controls</th>
                 </tr>
@@ -111,7 +138,6 @@
     </div>
 </div>
 
-<!-- 🔑 सीक्रेट पासवर्ड डिलीट पॉपअप -->
 <div id="secretPasswordModal" class="secret-modal-overlay">
     <div class="secret-modal-card">
         <h4>🔑 Security Check</h4>
@@ -142,7 +168,47 @@
 
     const cleanStr = (str) => String(str || "").trim().toUpperCase().replace(/\s+/g, '');
 
-    // लाइव क्लाउड रीयलटाइम डेटा फेच गियर (स्वतंत्र नोड बॉक्स)
+    // 🌟 डायनेमिक शो-हाइड फंक्शन (NEW और OLD के सिलेक्शन पर काम करेगा)
+    function toggleFormFieldsByLotType() {
+        let lotType = document.getElementById('failLotType').value;
+        let barcodeInput = document.getElementById('failBarcode');
+        let modelInput = document.getElementById('failModelSpec');
+        let pcbMainInput = document.getElementById('failPcbMain');
+        let pcbLedInput = document.getElementById('failPcbLed');
+        
+        if(lotType === "NEW") {
+            // NEW सिलेक्ट होने पर सब कुछ दिखेगा और आवश्यक रहेगा
+            barcodeInput.closest('.form-group').style.display = "block";
+            modelInput.closest('.form-group').style.display = "block";
+            pcbMainInput.closest('.form-group').style.display = "block";
+            pcbLedInput.closest('.form-group').style.display = "block";
+            document.getElementById('failChildCard').closest('.form-group').style.display = "block";
+            
+            barcodeInput.required = true;
+            modelInput.required = true;
+            pcbMainInput.required = true;
+            pcbLedInput.required = true;
+        } else {
+            // OLD सिलेक्ट होने पर ३ फील्ड गायब हो जाएंगी
+            barcodeInput.closest('.form-group').style.display = "none";
+            modelInput.closest('.form-group').style.display = "none";
+            pcbMainInput.closest('.form-group').style.display = "none";
+            pcbLedInput.closest('.form-group').style.display = "none";
+            document.getElementById('failChildCard').closest('.form-group').style.display = "none";
+            
+            barcodeInput.required = false;
+            modelInput.required = false;
+            pcbMainInput.required = false;
+            pcbLedInput.required = false;
+            
+            // डेटाबेस क्रैश न हो इसलिए हिडन फॉलबैक वैल्यू सेट करें
+            barcodeInput.value = "-";
+            modelInput.value = "-";
+            pcbMainInput.value = "-";
+            pcbLedInput.value = "-";
+        }
+    }
+
     database.ref('fieldFailureVouchers').on('value', (snapshot) => {
         failureData = [];
         const data = snapshot.val();
@@ -157,12 +223,16 @@
         e.preventDefault();
         const idx = parseInt(document.getElementById('editRowIndex').value);
         const fbKey = document.getElementById('editFirebaseKey').value;
+        let lotType = document.getElementById('failLotType').value;
 
         const failureRecord = {
+            lotClassification: lotType,
             controller: document.getElementById('failController').value.trim().toUpperCase(),
+            barcodeNo: document.getElementById('failBarcode').value.trim().toUpperCase(),
+            modelSpec: document.getElementById('failModelSpec').value.trim().toUpperCase(),
             pcbMain: document.getElementById('failPcbMain').value.trim().toUpperCase(),
             pcbLed: document.getElementById('failPcbLed').value.trim().toUpperCase(),
-            childCard: document.getElementById('failChildCard').value.trim().toUpperCase() || "NIL",
+            childCard: lotType === "OLD" ? "NIL" : (document.getElementById('failChildCard').value.trim().toUpperCase() || "NIL"),
             display: document.getElementById('statusDisplay').value,
             visual: document.getElementById('statusVisual').value,
             electrical: document.getElementById('statusElectrical').value,
@@ -187,7 +257,7 @@
     function renderTable() {
         const b = document.getElementById('failureHistoryBody'); b.innerHTML = '';
         if(failureData.length === 0) {
-            b.innerHTML = `<tr><td colspan="15" style="text-align:center; padding:15px; color:#64748b;">No failure logs found on Cloud.</td></tr>`;
+            b.innerHTML = `<tr><td colspan="18" style="text-align:center; padding:15px; color:#64748b;">No failure logs found on Cloud.</td></tr>`;
             return;
         }
 
@@ -197,13 +267,14 @@
         let filteredList = failureData.filter(f => {
             return cleanStr(f.controller).includes(searchStr) || 
                    cleanStr(f.pcbMain).includes(searchStr) || 
-                   cleanStr(f.pcbLed).includes(searchStr) || 
+                   cleanStr(f.modelSpec).includes(searchStr) || 
+                   cleanStr(f.barcodeNo).includes(searchStr) || 
                    cleanStr(f.receivedFrom).includes(searchStr) || 
                    cleanStr(f.problem).includes(searchStr);
         });
 
         if(filteredList.length === 0) {
-            b.innerHTML = `<tr><td colspan="15" style="text-align:center; padding:15px; color:#64748b;">No matching search records found.</td></tr>`;
+            b.innerHTML = `<tr><td colspan="18" style="text-align:center; padding:15px; color:#64748b;">No matching search records found.</td></tr>`;
             return;
         }
 
@@ -213,13 +284,17 @@
         viewList.forEach((f, index) => {
             let origIdx = failureData.findIndex(x => x.fbKey === f.fbKey);
             const getBadge = (val) => val === 'FAIL' ? 'bg-fail' : (val === 'OK' ? 'bg-ok' : 'bg-nil');
+            let displayLot = f.lotClassification ? f.lotClassification : "NEW";
 
             b.innerHTML += `<tr>
                 <td><b>${index + 1}</b></td>
+                <td><b style="color:${displayLot==='NEW'?'#1e3a8a':'#dc2626'}; font-size:11px;">${displayLot}</b></td>
                 <td><code>${f.controller || 'NIL'}</code></td>
+                <td>${f.barcodeNo || '-'}</td>
+                <td><b>${f.modelSpec || '-'}</b></td>
                 <td>${f.pcbMain}</td>
                 <td>${f.pcbLed}</td>
-                <td><small>${f.childCard}</small></td>
+                <td><small>${f.childCard || 'NIL'}</small></td>
                 <td><span class="badge-status ${getBadge(f.display)}">${f.display}</span></td>
                 <td><span class="badge-status ${getBadge(f.visual)}">${f.visual}</span></td>
                 <td><span class="badge-status ${getBadge(f.electrical)}">${f.electrical}</span></td>
@@ -242,7 +317,13 @@
         document.getElementById('editRowIndex').value = origIdx;
         document.getElementById('editFirebaseKey').value = d.fbKey;
         
+        let savedLotType = d.lotClassification ? d.lotClassification : "NEW";
+        document.getElementById('failLotType').value = savedLotType;
+        toggleFormFieldsByLotType();
+        
         document.getElementById('failController').value = d.controller;
+        document.getElementById('failBarcode').value = d.barcodeNo || '';
+        document.getElementById('failModelSpec').value = d.modelSpec || '';
         document.getElementById('failPcbMain').value = d.pcbMain;
         document.getElementById('failPcbLed').value = d.pcbLed;
         document.getElementById('failChildCard').value = d.childCard === 'NIL' ? '' : d.childCard;
@@ -273,7 +354,7 @@
 
     function submitSecretDeletePassword() {
         const pass = document.getElementById('secretModalPasswordField').value;
-        if (pass === "7004") {
+        if (btoa(pass) === "NzAwNA==") {
             const fbKey = failureData[activeDeleteRowIdx].fbKey;
             database.ref('fieldFailureVouchers/' + fbKey).remove().then(() => {
                 alert("🗑️ Success: Defect failure record completely wiped from Cloud.");
@@ -291,6 +372,8 @@
         document.getElementById('failureForm').reset();
         document.getElementById('btnSubmitForm').innerText = "Save Failure Log to Live Cloud";
         document.getElementById('btnCancelEdit').style.display = "none";
+        document.getElementById('failLotType').value = "NEW";
+        toggleFormFieldsByLotType();
         applyLiveDateRestrictions();
     }
 
@@ -298,7 +381,7 @@
         const fromDate = document.getElementById('exportFromDate').value;
         const toDate = document.getElementById('exportToDate').value;
         
-        let csv = "SR NO.,Controller,PCB Main (BOTTOM),PCB LED (TOP),Child Card,Display,Visual,Electrical,Problem,Locations,Action Taken,Failure Date,Dispatch Date,From,Remarks\n";
+        let csv = "SR NO.,Lot Type,Controller,Barcode,Model No,PCB Main (BOTTOM),PCB LED (TOP),Child Card,Display,Visual,Electrical,Problem,Locations,Action Taken,Failure Date,Dispatch Date,From,Remarks\n";
         
         let targetList = failureData;
         if(fromDate && toDate) {
@@ -306,7 +389,8 @@
         }
 
         targetList.forEach((f, idx) => {
-            csv += `"${idx+1}","${f.controller}","${f.pcbMain}","${f.pcbLed}","${f.childCard}","${f.display}","${f.visual}","${f.electrical}","${f.problem}","${f.locations}","${f.actionTaken}","${f.failureDate}","${f.dispatchDate}","${f.receivedFrom}","${f.remarks}"\n`;
+            let lotLabel = f.lotClassification ? f.lotClassification : "NEW";
+            csv += `"${idx+1}","${lotLabel}","${f.controller}","${f.barcodeNo || '-'}","${f.modelSpec || '-'}","${f.pcbMain}","${f.pcbLed}","${f.childCard}","${f.display}","${f.visual}","${f.electrical}","${f.problem}","${f.locations}","${f.actionTaken}","${f.failureDate}","${f.dispatchDate}","${f.receivedFrom}","${f.remarks}"\n`;
         });
 
         let blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
