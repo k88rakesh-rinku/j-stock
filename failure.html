@@ -168,7 +168,6 @@
 
     const cleanStr = (str) => String(str || "").trim().toUpperCase().replace(/\s+/g, '');
 
-    // 🌟 डायनेमिक शो-हाइड फंक्शन (NEW और OLD के सिलेक्शन पर काम करेगा)
     function toggleFormFieldsByLotType() {
         let lotType = document.getElementById('failLotType').value;
         let barcodeInput = document.getElementById('failBarcode');
@@ -177,7 +176,6 @@
         let pcbLedInput = document.getElementById('failPcbLed');
         
         if(lotType === "NEW") {
-            // NEW सिलेक्ट होने पर सब कुछ दिखेगा और आवश्यक रहेगा
             barcodeInput.closest('.form-group').style.display = "block";
             modelInput.closest('.form-group').style.display = "block";
             pcbMainInput.closest('.form-group').style.display = "block";
@@ -189,7 +187,6 @@
             pcbMainInput.required = true;
             pcbLedInput.required = true;
         } else {
-            // OLD सिलेक्ट होने पर ३ फील्ड गायब हो जाएंगी
             barcodeInput.closest('.form-group').style.display = "none";
             modelInput.closest('.form-group').style.display = "none";
             pcbMainInput.closest('.form-group').style.display = "none";
@@ -201,7 +198,6 @@
             pcbMainInput.required = false;
             pcbLedInput.required = false;
             
-            // डेटाबेस क्रैश न हो इसलिए हिडन फॉलबैक वैल्यू सेट करें
             barcodeInput.value = "-";
             modelInput.value = "-";
             pcbMainInput.value = "-";
@@ -405,8 +401,11 @@
         document.getElementById('failDispatchDate').setAttribute('max', todayStr);
         document.getElementById('failDate').value = todayStr;
         document.getElementById('failDispatchDate').value = todayStr;
-        document.getElementById('exportFromDate').value = todayStr;
-        document.getElementById('exportToDate').value = todayStr;
+        
+        // 🌟 यहाँ फिक्स किया है राकेश भाई: पेज लोड होने पर एक्सपोर्ट फ़ील्ड्स को खाली छोड़ दिया है 
+        // ताकि पुराना सारा मटीरियल और मास्टर लेज़र का पूरा स्टॉक बिना अटके दिखाई दे!
+        document.getElementById('exportFromDate').value = "";
+        document.getElementById('exportToDate').value = "";
     }
 
     applyLiveDateRestrictions();
