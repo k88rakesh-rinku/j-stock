@@ -3,46 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fresh Entry - Pro Control System (Live Cloud)</title>
+    <title>Fresh Entry - Pro Control System</title>
     <link rel="stylesheet" href="style.css">
-    
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
-
     <style>
         .grid-input-card { background: #f8fafc; border: 1px solid #cbd5e1; padding: 15px; border-radius: 6px; margin-bottom: 20px; }
         .inner-table { width: 100%; border-collapse: collapse; margin-top: 10px; background: #fff; }
         .inner-table th { background: #64748b; color: white; padding: 6px; font-size: 12px; }
         .inner-table td { padding: 6px; border: 1px solid #e2e8f0; font-size: 12px; }
-        .btn-remove-row { background: #ef4444; color:white; border:none; padding: 4px 8px; border-radius:3px; cursor:pointer; font-weight:bold; }
-        .btn-modify-row { background: #0284c7; color:white; border:none; padding: 4px 8px; border-radius:3px; cursor:pointer; font-weight:bold; margin-right:4px; }
+        .btn-remove-row { background: #ef4444; color:white; border:none; padding: 2px 6px; border-radius:3px; cursor:pointer; }
         .btn-edit-action { background-color: #0284c7; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
         .btn-delete-action { background-color: #dc2626; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; }
-        .btn-print-receipt { background-color: #007bff; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
         
-        .date-export-panel { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; background: #f8fafc; padding: 12px 15px; border-radius: 6px; border: 1px solid #cbd5e1; margin-top: 25px; }
-        .btn-search-trigger { background: #1e3a8a; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 13px; }
-        .btn-search-trigger:hover { background: #0f172a; }
-
-        .table-filter-panel { display: flex; justify-content: space-between; align-items: center; background: #f1f5f9; padding: 10px 15px; border-radius: 6px 6px 0 0; border: 1px solid #cbd5e1; border-bottom: none; margin-top: 15px; gap: 15px; flex-wrap: wrap; }
-        .search-input-box { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; width: 280px; text-transform: uppercase; }
-        .limit-dropdown-select { padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; cursor: pointer; background: #fff; font-weight: bold; }
-        .po-dropdown-select { padding: 10px; border: 1px solid #0284c7; border-radius: 4px; font-size: 14px; background: #f0f9ff; font-weight: bold; color: #1e3a8a; cursor: pointer; width: 100%; box-sizing: border-box; }
-
-        .secret-modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 9999; }
-        .secret-modal-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); text-align: center; width: 320px; }
-        .secret-modal-input { width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #cbd5e1; border-radius: 4px; text-align: center; font-size: 16px; box-sizing: border-box; }
-        .secret-modal-btn-group { display: flex; gap: 10px; justify-content: center; }
-
-        .grid-unit-select { padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; background: white; font-weight: bold; cursor: pointer; }
-        .tabs-nav a { background-color: #e2e8f0; color: #334155; font-weight: 500; transition: all 0.3s; padding: 8px 12px; display: inline-block; border-radius: 4px; text-decoration: none; margin-right: 4px; }
-        .tabs-nav a:hover { background-color: #cbd5e1; }
-        .tabs-nav a.active-index { background-color: #1e3a8a !important; color: white !important; font-weight: bold; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
-
         @media print {
             body * { visibility: hidden; }
             #printSection, #printSection * { visibility: visible; }
-            #printSection { position: absolute; left: 0; top: 0; width: 210mm; height: 74.25mm; box-sizing: border-box; padding: 4mm 6mm; background: #fff; font-family: monospace; font-size: 11px; line-height: 1.3; }
+            #printSection {
+                position: absolute;
+                left: 0; top: 0;
+                width: 210mm;
+                height: 74.25mm;
+                box-sizing: border-box;
+                padding: 4mm 6mm;
+                margin: 0;
+                background: #fff;
+                font-family: monospace;
+                font-size: 11px;
+                line-height: 1.3;
+            }
             @page { size: A4 portrait; margin: 0; }
         }
     </style>
@@ -50,87 +37,64 @@
 <body>
 <div class="container">
     <div class="erp-header">
-        <h1>Material Lifecycle Control & Inventory Ledger Systems <span style="font-size:12px; color:#4ade80;">● CLOUD LIVE</span></h1>
+        <h1>Material Lifecycle Control & Inventory Ledger Systems</h1>
         <button class="logout-btn" onclick="logout()">Logout</button>
     </div>
     
     <div class="tabs-nav">
-        <a href="index.html" class="tab-link active-index">📦 New Entry (Fresh)</a>
+        <a href="index.html" class="tab-link active-fresh">📦 New Entry (Fresh)</a>
         <a href="rework.html" class="tab-link">🛠️ Gate In (Rework)</a>
         <a href="gateout.html" class="tab-link">🚪 Gate Out (Dispatch)</a>
         <a href="debit.html" class="tab-link">🧾 Debit Note (Vendor)</a>
         <a href="code.html" class="tab-link">🆕 Generate Code</a>
         <a href="ledger.html" class="tab-link">📊 Master Ledger & History</a>
         <a href="users.html" class="tab-link">👥 Manage Users</a>
-        <a href="bom.html" class="tab-link">🔗 BOM Master</a>
-        <a href="failure.html" class="tab-link">🛠️ Failure Defect Log</a>
-        <a href="production.html" class="tab-link">🏭 Production Planner</a>
-        <a href="reject_bin.html" class="tab-link">🗑️ Rejection Bin</a>
     </div>
 
-    <div id="lowStockAlert" class="low-stock-badge" style="display:none;">⚠️ Warning: Some Items are running low in Stock! Check Master Ledger.</div>
+    <div id="lowStockAlert" class="low-stock-badge">⚠️ Warning: Some Items are running low in Stock! Check Master Ledger.</div>
 
-    <h3 id="formTitleIndex" style="color:var(--primary); margin: 15px 0 10px 10px;">📦 Fresh Material Inward Controller</h3>
+    <h3 id="formTitleIndex" style="color:var(--primary); margin: 0 0 10px 10px;">📦 Fresh Material Inward Controller</h3>
 
     <form id="stockForm">
         <input type="hidden" id="editRowIndex" value="-1">
-        <input type="hidden" id="editFirebaseKey" value="">
 
         <div class="form-grid" style="margin-bottom: 15px;">
-            <div class="form-grid" style="display: contents;">
-                <div class="form-group">
-                    <label>Company Name <span>*</span></label>
-                    <input type="text" id="companyName" placeholder="e.g. SIEMENS, VINYAS, OWN" required autocomplete="off" style="text-transform:uppercase;" oninput="fetchPurchasePOOptions()">
-                </div>
-                <div class="form-group">
-                    <label>PO Number / WITHOUT PO <span>*</span></label>
-                    <select id="poNo" class="po-dropdown-select" required>
-                        <option value="">-- SELECT PO --</option>
-                    </select>
-                </div>
+            <div class="form-group">
+                <label>Company Name <span>*</span></label>
+                <input type="text" id="companyName" placeholder="e.g. SIEMENS, VINYAS, OWN" required autocomplete="off">
             </div>
-
-            <div class="form-group"><label>Bill / Invoice No.</label><input type="text" id="billNo" required autocomplete="off" style="text-transform:uppercase;"></div>
-            <div class="form-grid-inner" style="display: contents;">
-                <div class="form-group"><label>Bill Date</label><input type="date" id="billDate" required></div>
-                <div class="form-group"><label>Gate-In Date</label><input type="date" id="gateInDate" required></div>
-            </div>
-            <div class="form-group"><label>Gate-In No.</label><input type="text" id="gateInNo" required autocomplete="off" style="text-transform:uppercase;"></div>
+            <div class="form-group"><label>PO No.</label><input type="text" id="poNo" required autocomplete="off"></div>
+            <div class="form-group"><label>Bill / Invoice No.</label><input type="text" id="billNo" required autocomplete="off"></div>
+            <div class="form-group"><label>Bill Date</label><input type="date" id="billDate" required></div>
+            <div class="form-group"><label>Gate-In Date</label><input type="date" id="gateInDate" required></div>
+            <div class="form-group"><label>Gate-In No.</label><input type="text" id="gateInNo" required autocomplete="off"></div>
         </div>
 
         <div class="grid-input-card">
-            <h4 style="margin: 0 0 12px 0; color: #1e3a8a; border-bottom: 1px solid #cbd5e1; padding-bottom: 5px;">📋 Material Inward Row Grid Section:</h4>
+            <h4 style="margin: 0 0 10px 0; color: #1e3a8a;">Material Items Row Section (Direct Save if only 1 item):</h4>
             <div style="display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap;">
-                <div style="flex: 1; min-width: 140px;">
+                <div style="flex: 1; min-width: 150px;">
                     <label style="font-size:12px; font-weight:bold;">Model Code</label>
                     <input type="text" id="gridModelCode" placeholder="Code (e.g. GP0018, OWN)" oninput="autoFillGridItemName(this)" style="padding:8px; width:100%; box-sizing:border-box; text-transform:uppercase;">
                 </div>
-                <div style="flex: 2; min-width: 180px;">
+                <div style="flex: 2; min-width: 200px;">
                     <label style="font-size:12px; font-weight:bold;">Model Description / Name</label>
                     <input type="text" id="gridModelName" placeholder="Item Name" style="padding:8px; width:100%; box-sizing:border-box;">
                 </div>
-                <div style="flex: 1; min-width: 90px;">
+                <div style="flex: 1; min-width: 100px;">
                     <label style="font-size:12px; font-weight:bold;">Bill Qty</label>
-                    <input type="number" id="gridBillQty" min="0" step="0.001" placeholder="Enter Qty" style="padding:8px; width:100%; box-sizing:border-box;">
+                    <input type="number" id="gridBillQty" min="1" style="padding:8px; width:100%; box-sizing:border-box;">
                 </div>
-                <div style="flex: 1; min-width: 90px;">
+                <div style="flex: 1; min-width: 100px;">
                     <label style="font-size:12px; font-weight:bold;">Receive Qty</label>
-                    <input type="number" id="gridRecQty" min="0" step="0.001" placeholder="Enter Qty" style="padding:8px; width:100%; box-sizing:border-box;">
-                </div>
-                <div style="min-width: 90px;">
-                    <label style="font-size:12px; font-weight:bold;">Unit</label>
-                    <select id="gridUnit" class="grid-unit-select" style="width: 100%;">
-                        <option value="NOS">NOS</option>
-                        <option value="MTR">MTR</option>
-                        <option value="SET">SET</option>
-                    </select>
+                    <input type="number" id="gridRecQty" min="0" style="padding:8px; width:100%; box-sizing:border-box;">
                 </div>
                 <button type="button" onclick="addItemToGridList()" style="background:#64748b; color:white; border:none; padding:9px 15px; font-weight:bold; border-radius:4px; cursor:pointer;">+ Add Row</button>
             </div>
 
             <table class="inner-table">
                 <thead>
-                    <tr><th>Model Code</th><th>Description</th><th>Bill Qty</th><th>Receive Qty</th><th>Unit Type</th><th>Action</th></tr>
+                    <tr><th>Model Code</th><th>Description</th><th>Bill Qty</th><th>Receive Qty</th><th>Remove</th></tr>
                 </thead>
                 <tbody id="gridItemsBody"></tbody>
             </table>
@@ -140,157 +104,95 @@
         <button type="button" id="btnCancelEdit" class="btn-submit" style="background-color:#64748b; display:none; margin-top:10px; width:100%;" onclick="cancelEditMode()">Cancel Update</button>
     </form>
 
-    <div class="date-export-panel">
-        <label style="font-weight:bold; font-size:13px;">From:</label> <input type="date" id="freshFromDate">
-        <label style="font-weight:bold; font-size:13px;">To:</label> <input type="date" id="freshToDate">
-        <button class="btn-search-trigger" onclick="triggerSearchByDate()">🔍 Filter & Search Records</button>
-        <button class="btn-excel" onclick="exportFreshToExcel()" style="margin-left:auto;">Download Excel</button>
+    <div class="date-export-panel" style="margin-top: 30px;">
+        <label>From:</label> <input type="date" id="freshFromDate">
+        <label>To:</label> <input type="date" id="freshToDate">
+        <button class="btn-excel" onclick="exportFreshToExcel()">Download Excel</button>
     </div>
 
-    <div class="table-filter-panel">
-        <div>
-            <input type="text" id="liveTableSearchBox" class="search-input-box" placeholder="🔍 Search Bill No, Code or Item Name..." autocomplete="off" oninput="triggerTableRender()" data-block-refocus="true">
-        </div>
-        <div>
-            <label style="font-weight: bold; font-size: 13px; color:#475569;">Show Records:</label>
-            <select id="liveTableLimitSelect" class="limit-dropdown-select" onchange="triggerTableRender()">
-                <option value="5" selected>5 Bills (Default)</option>
-                <option value="10">10 Bills</option>
-                <option value="15">15 Rows</option>
-                <option value="ALL">Show All Bills</option>
-            </select>
-        </div>
-    </div>
-
-    <div class="table-responsive" style="margin-top: 0;">
-        <table class="history-table" style="border-top: none;">
-            <thead style="background-color: #007bff; color: white;">
+    <div class="table-responsive">
+        <table class="history-table">
+            <thead style="background-color: #007bff;">
                 <tr>
-                    <th>Company</th><th>Bill / PO Info</th><th>Dates</th><th>Gate-In No</th><th>Items Inward Details</th><th>Action</th>
+                    <th>Company</th><th>Bill / PO Info</th><th>Dates</th><th>Gate-In No</th><th>Items Inwarded Details</th><th>Action</th>
                 </tr>
             </thead>
-            <tbody id="tableBody">
-                <tr><td colspan="6" style="text-align:center; padding:15px; color:#64748b;">Loading Live Cloud Records...</td></tr>
-            </tbody>
+            <tbody id="tableBody"></tbody>
         </table>
-    </div>
-</div>
-
-<div id="secretPasswordModal" class="secret-modal-overlay">
-    <div class="secret-modal-card">
-        <h4>🔑 Security Check</h4>
-        <p style="font-size: 12px; color: #64748b; margin-bottom: 10px;">Enter Secret Password to Delete this Cloud Record:</p>
-        <input type="password" id="secretModalPasswordField" class="secret-modal-input" placeholder="••••" autocomplete="off">
-        <div class="secret-modal-btn-group">
-            <button type="button" class="secret-modal-btn-confirm" style="background:#dc2626; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer; font-weight:bold;" onclick="submitSecretDeletePassword()">Wipe Record</button>
-            <button type="button" class="secret-modal-btn-cancel" style="background:#64748b; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;" onclick="closeSecretPasswordModal()">Cancel</button>
-        </div>
     </div>
 </div>
 
 <div id="printSection"></div>
 
+<!-- 🚀 Firebase Live Libraries -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
 <script>
+    // 🚀 Firebase Live Configuration
     const firebaseConfig = {
-        apiKey: "AIzaSyCAOXbPwuFR3wh1QSLBXWsodupKWoRYmqs",
-        authDomain: "gvm-stock-control.firebaseapp.com",
-        databaseURL: "https://gvm-stock-control-default-rtdb.firebaseio.com",
-        projectId: "gvm-stock-control",
-        storageBucket: "gvm-stock-control.firebasestorage.app",
-        messagingSenderId: "202991207119",
-        appId: "1:202991207119:web:2246ffb7b92f9eb0c4adba"
+        databaseURL: "https://gvm-stock-control-default-rtdb.firebaseio.com"
     };
-    firebase.initializeApp(firebaseConfig);
-    const database = firebase.database();
+    if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+    }
+    const db = firebase.database();
 
     const session = JSON.parse(localStorage.getItem('activeSession'));
     if(!session) { window.location.href = 'login.html'; }
     function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
 
-    let stockData = [];
+    let stockData = JSON.parse(localStorage.getItem('freshStockData')) || [];
     let masterCatalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
-    let flatPOList = []; 
+    let masterCatalogFlat = {};
     let tempGridItems = [];
-    let activeDeleteRowIdx = null; 
-    let isInternallyUpdatingPO = false;
-    
-    let filterFromDate = "";
-    let filterToDate = "";
 
-    const cleanStr = (str) => String(str || "").trim().toUpperCase().replace(/\s+/g, '');
-
-    database.ref('systemMasterCatalogFlat').on('value', (snapshot) => {
-        flatPOList = [];
-        const data = snapshot.val();
-        if(data) { for(let key in data) { flatPOList.push({ fbKey: key, ...data[key] }); } }
-        if(!isInternallyUpdatingPO) { fetchPurchasePOOptions(); }
-    });
-
-    database.ref('freshStockVouchers').on('value', (snapshot) => {
-        stockData = [];
-        const data = snapshot.val();
-        if(data) { for(let key in data) { stockData.push({ fbKey: key, ...data[key] }); } }
-        stockData.reverse();
-        renderTable();
-    });
-
-    function updatePODropdownOptions(filteredPOs, currentEditingPONo = null) {
-        const selectBox = document.getElementById('poNo');
-        selectBox.innerHTML = '<option value="WITHOUT PO">WITHOUT PO</option>';
-
-        let validPOs = filteredPOs.filter(p => {
-            if(p.hasPO === "NO" || !p.poNumber || p.poNumber === "-") return false;
-            if(p.poType !== "PURCHASE") return false; 
-            
-            let poNum = p.poNumber.trim().toUpperCase();
-            let pCode = p.code.trim().toUpperCase();
-            let totalOrdered = parseInt(p.qty || p.poTotalQty || 0);
-            
-            if(currentEditingPONo && poNum === currentEditingPONo.trim().toUpperCase()) return true;
-
-            let totalReceivedAlready = 0;
-            stockData.forEach(f => {
-                if (f.poNo && f.poNo.trim().toUpperCase() === poNum && f.gridItems) {
-                    f.gridItems.forEach(gi => {
-                        if ((gi.modelCode || "").trim().toUpperCase() === pCode) {
-                            totalReceivedAlready += parseFloat(gi.qty || gi.receiveQty || 0);
-                        }
-                    });
-                }
-            });
-            return totalReceivedAlready < totalOrdered;
-        });
-
-        let uniquePOs = [...new Set(validPOs.map(x => x.poNumber.trim().toUpperCase()))];
-        uniquePOs.forEach(po => {
-            let selectedAttr = (currentEditingPONo && po === currentEditingPONo.trim().toUpperCase()) ? 'selected' : '';
-            selectBox.innerHTML += `<option value="${po}" ${selectedAttr}>${po}</option>`;
-        });
-    }
-
-    function fetchPurchasePOOptions() {
-        if(isInternallyUpdatingPO) return; 
-        const compName = document.getElementById('companyName').value.trim().toUpperCase();
-        if(!compName) { 
-            document.getElementById('poNo').innerHTML = '<option value="WITHOUT PO">WITHOUT PO</option>'; 
-            return; 
+    // 🚀 Live Database Sync for Auto-fill
+    db.ref('systemMasterCatalogFlat').on('value', (snapshot) => {
+        if(snapshot.exists()) {
+            masterCatalogFlat = snapshot.val();
         }
-        let matches = flatPOList.filter(x => x.company === compName);
-        updatePODropdownOptions(matches);
-    }
+    });
 
+    db.ref('bomMasterData').on('value', (snapshot) => {
+        if(snapshot.exists()) {
+            masterCatalog = snapshot.val();
+            localStorage.setItem('systemMasterCatalog', JSON.stringify(masterCatalog));
+        }
+    });
+
+    // 🚀 Live Auto-fill Function
     function autoFillGridItemName(input) {
-        let code = cleanStr(input.value); 
-        let foundName = ""; let foundCompany = "";
-        for(let company in masterCatalog) {
-            const match = masterCatalog[company].find(x => cleanStr(x.code) === code);
-            if(match) { foundName = match.name; foundCompany = company; }
+        let code = input.value.trim().toUpperCase(); 
+        let foundName = ""; 
+        let foundCompany = "";
+
+        if(!code) return;
+
+        // 1. Direct Flat Catalog Check (Fastest)
+        if(masterCatalogFlat && masterCatalogFlat[code]) {
+            foundName = masterCatalogFlat[code].itemName || masterCatalogFlat[code].name || "";
+            foundCompany = masterCatalogFlat[code].companyName || masterCatalogFlat[code].company || "";
         }
+
+        // 2. Fallback to Nested Catalog Search
+        if(!foundName && masterCatalog) {
+            for(let company in masterCatalog) {
+                if(Array.isArray(masterCatalog[company])) {
+                    const match = masterCatalog[company].find(x => x.code && x.code.trim().toUpperCase() === code);
+                    if(match) { 
+                        foundName = match.name || match.itemName || ""; 
+                        foundCompany = company; 
+                        break;
+                    }
+                }
+            }
+        }
+
         if(foundName) {
             document.getElementById('gridModelName').value = foundName;
-            if(!document.getElementById('companyName').value) { 
-                document.getElementById('companyName').value = foundCompany.toUpperCase(); 
-                fetchPurchasePOOptions();
+            if(!document.getElementById('companyName').value && foundCompany) { 
+                document.getElementById('companyName').value = foundCompany; 
             }
         }
     }
@@ -298,206 +200,156 @@
     function addItemToGridList() {
         const code = document.getElementById('gridModelCode').value.trim().toUpperCase();
         const name = document.getElementById('gridModelName').value.trim();
-        let valBill = document.getElementById('gridBillQty').value;
-        let valRec = document.getElementById('gridRecQty').value;
-        const unit = document.getElementById('gridUnit').value;
-        let bQty = parseFloat(valBill); let rQty = parseFloat(valRec);
+        const bQty = parseInt(document.getElementById('gridBillQty').value);
+        const rQty = parseInt(document.getElementById('gridRecQty').value);
 
-        if(!code || !name || isNaN(bQty) || isNaN(rQty)) { alert("Please enter valid Details!"); return; }
-        if(bQty !== rQty) { alert("Error: Qty must match!"); return; }
+        if(!code || !name || isNaN(bQty) || isNaN(rQty)) { alert("Please fill item details first!"); return; }
+        if(bQty !== rQty) { alert("Error: Bill Qty and Receive Qty must match!"); return; }
 
-        if(tempGridItems.some(item => cleanStr(item.modelCode) === cleanStr(code))) {
-            alert(`🚫 Duplicate Row Blocked!`);
-            return;
-        }
-
-        tempGridItems.push({ modelCode: code, modelName: name, qty: bQty, receiveQty: rQty, unit: unit });
+        tempGridItems.push({ modelCode: code, modelName: name, qty: bQty, receiveQty: rQty });
         renderTempGrid();
-        
         document.getElementById('gridModelCode').value = '';
         document.getElementById('gridModelName').value = '';
         document.getElementById('gridBillQty').value = '';
         document.getElementById('gridRecQty').value = '';
-        document.getElementById('gridUnit').value = 'NOS';
-        document.getElementById('gridModelCode').focus();
     }
 
     function removeTempRow(index) { tempGridItems.splice(index, 1); renderTempGrid(); }
 
-    function editTempRow(index) {
-        let item = tempGridItems[index];
-        document.getElementById('gridModelCode').value = item.modelCode;
-        document.getElementById('gridModelName').value = item.modelName;
-        document.getElementById('gridBillQty').value = item.qty;
-        document.getElementById('gridRecQty').value = item.receiveQty;
-        document.getElementById('gridUnit').value = item.unit || 'NOS';
-        tempGridItems.splice(index, 1);
-        renderTempGrid();
-        document.getElementById('gridBillQty').focus();
-    }
-
     function renderTempGrid() {
         const tbody = document.getElementById('gridItemsBody'); tbody.innerHTML = '';
         tempGridItems.forEach((item, index) => {
-            tbody.innerHTML += `<tr>
-                <td><code>${item.modelCode}</code></td><td>${item.modelName}</td>
-                <td><b>${item.qty}</b></td><td>${item.receiveQty}</td><td><b>${item.unit}</b></td>
-                <td>
-                    <button type="button" class="btn-modify-row" onclick="editTempRow(${index})">📝 Edit</button>
-                    <button type="button" class="btn-remove-row" onclick="removeTempRow(${index})">X</button>
-                </td>
-            </tr>`;
+            tbody.innerHTML += `<tr><td><code>${item.modelCode}</code></td><td>${item.modelName}</td><td><b>${item.qty}</b></td><td>${item.receiveQty}</td><td><button type="button" class="btn-remove-row" onclick="removeTempRow(${index})">X</button></td></tr>`;
         });
     }
 
     document.getElementById('stockForm').addEventListener('submit', function(e) {
         e.preventDefault();
-        const idx = parseInt(document.getElementById('editRowIndex').value);
-        const fbKey = document.getElementById('editFirebaseKey').value;
-        const currentBillNo = document.getElementById('billNo').value.trim().toUpperCase();
-        const currentGateInNo = document.getElementById('gateInNo').value.trim().toUpperCase();
-        const currentCompany = document.getElementById('companyName').value.trim().toUpperCase();
-
-        if(tempGridItems.length === 0) { alert("Grid is empty!"); return; }
-
-        if (idx === -1) {
-            if(stockData.some(v => v.gateInNo === currentGateInNo && v.companyName === currentCompany)) { alert("Duplicate Gate-In!"); return; }
-            if(stockData.some(v => v.billNo === currentBillNo && v.companyName === currentCompany)) { alert("Duplicate Bill!"); return; }
+        if(tempGridItems.length === 0) {
+            const code = document.getElementById('gridModelCode').value.trim().toUpperCase();
+            const name = document.getElementById('gridModelName').value.trim();
+            const bQty = parseInt(document.getElementById('gridBillQty').value);
+            const rQty = parseInt(document.getElementById('gridRecQty').value);
+            if(code && name && !isNaN(bQty) && !isNaN(rQty)) {
+                if(bQty !== rQty) { alert("Error: Bill Qty and Receive Qty must match!"); return; }
+                tempGridItems.push({ modelCode: code, modelName: name, qty: bQty, receiveQty: rQty });
+            } else { alert("Please enter at least one item!"); return; }
         }
 
+        const idx = parseInt(document.getElementById('editRowIndex').value);
         const masterVoucher = {
-            companyName: currentCompany, poNo: document.getElementById('poNo').value,
-            billNo: currentBillNo, billDate: document.getElementById('billDate').value,
-            gateInDate: document.getElementById('gateInDate').value, gateInNo: currentGateInNo,
-            gridItems: [...tempGridItems], createdBy: idx === -1 ? session.userId : (stockData[idx].createdBy || "System")
+            companyName: document.getElementById('companyName').value.trim().toUpperCase(), 
+            poNo: document.getElementById('poNo').value.trim(),
+            billNo: document.getElementById('billNo').value.trim(), 
+            billDate: document.getElementById('billDate').value,
+            gateInDate: document.getElementById('gateInDate').value, 
+            gateInNo: document.getElementById('gateInNo').value.trim(),
+            gridItems: [...tempGridItems]
         };
 
-        if(idx === -1) {
-            database.ref('freshStockVouchers').push(masterVoucher).then(() => { alert("🎉 Saved!"); cancelEditMode(); });
-        } else {
-            database.ref('freshStockVouchers/' + fbKey).set(masterVoucher).then(() => { alert("🎯 Updated!"); cancelEditMode(); });
-        }
+        if(idx === -1) { stockData.push(masterVoucher); alert("🎉 Material Inward Entry Saved!"); } 
+        else { stockData[idx] = masterVoucher; alert("🎯 Entry Voucher Updated!"); }
+
+        localStorage.setItem('freshStockData', JSON.stringify(stockData));
+        cancelEditMode(); renderTable(); 
     });
-
-    function triggerSearchByDate() {
-        filterFromDate = document.getElementById('freshFromDate').value;
-        filterToDate = document.getElementById('freshToDate').value;
-        renderTable(); 
-    }
-
-    function triggerTableRender() { renderTable(); }
 
     function renderTable() {
         const body = document.getElementById('tableBody'); body.innerHTML = '';
-        const searchStr = document.getElementById('liveTableSearchBox').value.trim().toUpperCase();
-        const limitVal = document.getElementById('liveTableLimitSelect').value;
-
-        let filtered = stockData.filter(i => {
-            if(!i) return false;
-            
-            let matchText = (i.billNo || "").toUpperCase().includes(searchStr) || 
-                             (i.companyName || "").toUpperCase().includes(searchStr);
-            
-            // मटीरियल ग्रिड टेक्स्ट मैच सर्च बैकएंड गियर
-            let matchGridItems = false;
-            if (i.gridItems) {
-                matchGridItems = Object.values(i.gridItems).some(item => {
-                    if (!item) return false;
-                    return (item.modelCode || "").toUpperCase().includes(searchStr) || 
-                           (item.modelName || "").toUpperCase().includes(searchStr);
-                });
-            }
-
-            let matchDate = true;
-            let voucherDate = i.gateInDate || i.billDate || "";
-            if (filterFromDate && voucherDate < filterFromDate) matchDate = false;
-            if (filterToDate && voucherDate > filterToDate) matchDate = false;
-
-            return (matchText || matchGridItems) && matchDate;
-        });
-
-        let viewList = limitVal === "ALL" ? filtered : filtered.slice(0, parseInt(limitVal));
-
-        if(viewList.length === 0) {
-            body.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:15px; color:#64748b;">No records found for the selected Date Range / Search query.</td></tr>`;
-            return;
-        }
-
-        viewList.forEach((i) => {
-            let origIdx = stockData.findIndex(x => x.fbKey === i.fbKey);
+        document.getElementById('lowStockAlert').style.display = 'none';
+        stockData.forEach((i, idx) => {
             let itemsHtml = "";
-            (i.gridItems || []).forEach(item => {
-                // 🌟 सुरक्षा कवच सुधार: अगर यूनिट या नाम undefined (खाली) हो, तो कोड क्रैश होने के बजाय ब्लैंक स्पेस हैंडल करेगा भाई!
-                let displayUnit = item.unit ? item.unit : "NOS";
-                let displayName = item.modelName ? item.modelName : "Material Specification Sync";
-                itemsHtml += `• <code>${item.modelCode}</code> - ${displayName} (<b>${item.qty} ${displayUnit}</b>)<br>`;
+            let itemsList = i.gridItems || [{ modelCode: i.modelCode, modelName: i.modelName, qty: i.qty, receiveQty: i.receiveQty }];
+            itemsList.forEach(item => {
+                itemsHtml += `• <code>${item.modelCode}</code> - ${item.modelName} (<b>${item.qty} NOS</b>)<br>`;
+                if(parseInt(item.qty) < 5) document.getElementById('lowStockAlert').style.display = 'block';
             });
-
             body.innerHTML += `<tr>
-                <td><b>${i.companyName}</b></td><td>Bill: ${i.billNo}<br>PO: ${i.poNo}</td><td>In: ${i.gateInDate}</td><td>${i.gateInNo}</td><td style="text-align:left;">${itemsHtml}</td>
+                <td><b>${i.companyName}</b></td><td>Bill: ${i.billNo}<br>PO: ${i.poNo}</td><td>Bill: ${i.billDate}<br>Gate-In: ${i.gateInDate}</td><td>${i.gateInNo}</td><td style="text-align:left;">${itemsHtml}</td>
                 <td>
                     <button type="button" class="btn-print-receipt" onclick='triggerGateInReceipt(${JSON.stringify(i)})'>🖨️ Print</button>
-                    <button type="button" class="btn-edit-action" onclick="editFreshRow(${origIdx})">Edit</button>
-                    <button type="button" class="btn-delete-action" onclick="deleteFreshRow(${origIdx})">Delete</button>
+                    <button type="button" class="btn-edit-action" onclick="editFreshRow(${idx})">Edit</button>
+                    <button type="button" class="btn-delete-action" onclick="deleteFreshRow(${idx})">Delete</button>
                 </td>
             </tr>`;
         });
     }
 
-    window.editFreshRow = function(idx) {
-        const d = stockData[idx]; isInternallyUpdatingPO = true;
-        document.getElementById('editRowIndex').value = idx;
-        document.getElementById('editFirebaseKey').value = d.fbKey;
-        document.getElementById('companyName').value = d.companyName;
-        updatePODropdownOptions(flatPOList.filter(x => x.company === d.companyName.toUpperCase()), d.poNo);
-        document.getElementById('poNo').value = d.poNo;
-        document.getElementById('billNo').value = d.billNo;
-        document.getElementById('billDate').value = d.billDate;
-        document.getElementById('gateInDate').value = d.gateInDate;
-        document.getElementById('gateInNo').value = d.gateInNo;
-        tempGridItems = [...(d.gridItems || [])];
+    function editFreshRow(idx) {
+        const d = stockData[idx]; document.getElementById('editRowIndex').value = idx;
+        document.getElementById('companyName').value = d.companyName; document.getElementById('poNo').value = d.poNo; document.getElementById('billNo').value = d.billNo;
+        document.getElementById('billDate').value = d.billDate; document.getElementById('gateInDate').value = d.gateInDate; document.getElementById('gateInNo').value = d.gateInNo;
+        tempGridItems = d.gridItems ? [...d.gridItems] : [{ modelCode: d.modelCode, modelName: d.modelName, qty: d.qty, receiveQty: d.receiveQty }];
         renderTempGrid();
         document.getElementById('btnSubmitForm').innerText = "Update Entire Material Inward Bill";
         document.getElementById('btnCancelEdit').style.display = "inline-block";
-        setTimeout(() => { isInternallyUpdatingPO = false; }, 100);
         document.getElementById('stockForm').scrollIntoView({ behavior: 'smooth' });
     }
 
-    function deleteFreshRow(idx) { activeDeleteRowIdx = idx; document.getElementById('secretPasswordModal').style.display = "flex"; }
-    function closeSecretPasswordModal() { document.getElementById('secretPasswordModal').style.display = "none"; }
-    function submitSecretDeletePassword() {
-        if (btoa(document.getElementById('secretModalPasswordField').value) === "NzAwNA==") {
-            database.ref('freshStockVouchers/' + stockData[activeDeleteRowIdx].fbKey).remove().then(() => { alert("Wiped!"); closeSecretPasswordModal(); cancelEditMode(); });
-        } else { alert("Wrong Password!"); }
-    }
-
-    function triggerGateInReceipt(i) {
-        window.print();
-    }
-
     function cancelEditMode() {
-        document.getElementById('stockForm').reset(); tempGridItems = []; renderTempGrid();
-        document.getElementById('btnSubmitForm').innerText = "Final Save Inward Voucher";
-        document.getElementById('btnCancelEdit').style.display = "none"; applyLiveDateRestrictions();
+        document.getElementById('editRowIndex').value = "-1"; document.getElementById('stockForm').reset(); tempGridItems = []; renderTempGrid();
+        document.getElementById('btnSubmitForm').innerText = "Final Save Inward Voucher"; document.getElementById('btnCancelEdit').style.display = "none";
+        applyLiveDateRestrictions();
+    }
+
+    function deleteFreshRow(idx) {
+        if(confirm("Are you sure?")) { stockData.splice(idx, 1); localStorage.setItem('freshStockData', JSON.stringify(stockData)); renderTable(); cancelEditMode(); }
+    }
+
+    /* 🎯 रसीद डिज़ाइन: सिर्फ आपके द्वारा माँगी गई शुद्ध फील्ड्स */
+    function triggerGateInReceipt(i) {
+        const shell = document.getElementById('printSection');
+        let itemsList = i.gridItems || [{ modelCode: i.modelCode, modelName: i.modelName, qty: i.qty, receiveQty: i.receiveQty }];
+        let rowsHtml = "";
+        itemsList.forEach(item => {
+            rowsHtml += `<tr>
+                <td style="border:1px solid #000; padding:3px;">${item.modelCode}</td>
+                <td style="border:1px solid #000; padding:3px;">${item.modelName}</td>
+                <td style="border:1px solid #000; padding:3px; text-align:center; font-weight:bold;">${item.qty}</td>
+                <td style="border:1px solid #000; padding:3px; text-align:center; font-weight:bold;">${item.receiveQty}</td>
+            </tr>`;
+        });
+
+        shell.innerHTML = `
+            <div style="border:1px solid #000; padding:6px; height:100%; box-sizing:border-box; display:flex; flex-direction:column; justify-content:space-between;">
+                <div style="text-align:center; font-weight:bold; font-size:12px; border-bottom:1px solid #000; padding-bottom:2px; text-transform:uppercase;">GVM RAIL PVT LTD - MATERIAL INWARD</div>
+                
+                <table style="width:100%; font-size:11px; margin-top:2px; line-height:1.2;">
+                    <tr>
+                        <td><b>Gate In Date:</b> ${i.gateInDate}</td>
+                        <td><b>Gate In No:</b> ${i.gateInNo}</td>
+                    </tr>
+                    <tr>
+                        <td><b>Bill No:</b> ${i.billNo}</td>
+                        <td><b>Company Name:</b> ${i.companyName}</td>
+                    </tr>
+                    <tr>
+                        <td colspan="2"><b>PO No:</b> ${i.poNo || 'N/A'} | <b>Bill Date:</b> ${i.billDate}</td>
+                    </tr>
+                </table>
+
+                <table style="width:100%; border-collapse:collapse; margin-top:4px; font-size:10px;">
+                    <thead>
+                        <tr style="background:#eee;">
+                            <th style="border:1px solid #000; padding:3px; text-align:left;">Model Code</th>
+                            <th style="border:1px solid #000; padding:3px; text-align:left;">Description</th>
+                            <th style="border:1px solid #000; padding:3px;">Bill Qty</th>
+                            <th style="border:1px solid #000; padding:3px;">Receive Qty</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rowsHtml}</tbody>
+                </table>
+                <div style="text-align:right; font-weight:bold; font-size:9px; margin-top:2px;">Authorized Store Signature</div>
+            </div>`;
+        window.print();
     }
 
     function applyLiveDateRestrictions() {
         const todayStr = new Date().toISOString().split('T')[0];
-        
-        document.getElementById('billDate').setAttribute('max', todayStr);
-        document.getElementById('gateInDate').setAttribute('max', todayStr);
-        document.getElementById('billDate').value = todayStr;
-        document.getElementById('gateInDate').value = todayStr;
-
-        document.getElementById('freshFromDate').setAttribute('max', todayStr);
-        document.getElementById('freshToDate').setAttribute('max', todayStr);
-        document.getElementById('freshFromDate').value = todayStr;
-        document.getElementById('freshToDate').value = todayStr;
-        
-        filterFromDate = todayStr;
-        filterToDate = todayStr;
+        document.getElementById('billDate').setAttribute('max', todayStr); document.getElementById('gateInDate').setAttribute('max', todayStr);
+        document.getElementById('billDate').value = todayStr; document.getElementById('gateInDate').value = todayStr;
     }
-    applyLiveDateRestrictions();
+    applyLiveDateRestrictions(); renderTable();
 </script>
 </body>
 </html>
