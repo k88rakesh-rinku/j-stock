@@ -13,6 +13,7 @@
         .btn-remove-row { background: #ef4444; color:white; border:none; padding: 2px 6px; border-radius:3px; cursor:pointer; }
         .btn-edit-action { background-color: #0284c7; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
         .btn-delete-action { background-color: #dc2626; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; }
+        .btn-bill-attach { background-color: #16a34a; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; text-decoration: none; display: inline-block; }
         
         /* 🔍 Filter & Control Panel Styling */
         .history-controls { background: #f1f5f9; padding: 12px; border-radius: 6px; border: 1px solid #cbd5e1; margin-top: 25px; margin-bottom: 15px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
@@ -77,6 +78,12 @@
             <div class="form-group"><label>Bill Date</label><input type="date" id="billDate" required></div>
             <div class="form-group"><label>Gate-In Date</label><input type="date" id="gateInDate" required></div>
             <div class="form-group"><label>Gate-In No.</label><input type="text" id="gateInNo" required autocomplete="off"></div>
+            
+            <!-- 📎 Optional Bill Attachment (Optional / Optional Upload) -->
+            <div class="form-group" style="grid-column: span 2;">
+                <label>Attach Bill Copy (PDF / Image) <span style="color:#64748b; font-weight:normal;">(Optional - बाद में भी जोड़ सकते हैं)</span></label>
+                <input type="file" id="billFile" accept="image/*,application/pdf" style="padding: 5px;">
+            </div>
         </div>
 
         <div class="grid-input-card">
@@ -113,7 +120,7 @@
         <button type="button" id="btnCancelEdit" class="btn-submit" style="background-color:#64748b; display:none; margin-top:10px; width:100%;" onclick="cancelEditMode()">Cancel Update</button>
     </form>
 
-    <!-- 📊🔍 History Controls Panel (Search, Date Filter & Records Count) -->
+    <!-- 📊🔍 History Controls Panel -->
     <div class="history-controls">
         <div>
             <label style="font-size:12px; font-weight:bold;">🔍 Search:</label>
@@ -176,23 +183,38 @@
     let masterCatalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
     let masterCatalogFlat = {};
     let tempGridItems = [];
+    let currentBillBase64 = ""; // Base64 string for bill
     
-    // Pagination & Filter Control Variables
     let displayLimit = 5;
 
-    // 🚀 Firebase Push Keys Handling
+    // Handle File to Base64 (Optional File Conversion)
+    document.getElementById('billFile').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            if(file.size > 2 * 1024 * 1024) { // 2MB Limit
+                alert("Warning: File size is large! Please upload a file smaller than 2MB.");
+                this.value = "";
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                currentBillBase64 = evt.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+
     db.ref().on('value', (snapshot) => {
         if(snapshot.exists()) {
             const val = snapshot.val();
             masterCatalogFlat = val.systemMasterCatalogFlat || {};
             masterCatalog = val.bomMasterData || val.systemMasterCatalog || {};
             
-            // Sync Firebase freshStockVouchers into Local Storage if available
             if(val.freshStockVouchers) {
                 let fetched = [];
                 for(let k in val.freshStockVouchers) { fetched.push(val.freshStockVouchers[k]); }
                 if(fetched.length > 0) {
-                    stockData = fetched.reverse(); // Latest on top
+                    stockData = fetched.reverse();
                     localStorage.setItem('freshStockData', JSON.stringify(stockData));
                     renderTable();
                 }
@@ -201,7 +223,6 @@
         }
     });
 
-    // 🚀 Deep Recursive Auto-fill Search
     function autoFillGridItemName(input) {
         let code = input.value.trim().toUpperCase(); 
         let foundName = ""; 
@@ -297,6 +318,7 @@
             billDate: document.getElementById('billDate').value,
             gateInDate: document.getElementById('gateInDate').value, 
             gateInNo: document.getElementById('gateInNo').value.trim(),
+            billDoc: currentBillBase64 || (idx !== -1 ? stockData[idx].billDoc || "" : ""), // Optional Document Saved
             gridItems: [...tempGridItems]
         };
 
@@ -313,7 +335,6 @@
         cancelEditMode(); renderTable(); 
     });
 
-    // 🔍📊 Filter + Search + Pagination Rendering Logic
     function renderTable() {
         const body = document.getElementById('tableBody'); body.innerHTML = '';
         document.getElementById('lowStockAlert').style.display = 'none';
@@ -322,7 +343,6 @@
         const fromDate = document.getElementById('freshFromDate').value;
         const toDate = document.getElementById('freshToDate').value;
 
-        // 1. Filter Data
         let filteredData = stockData.filter(i => {
             let matchesQuery = true;
             let matchesDate = true;
@@ -342,7 +362,6 @@
             return matchesQuery && matchesDate;
         });
 
-        // 2. Slice Data for Limit (5, 10, 15, More)
         let slicedData = filteredData.slice(0, displayLimit);
 
         slicedData.forEach((i, idx) => {
@@ -352,8 +371,18 @@
                 itemsHtml += `• <code>${item.modelCode}</code> - ${item.modelName} (<b>${item.qty} NOS</b>)<br>`;
                 if(parseInt(item.qty) < 5) document.getElementById('lowStockAlert').style.display = 'block';
             });
+
+            // Bill View/Upload Status Link
+            let billBtnHtml = i.billDoc 
+                ? `<a href="${i.billDoc}" target="_blank" class="btn-bill-attach">📄 View Bill</a>` 
+                : `<button type="button" class="btn-edit-action" style="background:#eab308;" onclick="editFreshRow(${idx})" title="Edit to add bill">📎 Add Bill</button>`;
+
             body.innerHTML += `<tr>
-                <td><b>${i.companyName}</b></td><td>Bill: ${i.billNo}<br>PO: ${i.poNo}</td><td>Bill: ${i.billDate}<br>Gate-In: ${i.gateInDate}</td><td>${i.gateInNo}</td><td style="text-align:left;">${itemsHtml}</td>
+                <td><b>${i.companyName}</b></td>
+                <td>Bill: ${i.billNo}<br>PO: ${i.poNo}<br>${billBtnHtml}</td>
+                <td>Bill: ${i.billDate}<br>Gate-In: ${i.gateInDate}</td>
+                <td>${i.gateInNo}</td>
+                <td style="text-align:left;">${itemsHtml}</td>
                 <td>
                     <button type="button" class="btn-print-receipt" onclick='triggerGateInReceipt(${JSON.stringify(i)})'>🖨️ Print</button>
                     <button type="button" class="btn-edit-action" onclick="editFreshRow(${idx})">Edit</button>
@@ -362,7 +391,6 @@
             </tr>`;
         });
 
-        // Show/Hide "+ Load More" Button
         const btnMore = document.getElementById('btnLoadMore');
         if(filteredData.length > displayLimit) {
             btnMore.style.display = "block";
@@ -383,6 +411,7 @@
         document.getElementById('companyName').value = d.companyName; document.getElementById('poNo').value = d.poNo; document.getElementById('billNo').value = d.billNo;
         document.getElementById('billDate').value = d.billDate; document.getElementById('gateInDate').value = d.gateInDate; document.getElementById('gateInNo').value = d.gateInNo;
         tempGridItems = d.gridItems ? [...d.gridItems] : [{ modelCode: d.modelCode, modelName: d.modelName, qty: d.qty, receiveQty: d.receiveQty }];
+        currentBillBase64 = d.billDoc || "";
         renderTempGrid();
         document.getElementById('btnSubmitForm').innerText = "Update Entire Material Inward Bill";
         document.getElementById('btnCancelEdit').style.display = "inline-block";
@@ -390,7 +419,7 @@
     }
 
     function cancelEditMode() {
-        document.getElementById('editRowIndex').value = "-1"; document.getElementById('stockForm').reset(); tempGridItems = []; renderTempGrid();
+        document.getElementById('editRowIndex').value = "-1"; document.getElementById('stockForm').reset(); tempGridItems = []; currentBillBase64 = ""; renderTempGrid();
         document.getElementById('btnSubmitForm').innerText = "Final Save Inward Voucher"; document.getElementById('btnCancelEdit').style.display = "none";
         applyLiveDateRestrictions();
     }
