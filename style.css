@@ -106,7 +106,6 @@ body {
 .tab-link.active-code, 
 .tab-link.active-users,
 .tab-link.active-production,
-.tab-link.active-code,
 .active-code { 
     background-color: var(--primary) !important; 
     color: white !important; 
@@ -232,42 +231,113 @@ body {
 }
 .btn-print-receipt:hover { background-color: #0369a1; }
 
-/* 📋 Uniform Tables with Live Row Hover Highlight */
-.table-responsive { overflow-x: auto; margin-top: 15px; clear: both; border-radius: 6px; border: 1px solid #e2e8f0; }
-.history-table, .grid-table { width: 100%; border-collapse: collapse; background: #fff; }
+/* 📋 Uniform Tables & Strict Alignment Rules */
+.table-responsive { 
+    overflow-x: auto; 
+    margin-top: 15px; 
+    clear: both; 
+    border-radius: 6px; 
+    border: 1px solid #e2e8f0; 
+}
+.history-table { width: 100%; border-collapse: collapse; background: #fff; }
+
+.grid-table { 
+    width: 100% !important; 
+    border-collapse: collapse; 
+    background: #fff; 
+    table-layout: fixed !important; /* 🌟 कॉलम्स को सीध में रखेगा */
+}
+
 .history-table th, .grid-table th { 
     background-color: var(--neutral-dark); 
     color: white; 
     font-weight: 600; 
-    padding: 14px 12px; 
+    padding: 12px 10px; 
     text-align: left; 
     font-size: 13px; 
     white-space: nowrap; 
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
+
 .history-table td, .grid-table td { 
-    padding: 12px; 
+    padding: 10px 8px; 
     border-bottom: 1px solid #e2e8f0; 
     font-size: 14px; 
     color: #334155;
+    vertical-align: middle;
 }
+
 .history-table tbody tr:hover, .grid-table tbody tr:hover {
     background-color: #f1f5f9;
     transition: background-color 0.1s ease;
 }
+
 .grid-table input, .grid-table select { 
-    width: 100%; 
+    width: 100% !important; 
     padding: 6px 10px; 
     border: 1px solid var(--border-color); 
     border-radius: 4px; 
-    box-sizing: border-box; 
-    height: 36px; 
+    box-sizing: border-box !important; 
+    height: 38px; 
     transition: var(--transition);
 }
 .grid-table input:focus, .grid-table select:focus {
     outline: none;
     border-color: var(--border-focus);
+}
+
+/* 🔍 Smart Autocomplete Dropdown Positioning & Overflow Fixes */
+.search-container { 
+    position: relative !important; 
+    width: 100%; 
+}
+
+.suggestions-dropdown {
+    position: absolute !important; 
+    top: 100% !important; 
+    left: 0 !important; 
+    right: 0 !important;
+    background: #ffffff !important; 
+    border: 1px solid #3b82f6 !important;
+    border-radius: 0 0 6px 6px !important; 
+    max-height: 180px !important;
+    overflow-y: auto !important; 
+    z-index: 99999 !important; /* 🌟 अगली रो के ऊपर तैरने के लिए */
+    box-shadow: 0 6px 15px rgba(0,0,0,0.2) !important;
+    display: none;
+}
+
+.suggestion-item {
+    padding: 8px 12px; 
+    font-size: 12px; 
+    cursor: pointer;
+    border-bottom: 1px solid #f1f5f9; 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    color: #1e293b;
+}
+.suggestion-item:hover { 
+    background-color: #e0f2fe; 
+    color: #0369a1; 
+    font-weight: bold; 
+}
+.suggestion-item .item-code-badge { 
+    background: #3b82f6; 
+    color: white; 
+    padding: 2px 6px; 
+    border-radius: 3px; 
+    font-size: 10px; 
+    font-weight: bold; 
+}
+.no-suggestion-item { 
+    padding: 10px; 
+    font-size: 12px; 
+    color: #dc2626; 
+    text-align: center; 
+    font-weight: bold; 
+    background: #fef2f2; 
 }
 
 /* 🛑 PURE ERROR STYLING */
