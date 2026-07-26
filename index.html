@@ -41,13 +41,18 @@
         <button class="logout-btn" onclick="logout()">Logout</button>
     </div>
     
+    <!-- 🚀 आपकी प्रोजेक्ट डायरेक्टरी की सभी फ़ाइलों के अनुसार 10 पूरे Tabs -->
     <div class="tabs-nav">
         <a href="index.html" class="tab-link active-fresh">📦 New Entry (Fresh)</a>
         <a href="rework.html" class="tab-link">🛠️ Gate In (Rework)</a>
         <a href="gateout.html" class="tab-link">🚪 Gate Out (Dispatch)</a>
-        <a href="debit.html" class="tab-link">🧾 Debit Note (Vendor)</a>
+        <a href="debit.html" class="tab-link">🧾 Debit Note</a>
+        <a href="bom.html" class="tab-link">📑 BOM Master</a>
+        <a href="production.html" class="tab-link">⚙️ Production</a>
+        <a href="failure.html" class="tab-link">⚠️ Field Failure</a>
+        <a href="reject_bin.html" class="tab-link">🗑️ Reject Bin</a>
         <a href="code.html" class="tab-link">🆕 Generate Code</a>
-        <a href="ledger.html" class="tab-link">📊 Master Ledger & History</a>
+        <a href="ledger.html" class="tab-link">📊 Master Ledger</a>
         <a href="users.html" class="tab-link">👥 Manage Users</a>
     </div>
 
@@ -146,7 +151,7 @@
     let masterCatalogFlat = {};
     let tempGridItems = [];
 
-    // 🚀 Firebase Push Keys Handling Fix
+    // 🚀 Firebase Push Keys Handling
     db.ref().on('value', (snapshot) => {
         if(snapshot.exists()) {
             const val = snapshot.val();
@@ -164,7 +169,6 @@
 
         if(!code) return;
 
-        // Helper to check object item
         function checkItem(item, comp) {
             if(!item || typeof item !== 'object') return false;
             let c = (item.code || item.modelCode || "").toString().trim().toUpperCase();
@@ -176,7 +180,6 @@
             return false;
         }
 
-        // 1. Search in systemMasterCatalogFlat (Iterating Push Keys)
         if(masterCatalogFlat) {
             for(let key in masterCatalogFlat) {
                 let item = masterCatalogFlat[key];
@@ -184,7 +187,6 @@
             }
         }
 
-        // 2. Search in bomMasterData (Nested Structure Iteration)
         if(!foundName && masterCatalog) {
             for(let key in masterCatalog) {
                 let compObj = masterCatalog[key];
@@ -200,7 +202,6 @@
             }
         }
 
-        // 3. Auto-fill Form
         if(foundName) {
             document.getElementById('gridModelName').value = foundName;
             if(!document.getElementById('companyName').value && foundCompany) { 
