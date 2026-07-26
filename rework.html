@@ -34,6 +34,23 @@
         .rework-pool-select { padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; background: white; font-weight: bold; cursor: pointer; }
         .rework-unit-select { padding: 5px; border: 1px solid #cbd5e1; border-radius: 4px; background: white; font-weight: bold; cursor: pointer; }
 
+        /* 🔍 Autocomplete Dropdown Styling */
+        .search-container { position: relative; width: 100%; }
+        .suggestions-dropdown {
+            position: absolute; top: 100%; left: 0; right: 0;
+            background: #ffffff; border: 1px solid #3b82f6;
+            border-radius: 0 0 6px 6px; max-height: 200px;
+            overflow-y: auto; z-index: 1000; box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+            display: none;
+        }
+        .suggestion-item {
+            padding: 8px 12px; font-size: 12px; cursor: pointer;
+            border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; color: #1e293b;
+        }
+        .suggestion-item:hover { background-color: #e0f2fe; color: #0369a1; font-weight: bold; }
+        .suggestion-item .item-code-badge { background: #3b82f6; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: bold; }
+        .no-suggestion-item { padding: 10px; font-size: 12px; color: #dc2626; text-align: center; font-weight: bold; background: #fef2f2; }
+
         @media print {
             body * { visibility: hidden; }
             #printSection, #printSection * { visibility: visible; }
@@ -83,16 +100,16 @@
             <div class="form-group"><label>Processed / Tested By</label><input type="text" id="rwTestedBy" autocomplete="off" style="text-transform:uppercase;"></div>
         </div>
 
-        <div style="overflow-x:auto; margin-top: 15px;">
-            <table class="grid-table">
+        <div style="overflow-x:visible; margin-top: 15px;">
+            <table class="grid-table" style="width:100%;">
                 <thead style="background-color: var(--secondary); color: white;">
                     <tr>
-                        <th>Target Stock Pool</th>
-                        <th>Model Part Code 🔍</th>
-                        <th>Item Description Name</th>
-                        <th>Qty</th>
-                        <th>Unit Type</th>
-                        <th>Action Control</th>
+                        <th style="width:15%;">Target Stock Pool</th>
+                        <th style="width:25%;">Model Part Code 🔍</th>
+                        <th style="width:35%;">Item Description Name</th>
+                        <th style="width:10%;">Qty</th>
+                        <th style="width:10%;">Unit Type</th>
+                        <th style="width:5%;">Action</th>
                     </tr>
                 </thead>
                 <tbody id="reworkItemsBody"></tbody>
@@ -183,7 +200,6 @@
         return Array.isArray(rawVal) ? rawVal : Object.values(rawVal);
     }
 
-    // 🌟 नया फंक्शन: डायरेक्ट स्टॉक मोड ऑन होने पर फील्ड्स को हाइड/शो और रिक्वायर्ड टॉगल करना
     function toggleDirectStockMode() {
         const isDirect = document.getElementById('isDirectStock').checked;
         const targetIds = ['rwChallanNo', 'rwChallanDate', 'rwGateInNo', 'rwPartyName'];
@@ -222,6 +238,7 @@
         renderTable();
     });
 
+    // 🌟 अपडेटेड फ़ंक्शन: ऑटो-सर्च ड्रॉपडाउन के साथ रो (Row) जोड़ना
     function addRwRow(savedPool = "REWORK", savedUnit = "NOS") {
         const body = document.getElementById('reworkItemsBody');
         const tr = document.createElement('tr');
@@ -233,9 +250,15 @@
                     <option value="FRESH" ${savedPool==='FRESH'?'selected':''}>PASSED TO FRESH</option>
                 </select>
             </td>
-            <td><input type="text" required class="rw-code" oninput="autofillRw(this)" style="text-transform:uppercase;"></td>
-            <td><input type="text" required class="rw-name"></td>
-            <td><input type="number" min="0" step="0.001" required class="rw-qty"></td>
+            <td class="search-container">
+                <input type="text" required class="rw-code" placeholder="Search Code..." oninput="handleRwRowInput(this, 'code')" autocomplete="off" style="text-transform:uppercase; width:100%; box-sizing:border-box;">
+                <div class="suggestions-dropdown"></div>
+            </td>
+            <td class="search-container">
+                <input type="text" required class="rw-name" placeholder="Search Description/Name..." oninput="handleRwRowInput(this, 'name')" autocomplete="off" style="width:100%; box-sizing:border-box;">
+                <div class="suggestions-dropdown"></div>
+            </td>
+            <td><input type="number" min="0" step="0.001" required class="rw-qty" style="width:100%; box-sizing:border-box;"></td>
             <td>
                 <select class="rework-unit-select">
                     <option value="NOS" ${savedUnit==='NOS'?'selected':''}>NOS</option>
@@ -247,21 +270,94 @@
         body.appendChild(tr);
     }
 
-    function autofillRw(input) {
-        let code = cleanStr(input.value);
-        let foundName = "";
-        for(let key in masterCatalog) {
-            const m = masterCatalog[key].find(i => cleanStr(i.code) === code);
-            if(m) foundName = m.name;
-        }
+    // 🔍 स्मार्ट ऑटो-सर्च और ड्रॉपडाउन हैंडलर
+    function handleRwRowInput(input, fieldType) {
+        let text = input.value.trim().toLowerCase();
+        let td = input.parentElement;
+        let box = td.querySelector('.suggestions-dropdown');
         let tr = input.closest('tr');
-        tr.querySelector('.rw-name').value = foundName;
 
-        let matchCatalog = flatPOList.find(x => cleanStr(x.code) === code);
-        if(matchCatalog && matchCatalog.poUnit) {
-            tr.querySelector('.rework-unit-select').value = matchCatalog.poUnit;
+        // अगर यूजर ने इनपुट बॉक्स को मिटा दिया (Backspace) तो सामने वाली फील्ड को भी क्लियर कर दें
+        if(!text) {
+            box.style.display = "none";
+            box.innerHTML = "";
+            if(fieldType === 'code') { tr.querySelector('.rw-name').value = ""; }
+            else { tr.querySelector('.rw-code').value = ""; }
+            return;
+        }
+
+        let matches = [];
+
+        function scanCatalogItem(item, comp) {
+            if(!item || typeof item !== 'object') return;
+            let n = (item.itemName || item.name || item.modelName || item.description || "").toString();
+            let c = (item.code || item.modelCode || "").toString();
+            let unit = item.poUnit || item.unit || "NOS";
+
+            if(n.toLowerCase().includes(text) || c.toLowerCase().includes(text)) {
+                matches.push({ name: n, code: c, unit: unit });
+            }
+        }
+
+        if(flatPOList && flatPOList.length > 0) {
+            flatPOList.forEach(item => scanCatalogItem(item));
+        }
+        if(masterCatalog) {
+            for(let k in masterCatalog) {
+                let compObj = masterCatalog[k];
+                if(Array.isArray(compObj)) {
+                    compObj.forEach(item => scanCatalogItem(item, k));
+                } else if(typeof compObj === 'object') {
+                    for(let subKey in compObj) { scanCatalogItem(compObj[subKey], k); }
+                }
+            }
+        }
+
+        // यूनिक लिस्ट फ़िल्टर
+        let uniqueMatches = [];
+        let seenCodes = new Set();
+        matches.forEach(m => {
+            if(m.code && !seenCodes.has(m.code.toUpperCase())) {
+                seenCodes.add(m.code.toUpperCase());
+                uniqueMatches.push(m);
+            }
+        });
+
+        if(uniqueMatches.length > 0) {
+            let html = "";
+            uniqueMatches.forEach(m => {
+                let escapedName = m.name.replace(/'/g, "\\'");
+                html += `<div class="suggestion-item" onclick="selectRwSuggestion(this, '${m.code}', '${escapedName}', '${m.unit}')">
+                            <span><b>${m.code}</b> - ${m.name}</span>
+                            <span class="item-code-badge">${m.unit}</span>
+                         </div>`;
+            });
+            box.innerHTML = html;
+            box.style.display = "block";
+        } else {
+            box.innerHTML = `<div class="no-suggestion-item">⚠️ No Code or Item Found</div>`;
+            box.style.display = "block";
         }
     }
+
+    // ड्रॉपडाउन से चुनने पर डेटा सेट करने वाला फ़ंक्शन
+    window.selectRwSuggestion = function(element, code, name, unit) {
+        let tr = element.closest('tr');
+        tr.querySelector('.rw-code').value = code.toUpperCase();
+        tr.querySelector('.rw-name').value = name;
+        if(tr.querySelector('.rework-unit-select') && unit) {
+            tr.querySelector('.rework-unit-select').value = unit;
+        }
+        let box = element.closest('.suggestions-dropdown');
+        if(box) box.style.display = "none";
+    };
+
+    // बाहर कहीं भी क्लिक करने पर खुले हुए ड्रॉपडाउन को बंद कर दें
+    document.addEventListener('click', function(e) {
+        if(!e.target.closest('.search-container')) {
+            document.querySelectorAll('.suggestions-dropdown').forEach(box => box.style.display = "none");
+        }
+    });
 
     document.getElementById('reworkForm').addEventListener('submit', function(e) {
         e.preventDefault();
@@ -273,7 +369,6 @@
         const currentChallan = document.getElementById('rwChallanNo').value.trim().toUpperCase();
         const currentParty = document.getElementById('rwPartyName').value.trim().toUpperCase();
 
-        // डुप्लिकेट चेक सिर्फ रेगुलर गेट-इन मोड में चलेगा
         if (idx === -1 && !isDirectMode) {
             let isDuplicate = reworkData.some(v => !v.isDirectStock && cleanStr(v.challanNo) === cleanStr(currentChallan) && cleanStr(v.partyName) === cleanStr(currentParty));
             if (isDuplicate) {
@@ -308,7 +403,7 @@
         const rwVoucher = {
             voucherNo: idx === -1 ? (reworkData.length + 1) : reworkData.find(x => x.fbKey === fbKey).voucherNo,
             date: document.getElementById('rwDate').value,
-            isDirectStock: isDirectMode, // 🌟 डेटाबेस में फ्लैग सेव होगा
+            isDirectStock: isDirectMode,
             challanNo: isDirectMode ? "DIRECT_STOCK" : currentChallan,
             challanDate: isDirectMode ? "" : document.getElementById('rwChallanDate').value,
             gateInNo: isDirectMode ? "DIRECT_ENTRY" : document.getElementById('rwGateInNo').value.trim().toUpperCase(),
@@ -354,7 +449,6 @@
                 summaryHtml += `• [<b>${item.pool}</b>] <code>${item.code}</code> - ${item.name} (<b>${item.qty} ${item.unit}</b>)<br>`;
             });
 
-            // डायरेक्ट मोड के लिए रेंडर लेआउट सेट करना भाई
             let partyDisplay = v.isDirectStock ? `<span style="color:#64748b; font-style:italic;">INTERNAL ADJUSTMENT</span>` : `<b>${v.partyName}</b>`;
             let challanDisplay = v.isDirectStock ? `<span style="color:#16a34a; font-weight:bold;">📦 DIRECT STOCK</span>` : `No: ${v.challanNo}<br><small style="color:#64748b;">Dt: ${v.challanDate || '-'}</small>`;
 
@@ -419,7 +513,6 @@
         document.getElementById('editRowIndex').value = origIdx;
         document.getElementById('editFirebaseKey').value = d.fbKey;
         
-        // चेकबॉक्स और हाइड/शो मोड को सिंक्रोनाइज़ करना
         document.getElementById('isDirectStock').checked = d.isDirectStock || false;
         toggleDirectStockMode();
 
