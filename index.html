@@ -19,6 +19,23 @@
         .history-controls input, .history-controls select { padding: 6px 10px; border: 1px solid #94a3b8; border-radius: 4px; font-size: 13px; }
         .btn-more { background-color: #2563eb; color: white; border: none; padding: 8px 16px; font-weight: bold; border-radius: 4px; cursor: pointer; margin-top: 10px; display: block; margin-left: auto; margin-right: auto; }
 
+        /* 🔍 Autocomplete Dropdown Custom Style */
+        .search-container { position: relative; width: 100%; }
+        .suggestions-dropdown {
+            position: absolute; top: 100%; left: 0; right: 0;
+            background: #ffffff; border: 1px solid #3b82f6;
+            border-radius: 0 0 6px 6px; max-height: 200px;
+            overflow-y: auto; z-index: 1000; box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+            display: none;
+        }
+        .suggestion-item {
+            padding: 8px 12px; font-size: 12px; cursor: pointer;
+            border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center;
+        }
+        .suggestion-item:hover { background-color: #e0f2fe; color: #0369a1; font-weight: bold; }
+        .suggestion-item .item-code-badge { background: #3b82f6; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: bold; }
+        .no-suggestion-item { padding: 10px; font-size: 12px; color: #dc2626; text-align: center; font-weight: bold; background: #fef2f2; }
+
         @media print {
             body * { visibility: hidden; }
             #printSection, #printSection * { visibility: visible; }
@@ -71,7 +88,7 @@
             <div class="form-group"><label>Gate-In No.</label><input type="text" id="gateInNo" required autocomplete="off"></div>
             
             <div class="form-group" style="grid-column: span 2;">
-                <label>Attach Bill Copy (PDF / Image) <span style="color:#64748b; font-weight:normal;">(Optional - बाद में भी जोड़ सकते हैं)</span></label>
+                <label>Attach Bill Copy (PDF / Image) <span style="color:#64748b; font-weight:normal;">(Optional)</span></label>
                 <input type="file" id="billFile" accept="image/*,application/pdf" style="padding: 5px;">
             </div>
         </div>
@@ -79,16 +96,21 @@
         <div class="grid-input-card">
             <h4 style="margin: 0 0 10px 0; color: #1e3a8a;">Material Items Row Section (Direct Save if only 1 item):</h4>
             <div style="display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap;">
-                <div style="flex: 1; min-width: 150px;">
+                
+                <!-- 🔍 Code Dropdown Container -->
+                <div style="flex: 1; min-width: 150px;" class="search-container">
                     <label style="font-size:12px; font-weight:bold;">Model Code</label>
-                    <!-- 🔄 On Input Code-to-Name -->
-                    <input type="text" id="gridModelCode" placeholder="Code (e.g. GP0018)" oninput="autoFillByCode(this)" style="padding:8px; width:100%; box-sizing:border-box; text-transform:uppercase;">
+                    <input type="text" id="gridModelCode" placeholder="Code (e.g. GP0018)" oninput="handleSearchInput(this, 'code')" autocomplete="off" style="padding:8px; width:100%; box-sizing:border-box; text-transform:uppercase;">
+                    <div id="codeSuggestionsBox" class="suggestions-dropdown"></div>
                 </div>
-                <div style="flex: 2; min-width: 200px;">
+                
+                <!-- 🔍 Live Suggestions Search Container (Name) -->
+                <div style="flex: 2; min-width: 200px;" class="search-container">
                     <label style="font-size:12px; font-weight:bold;">Model Description / Name</label>
-                    <!-- 🔄 On Input Name-to-Code -->
-                    <input type="text" id="gridModelName" placeholder="Item Name (Type name to find code)" oninput="autoFillByName(this)" style="padding:8px; width:100%; box-sizing:border-box;">
+                    <input type="text" id="gridModelName" placeholder="Type Resistance, Capacitor etc..." oninput="handleSearchInput(this, 'name')" autocomplete="off" style="padding:8px; width:100%; box-sizing:border-box;">
+                    <div id="suggestionsBox" class="suggestions-dropdown"></div>
                 </div>
+
                 <div style="flex: 1; min-width: 100px;">
                     <label style="font-size:12px; font-weight:bold;">Bill Qty</label>
                     <input type="number" id="gridBillQty" min="1" style="padding:8px; width:100%; box-sizing:border-box;">
@@ -200,85 +222,93 @@
         }
     });
 
-    // 🔍 1. Search Code -> Auto-fill Name & Company
-    function autoFillByCode(input) {
-        let code = input.value.trim().toUpperCase();
-        if(!code) return;
+    // 🔍 Smart Auto-Suggest Search (Universal Search for Code or Name)
+    function handleSearchInput(input, type) {
+        let text = input.value.trim().toLowerCase();
+        let box = (type === 'code') ? document.getElementById('codeSuggestionsBox') : document.getElementById('suggestionsBox');
+        let otherBox = (type === 'code') ? document.getElementById('suggestionsBox') : document.getElementById('codeSuggestionsBox');
         
-        let foundName = "", foundCompany = "";
+        otherBox.style.display = "none"; // Hide opposite box
 
-        function checkItem(item, comp) {
-            if(!item || typeof item !== 'object') return false;
-            let c = (item.code || item.modelCode || "").toString().trim().toUpperCase();
-            if(c === code) {
-                foundName = item.itemName || item.name || item.modelName || item.description || "";
-                foundCompany = item.companyName || item.company || comp || "";
-                return true;
+        // If input cleared/deleted manually by user -> reset opposite field
+        if(!text) {
+            box.style.display = "none";
+            box.innerHTML = "";
+            if(type === 'code') { document.getElementById('gridModelName').value = ""; }
+            else { document.getElementById('gridModelCode').value = ""; }
+            return;
+        }
+
+        let matches = [];
+
+        function scanItem(item, comp) {
+            if(!item || typeof item !== 'object') return;
+            let n = (item.itemName || item.name || item.modelName || item.description || "").toString();
+            let c = (item.code || item.modelCode || "").toString();
+            let compName = item.companyName || item.company || comp || "";
+
+            if(n.toLowerCase().includes(text) || c.toLowerCase().includes(text)) {
+                matches.push({ name: n, code: c, company: compName });
             }
-            return false;
         }
 
         if(masterCatalogFlat) {
-            for(let key in masterCatalogFlat) { if(checkItem(masterCatalogFlat[key])) break; }
+            for(let k in masterCatalogFlat) { scanItem(masterCatalogFlat[k]); }
         }
-        if(!foundName && masterCatalog) {
-            for(let key in masterCatalog) {
-                let compObj = masterCatalog[key];
-                if(checkItem(compObj, key)) break;
+        if(masterCatalog) {
+            for(let k in masterCatalog) {
+                let compObj = masterCatalog[k];
+                scanItem(compObj, k);
                 if(typeof compObj === 'object') {
-                    for(let subKey in compObj) { if(checkItem(compObj[subKey], key)) break; }
+                    for(let subKey in compObj) { scanItem(compObj[subKey], k); }
                 }
-                if(foundName) break;
             }
         }
 
-        if(foundName) {
-            document.getElementById('gridModelName').value = foundName;
-            if(!document.getElementById('companyName').value && foundCompany) { 
-                document.getElementById('companyName').value = foundCompany; 
+        // Unique filter
+        let uniqueMatches = [];
+        let seenCodes = new Set();
+        matches.forEach(m => {
+            if(m.code && !seenCodes.has(m.code.toUpperCase())) {
+                seenCodes.add(m.code.toUpperCase());
+                uniqueMatches.push(m);
             }
+        });
+
+        if(uniqueMatches.length > 0) {
+            let html = "";
+            uniqueMatches.forEach(m => {
+                html += `<div class="suggestion-item" onclick="selectSuggestion('${m.code}', '${m.name.replace(/'/g, "\\'")}', '${m.company.replace(/'/g, "\\'")}')">
+                            <span><b>${m.code}</b> - ${m.name}</span>
+                            <span class="item-code-badge">${m.company || 'GVM'}</span>
+                         </div>`;
+            });
+            box.innerHTML = html;
+            box.style.display = "block";
+        } else {
+            box.innerHTML = `<div class="no-suggestion-item">⚠️ No Code or Item Found for "${input.value}"</div>`;
+            box.style.display = "block";
         }
     }
 
-    // 🔍 2. Search Name -> Auto-fill Code & Company (Reverse Lookup)
-    function autoFillByName(input) {
-        let nameTyped = input.value.trim().toLowerCase();
-        if(nameTyped.length < 2) return; // 2 अक्षरों के बाद सर्च करेगा
-
-        let foundCode = "", foundCompany = "";
-
-        function checkItemByName(item, comp) {
-            if(!item || typeof item !== 'object') return false;
-            let n = (item.itemName || item.name || item.modelName || item.description || "").toString().trim().toLowerCase();
-            if(n === nameTyped || (n.length > 3 && n.includes(nameTyped))) {
-                foundCode = item.code || item.modelCode || "";
-                foundCompany = item.companyName || item.company || comp || "";
-                return true;
-            }
-            return false;
+    // When User Clicks an Item from Dropdown List
+    function selectSuggestion(code, name, company) {
+        document.getElementById('gridModelCode').value = code.toUpperCase();
+        document.getElementById('gridModelName').value = name;
+        if(!document.getElementById('companyName').value && company) {
+            document.getElementById('companyName').value = company;
         }
-
-        if(masterCatalogFlat) {
-            for(let key in masterCatalogFlat) { if(checkItemByName(masterCatalogFlat[key])) break; }
-        }
-        if(!foundCode && masterCatalog) {
-            for(let key in masterCatalog) {
-                let compObj = masterCatalog[key];
-                if(checkItemByName(compObj, key)) break;
-                if(typeof compObj === 'object') {
-                    for(let subKey in compObj) { if(checkItemByName(compObj[subKey], key)) break; }
-                }
-                if(foundCode) break;
-            }
-        }
-
-        if(foundCode) {
-            document.getElementById('gridModelCode').value = foundCode.toUpperCase();
-            if(!document.getElementById('companyName').value && foundCompany) { 
-                document.getElementById('companyName').value = foundCompany; 
-            }
-        }
+        document.getElementById('suggestionsBox').style.display = "none";
+        document.getElementById('codeSuggestionsBox').style.display = "none";
     }
+
+    // Close Dropdown on Click Outside
+    document.addEventListener('click', function(e) {
+        if(!e.target.closest('.search-container')) {
+            document.getElementById('suggestionsBox').style.display = "none";
+            document.getElementById('codeSuggestionsBox').style.display = "none";
+        }
+    });
 
     function addItemToGridList() {
         const code = document.getElementById('gridModelCode').value.trim().toUpperCase();
