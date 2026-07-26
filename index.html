@@ -146,10 +146,9 @@
     let masterCatalogFlat = {};
     let tempGridItems = [];
 
-    // 🔍 Debug log to inspect data
+    // 🚀 Firebase Push Keys Handling Fix
     db.ref().on('value', (snapshot) => {
         if(snapshot.exists()) {
-            console.log("🔥 FULL FIREBASE DATA RECEIVED:", snapshot.val());
             const val = snapshot.val();
             masterCatalogFlat = val.systemMasterCatalogFlat || {};
             masterCatalog = val.bomMasterData || val.systemMasterCatalog || {};
@@ -157,6 +156,7 @@
         }
     });
 
+    // 🚀 Deep Recursive Auto-fill Search
     function autoFillGridItemName(input) {
         let code = input.value.trim().toUpperCase(); 
         let foundName = ""; 
@@ -164,46 +164,43 @@
 
         if(!code) return;
 
-        console.log("🔍 Searching Code:", code);
+        // Helper to check object item
+        function checkItem(item, comp) {
+            if(!item || typeof item !== 'object') return false;
+            let c = (item.code || item.modelCode || "").toString().trim().toUpperCase();
+            if(c === code) {
+                foundName = item.itemName || item.name || item.modelName || item.description || "";
+                foundCompany = item.companyName || item.company || comp || "";
+                return true;
+            }
+            return false;
+        }
 
-        // 1. Direct Flat Search
+        // 1. Search in systemMasterCatalogFlat (Iterating Push Keys)
         if(masterCatalogFlat) {
             for(let key in masterCatalogFlat) {
-                if(key.trim().toUpperCase() === code) {
-                    const item = masterCatalogFlat[key];
-                    foundName = item.itemName || item.name || item.modelName || (typeof item === 'string' ? item : "");
-                    foundCompany = item.companyName || item.company || "";
-                    break;
-                }
+                let item = masterCatalogFlat[key];
+                if(checkItem(item)) break;
             }
         }
 
-        // 2. Nested Master Catalog Search
+        // 2. Search in bomMasterData (Nested Structure Iteration)
         if(!foundName && masterCatalog) {
-            for(let company in masterCatalog) {
-                let items = masterCatalog[company];
-                if(Array.isArray(items)) {
-                    let match = items.find(x => x && ((x.code && x.code.trim().toUpperCase() === code) || (x.modelCode && x.modelCode.trim().toUpperCase() === code)));
-                    if(match) {
-                        foundName = match.name || match.itemName || match.modelName || "";
-                        foundCompany = company;
-                        break;
-                    }
-                } else if(typeof items === 'object') {
-                    for(let k in items) {
-                        let x = items[k];
-                        if(x && ((x.code && x.code.trim().toUpperCase() === code) || k.trim().toUpperCase() === code)) {
-                            foundName = x.name || x.itemName || match.modelName || (typeof x === 'string' ? x : "");
-                            foundCompany = company;
-                            break;
-                        }
+            for(let key in masterCatalog) {
+                let compObj = masterCatalog[key];
+                if(checkItem(compObj, key)) break;
+                
+                if(typeof compObj === 'object') {
+                    for(let subKey in compObj) {
+                        let item = compObj[subKey];
+                        if(checkItem(item, key)) break;
                     }
                 }
+                if(foundName) break;
             }
         }
 
-        console.log("🎯 FOUND NAME:", foundName, "COMPANY:", foundCompany);
-
+        // 3. Auto-fill Form
         if(foundName) {
             document.getElementById('gridModelName').value = foundName;
             if(!document.getElementById('companyName').value && foundCompany) { 
