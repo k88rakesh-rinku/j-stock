@@ -14,6 +14,11 @@
         .btn-edit-action { background-color: #0284c7; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
         .btn-delete-action { background-color: #dc2626; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; }
         
+        /* 🔍 Filter & Control Panel Styling */
+        .history-controls { background: #f1f5f9; padding: 12px; border-radius: 6px; border: 1px solid #cbd5e1; margin-top: 25px; margin-bottom: 15px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        .history-controls input, .history-controls select { padding: 6px 10px; border: 1px solid #94a3b8; border-radius: 4px; font-size: 13px; }
+        .btn-more { background-color: #2563eb; color: white; border: none; padding: 8px 16px; font-weight: bold; border-radius: 4px; cursor: pointer; margin-top: 10px; display: block; margin-left: auto; margin-right: auto; }
+
         @media print {
             body * { visibility: hidden; }
             #printSection, #printSection * { visibility: visible; }
@@ -41,7 +46,6 @@
         <button class="logout-btn" onclick="logout()">Logout</button>
     </div>
     
-    <!-- 🚀 आपकी प्रोजेक्ट डायरेक्टरी की सभी फ़ाइलों के अनुसार 10 पूरे Tabs -->
     <div class="tabs-nav">
         <a href="index.html" class="tab-link active-fresh">📦 New Entry (Fresh)</a>
         <a href="rework.html" class="tab-link">🛠️ Gate In (Rework)</a>
@@ -109,10 +113,30 @@
         <button type="button" id="btnCancelEdit" class="btn-submit" style="background-color:#64748b; display:none; margin-top:10px; width:100%;" onclick="cancelEditMode()">Cancel Update</button>
     </form>
 
-    <div class="date-export-panel" style="margin-top: 30px;">
-        <label>From:</label> <input type="date" id="freshFromDate">
-        <label>To:</label> <input type="date" id="freshToDate">
-        <button class="btn-excel" onclick="exportFreshToExcel()">Download Excel</button>
+    <!-- 📊🔍 History Controls Panel (Search, Date Filter & Records Count) -->
+    <div class="history-controls">
+        <div>
+            <label style="font-size:12px; font-weight:bold;">🔍 Search:</label>
+            <input type="text" id="searchQuery" placeholder="Search Company, Bill, Code..." oninput="renderTable()">
+        </div>
+        <div>
+            <label style="font-size:12px; font-weight:bold;">From:</label>
+            <input type="date" id="freshFromDate" onchange="renderTable()">
+        </div>
+        <div>
+            <label style="font-size:12px; font-weight:bold;">To:</label>
+            <input type="date" id="freshToDate" onchange="renderTable()">
+        </div>
+        <div>
+            <label style="font-size:12px; font-weight:bold;">Show Rows:</label>
+            <select id="recordsPerPage" onchange="displayLimit = parseInt(this.value); renderTable();">
+                <option value="5" selected>5 Rows</option>
+                <option value="10">10 Rows</option>
+                <option value="15">15 Rows</option>
+                <option value="50">50 Rows</option>
+            </select>
+        </div>
+        <button class="btn-excel" onclick="exportFreshToExcel()" style="margin-left:auto;">Download Excel</button>
     </div>
 
     <div class="table-responsive">
@@ -125,6 +149,8 @@
             <tbody id="tableBody"></tbody>
         </table>
     </div>
+    
+    <button id="btnLoadMore" class="btn-more" onclick="loadMoreRecords()">+ Load More History</button>
 </div>
 
 <div id="printSection"></div>
@@ -150,6 +176,9 @@
     let masterCatalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
     let masterCatalogFlat = {};
     let tempGridItems = [];
+    
+    // Pagination & Filter Control Variables
+    let displayLimit = 5;
 
     // 🚀 Firebase Push Keys Handling
     db.ref().on('value', (snapshot) => {
@@ -157,6 +186,17 @@
             const val = snapshot.val();
             masterCatalogFlat = val.systemMasterCatalogFlat || {};
             masterCatalog = val.bomMasterData || val.systemMasterCatalog || {};
+            
+            // Sync Firebase freshStockVouchers into Local Storage if available
+            if(val.freshStockVouchers) {
+                let fetched = [];
+                for(let k in val.freshStockVouchers) { fetched.push(val.freshStockVouchers[k]); }
+                if(fetched.length > 0) {
+                    stockData = fetched.reverse(); // Latest on top
+                    localStorage.setItem('freshStockData', JSON.stringify(stockData));
+                    renderTable();
+                }
+            }
             localStorage.setItem('systemMasterCatalog', JSON.stringify(masterCatalog));
         }
     });
@@ -260,17 +300,52 @@
             gridItems: [...tempGridItems]
         };
 
-        if(idx === -1) { stockData.push(masterVoucher); alert("🎉 Material Inward Entry Saved!"); } 
-        else { stockData[idx] = masterVoucher; alert("🎯 Entry Voucher Updated!"); }
+        if(idx === -1) { 
+            stockData.unshift(masterVoucher); 
+            db.ref('freshStockVouchers').push(masterVoucher);
+            alert("🎉 Material Inward Entry Saved!"); 
+        } else { 
+            stockData[idx] = masterVoucher; 
+            alert("🎯 Entry Voucher Updated!"); 
+        }
 
         localStorage.setItem('freshStockData', JSON.stringify(stockData));
         cancelEditMode(); renderTable(); 
     });
 
+    // 🔍📊 Filter + Search + Pagination Rendering Logic
     function renderTable() {
         const body = document.getElementById('tableBody'); body.innerHTML = '';
         document.getElementById('lowStockAlert').style.display = 'none';
-        stockData.forEach((i, idx) => {
+
+        const query = document.getElementById('searchQuery').value.trim().toLowerCase();
+        const fromDate = document.getElementById('freshFromDate').value;
+        const toDate = document.getElementById('freshToDate').value;
+
+        // 1. Filter Data
+        let filteredData = stockData.filter(i => {
+            let matchesQuery = true;
+            let matchesDate = true;
+
+            if(query) {
+                let itemsStr = JSON.stringify(i.gridItems || []).toLowerCase();
+                matchesQuery = (i.companyName && i.companyName.toLowerCase().includes(query)) ||
+                               (i.billNo && i.billNo.toLowerCase().includes(query)) ||
+                               (i.poNo && i.poNo.toLowerCase().includes(query)) ||
+                               (i.gateInNo && i.gateInNo.toLowerCase().includes(query)) ||
+                               itemsStr.includes(query);
+            }
+
+            if(fromDate && i.gateInDate < fromDate) matchesDate = false;
+            if(toDate && i.gateInDate > toDate) matchesDate = false;
+
+            return matchesQuery && matchesDate;
+        });
+
+        // 2. Slice Data for Limit (5, 10, 15, More)
+        let slicedData = filteredData.slice(0, displayLimit);
+
+        slicedData.forEach((i, idx) => {
             let itemsHtml = "";
             let itemsList = i.gridItems || [{ modelCode: i.modelCode, modelName: i.modelName, qty: i.qty, receiveQty: i.receiveQty }];
             itemsList.forEach(item => {
@@ -286,6 +361,21 @@
                 </td>
             </tr>`;
         });
+
+        // Show/Hide "+ Load More" Button
+        const btnMore = document.getElementById('btnLoadMore');
+        if(filteredData.length > displayLimit) {
+            btnMore.style.display = "block";
+            btnMore.innerText = `+ Load More (${filteredData.length - displayLimit} Left)`;
+        } else {
+            btnMore.style.display = "none";
+        }
+    }
+
+    function loadMoreRecords() {
+        const step = parseInt(document.getElementById('recordsPerPage').value) || 5;
+        displayLimit += step;
+        renderTable();
     }
 
     function editFreshRow(idx) {
