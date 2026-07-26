@@ -23,7 +23,7 @@
         .search-input-box { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; width: 280px; text-transform: uppercase; }
         .limit-dropdown-select { padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; cursor: pointer; background: #fff; font-weight: bold; }
 
-        .secret-modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 9999; }
+        .secret-modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 99999; }
         .secret-modal-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); text-align: center; width: 320px; }
         .secret-modal-card h4 { margin: 0 0 12px 0; color: #1e3a8a; }
         .secret-modal-input { width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #cbd5e1; border-radius: 4px; text-align: center; font-size: 16px; box-sizing: border-box; }
@@ -33,44 +33,6 @@
 
         .rework-pool-select { padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; background: white; font-weight: bold; cursor: pointer; }
         .rework-unit-select { padding: 5px; border: 1px solid #cbd5e1; border-radius: 4px; background: white; font-weight: bold; cursor: pointer; }
-
-        /* 📐 Table Layout Fixes */
-        .grid-table {
-            width: 100% !important;
-            border-collapse: collapse;
-            table-layout: fixed !important;
-        }
-
-        .grid-table th, .grid-table td {
-            padding: 8px 4px !important;
-            vertical-align: middle;
-            box-sizing: border-box;
-            text-align: left;
-        }
-
-        .grid-table input, .grid-table select {
-            width: 100% !important;
-            padding: 6px 8px !important;
-            box-sizing: border-box !important;
-            font-size: 13px;
-        }
-
-        /* 🔍 Autocomplete Dropdown Custom Style */
-        .search-container { position: relative; width: 100%; }
-        .suggestions-dropdown {
-            position: absolute; top: 100%; left: 0; right: 0;
-            background: #ffffff; border: 1px solid #3b82f6;
-            border-radius: 0 0 6px 6px; max-height: 200px;
-            overflow-y: auto; z-index: 1000; box-shadow: 0 4px 10px rgba(0,0,0,0.15);
-            display: none;
-        }
-        .suggestion-item {
-            padding: 8px 12px; font-size: 12px; cursor: pointer;
-            border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; color: #1e293b;
-        }
-        .suggestion-item:hover { background-color: #e0f2fe; color: #0369a1; font-weight: bold; }
-        .suggestion-item .item-code-badge { background: #3b82f6; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: bold; }
-        .no-suggestion-item { padding: 10px; font-size: 12px; color: #dc2626; text-align: center; font-weight: bold; background: #fef2f2; }
 
         @media print {
             body * { visibility: hidden; }
@@ -121,7 +83,8 @@
             <div class="form-group"><label>Processed / Tested By</label><input type="text" id="rwTestedBy" autocomplete="off" style="text-transform:uppercase;"></div>
         </div>
 
-        <div style="overflow-x:auto; margin-top: 15px;">
+        <!-- 🚀 Overflow fix wrapper -->
+        <div style="position: relative; z-index: 100; margin-top: 15px; overflow: visible;">
             <table class="grid-table">
                 <thead style="background-color: var(--secondary); color: white;">
                     <tr>
@@ -259,7 +222,6 @@
         renderTable();
     });
 
-    // 🌟 अलाइनमेंट-फिक्सड रो जोड़ने का फ़ंक्शन
     function addRwRow(savedPool = "REWORK", savedUnit = "NOS") {
         const body = document.getElementById('reworkItemsBody');
         const tr = document.createElement('tr');
@@ -295,7 +257,6 @@
         body.appendChild(tr);
     }
 
-    // 🔍 स्मार्ट ऑटो-सर्च और ड्रॉपडाउन हैंडलर
     function handleRwRowInput(input, fieldType) {
         let text = input.value.trim().toLowerCase();
         let td = input.parentElement;
