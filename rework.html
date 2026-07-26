@@ -34,7 +34,28 @@
         .rework-pool-select { padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; background: white; font-weight: bold; cursor: pointer; }
         .rework-unit-select { padding: 5px; border: 1px solid #cbd5e1; border-radius: 4px; background: white; font-weight: bold; cursor: pointer; }
 
-        /* 🔍 Autocomplete Dropdown Styling */
+        /* 📐 Table Layout Fixes */
+        .grid-table {
+            width: 100% !important;
+            border-collapse: collapse;
+            table-layout: fixed !important;
+        }
+
+        .grid-table th, .grid-table td {
+            padding: 8px 4px !important;
+            vertical-align: middle;
+            box-sizing: border-box;
+            text-align: left;
+        }
+
+        .grid-table input, .grid-table select {
+            width: 100% !important;
+            padding: 6px 8px !important;
+            box-sizing: border-box !important;
+            font-size: 13px;
+        }
+
+        /* 🔍 Autocomplete Dropdown Custom Style */
         .search-container { position: relative; width: 100%; }
         .suggestions-dropdown {
             position: absolute; top: 100%; left: 0; right: 0;
@@ -100,16 +121,16 @@
             <div class="form-group"><label>Processed / Tested By</label><input type="text" id="rwTestedBy" autocomplete="off" style="text-transform:uppercase;"></div>
         </div>
 
-        <div style="overflow-x:visible; margin-top: 15px;">
-            <table class="grid-table" style="width:100%;">
+        <div style="overflow-x:auto; margin-top: 15px;">
+            <table class="grid-table">
                 <thead style="background-color: var(--secondary); color: white;">
                     <tr>
-                        <th style="width:15%;">Target Stock Pool</th>
-                        <th style="width:25%;">Model Part Code 🔍</th>
-                        <th style="width:35%;">Item Description Name</th>
-                        <th style="width:10%;">Qty</th>
-                        <th style="width:10%;">Unit Type</th>
-                        <th style="width:5%;">Action</th>
+                        <th style="width: 18%;">TARGET STOCK POOL</th>
+                        <th style="width: 22%;">MODEL PART CODE 🔍</th>
+                        <th style="width: 35%;">ITEM DESCRIPTION NAME</th>
+                        <th style="width: 10%;">QTY</th>
+                        <th style="width: 10%;">UNIT TYPE</th>
+                        <th style="width: 5%;">ACTION</th>
                     </tr>
                 </thead>
                 <tbody id="reworkItemsBody"></tbody>
@@ -238,35 +259,39 @@
         renderTable();
     });
 
-    // 🌟 अपडेटेड फ़ंक्शन: ऑटो-सर्च ड्रॉपडाउन के साथ रो (Row) जोड़ना
+    // 🌟 अलाइनमेंट-फिक्सड रो जोड़ने का फ़ंक्शन
     function addRwRow(savedPool = "REWORK", savedUnit = "NOS") {
         const body = document.getElementById('reworkItemsBody');
         const tr = document.createElement('tr');
         
         tr.innerHTML = `
-            <td>
+            <td style="width: 18%;">
                 <select class="rework-pool-select">
                     <option value="REWORK" ${savedPool==='REWORK'?'selected':''}>REWORK POOL</option>
                     <option value="FRESH" ${savedPool==='FRESH'?'selected':''}>PASSED TO FRESH</option>
                 </select>
             </td>
-            <td class="search-container">
-                <input type="text" required class="rw-code" placeholder="Search Code..." oninput="handleRwRowInput(this, 'code')" autocomplete="off" style="text-transform:uppercase; width:100%; box-sizing:border-box;">
+            <td style="width: 22%;" class="search-container">
+                <input type="text" required class="rw-code" placeholder="Search Code..." oninput="handleRwRowInput(this, 'code')" autocomplete="off" style="text-transform:uppercase;">
                 <div class="suggestions-dropdown"></div>
             </td>
-            <td class="search-container">
-                <input type="text" required class="rw-name" placeholder="Search Description/Name..." oninput="handleRwRowInput(this, 'name')" autocomplete="off" style="width:100%; box-sizing:border-box;">
+            <td style="width: 35%;" class="search-container">
+                <input type="text" required class="rw-name" placeholder="Search Description/Name..." oninput="handleRwRowInput(this, 'name')" autocomplete="off">
                 <div class="suggestions-dropdown"></div>
             </td>
-            <td><input type="number" min="0" step="0.001" required class="rw-qty" style="width:100%; box-sizing:border-box;"></td>
-            <td>
+            <td style="width: 10%;">
+                <input type="number" min="0" step="0.001" required class="rw-qty" placeholder="Qty">
+            </td>
+            <td style="width: 10%;">
                 <select class="rework-unit-select">
                     <option value="NOS" ${savedUnit==='NOS'?'selected':''}>NOS</option>
                     <option value="MTR" ${savedUnit==='MTR'?'selected':''}>MTR</option>
                     <option value="SET" ${savedUnit==='SET'?'selected':''}>SET</option>
                 </select>
             </td>
-            <td><button type="button" class="btn-row-remove" onclick="this.closest('tr').remove()">×</button></td>`;
+            <td style="width: 5%; text-align: center;">
+                <button type="button" class="btn-row-remove" onclick="this.closest('tr').remove()">×</button>
+            </td>`;
         body.appendChild(tr);
     }
 
@@ -277,7 +302,6 @@
         let box = td.querySelector('.suggestions-dropdown');
         let tr = input.closest('tr');
 
-        // अगर यूजर ने इनपुट बॉक्स को मिटा दिया (Backspace) तो सामने वाली फील्ड को भी क्लियर कर दें
         if(!text) {
             box.style.display = "none";
             box.innerHTML = "";
@@ -313,7 +337,6 @@
             }
         }
 
-        // यूनिक लिस्ट फ़िल्टर
         let uniqueMatches = [];
         let seenCodes = new Set();
         matches.forEach(m => {
@@ -340,7 +363,6 @@
         }
     }
 
-    // ड्रॉपडाउन से चुनने पर डेटा सेट करने वाला फ़ंक्शन
     window.selectRwSuggestion = function(element, code, name, unit) {
         let tr = element.closest('tr');
         tr.querySelector('.rw-code').value = code.toUpperCase();
@@ -352,7 +374,6 @@
         if(box) box.style.display = "none";
     };
 
-    // बाहर कहीं भी क्लिक करने पर खुले हुए ड्रॉपडाउन को बंद कर दें
     document.addEventListener('click', function(e) {
         if(!e.target.closest('.search-container')) {
             document.querySelectorAll('.suggestions-dropdown').forEach(box => box.style.display = "none");
