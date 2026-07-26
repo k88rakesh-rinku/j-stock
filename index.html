@@ -161,7 +161,7 @@
         }
     });
 
-    // 🚀 Live Auto-fill Function
+    // 🚀 Live Auto-fill Function (Enhanced & Case-Insensitive)
     function autoFillGridItemName(input) {
         let code = input.value.trim().toUpperCase(); 
         let foundName = ""; 
@@ -169,19 +169,28 @@
 
         if(!code) return;
 
-        // 1. Direct Flat Catalog Check (Fastest)
-        if(masterCatalogFlat && masterCatalogFlat[code]) {
-            foundName = masterCatalogFlat[code].itemName || masterCatalogFlat[code].name || "";
-            foundCompany = masterCatalogFlat[code].companyName || masterCatalogFlat[code].company || "";
+        // 1. Check Flat Catalog (Case-Insensitive)
+        if(masterCatalogFlat) {
+            for(let key in masterCatalogFlat) {
+                if(key.trim().toUpperCase() === code) {
+                    const item = masterCatalogFlat[key];
+                    foundName = item.itemName || item.name || item.modelName || "";
+                    foundCompany = item.companyName || item.company || "";
+                    break;
+                }
+            }
         }
 
         // 2. Fallback to Nested Catalog Search
         if(!foundName && masterCatalog) {
             for(let company in masterCatalog) {
                 if(Array.isArray(masterCatalog[company])) {
-                    const match = masterCatalog[company].find(x => x.code && x.code.trim().toUpperCase() === code);
+                    const match = masterCatalog[company].find(x => {
+                        let c = x.code || x.modelCode || "";
+                        return c.trim().toUpperCase() === code;
+                    });
                     if(match) { 
-                        foundName = match.name || match.itemName || ""; 
+                        foundName = match.name || match.itemName || match.modelName || ""; 
                         foundCompany = company; 
                         break;
                     }
@@ -189,6 +198,7 @@
             }
         }
 
+        // 3. Auto-fill the fields
         if(foundName) {
             document.getElementById('gridModelName').value = foundName;
             if(!document.getElementById('companyName').value && foundCompany) { 
@@ -296,7 +306,7 @@
         if(confirm("Are you sure?")) { stockData.splice(idx, 1); localStorage.setItem('freshStockData', JSON.stringify(stockData)); renderTable(); cancelEditMode(); }
     }
 
-    /* 🎯 रसीद डिज़ाइन: सिर्फ आपके द्वारा माँगी गई शुद्ध फील्ड्स */
+    /* 🎯 रसीद डिज़ाइन: सिर्फ आपके द्वारा माँगी गई शुद्ध फील्ड्स */
     function triggerGateInReceipt(i) {
         const shell = document.getElementById('printSection');
         let itemsList = i.gridItems || [{ modelCode: i.modelCode, modelName: i.modelName, qty: i.qty, receiveQty: i.receiveQty }];
