@@ -15,7 +15,6 @@
         .btn-delete-action { background-color: #dc2626; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; }
         .btn-bill-attach { background-color: #16a34a; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; text-decoration: none; display: inline-block; }
         
-        /* 🔍 Filter & Control Panel Styling */
         .history-controls { background: #f1f5f9; padding: 12px; border-radius: 6px; border: 1px solid #cbd5e1; margin-top: 25px; margin-bottom: 15px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
         .history-controls input, .history-controls select { padding: 6px 10px; border: 1px solid #94a3b8; border-radius: 4px; font-size: 13px; }
         .btn-more { background-color: #2563eb; color: white; border: none; padding: 8px 16px; font-weight: bold; border-radius: 4px; cursor: pointer; margin-top: 10px; display: block; margin-left: auto; margin-right: auto; }
@@ -24,17 +23,9 @@
             body * { visibility: hidden; }
             #printSection, #printSection * { visibility: visible; }
             #printSection {
-                position: absolute;
-                left: 0; top: 0;
-                width: 210mm;
-                height: 74.25mm;
-                box-sizing: border-box;
-                padding: 4mm 6mm;
-                margin: 0;
-                background: #fff;
-                font-family: monospace;
-                font-size: 11px;
-                line-height: 1.3;
+                position: absolute; left: 0; top: 0; width: 210mm; height: 74.25mm;
+                box-sizing: border-box; padding: 4mm 6mm; margin: 0; background: #fff;
+                font-family: monospace; font-size: 11px; line-height: 1.3;
             }
             @page { size: A4 portrait; margin: 0; }
         }
@@ -79,7 +70,6 @@
             <div class="form-group"><label>Gate-In Date</label><input type="date" id="gateInDate" required></div>
             <div class="form-group"><label>Gate-In No.</label><input type="text" id="gateInNo" required autocomplete="off"></div>
             
-            <!-- 📎 Optional Bill Attachment (Optional / Optional Upload) -->
             <div class="form-group" style="grid-column: span 2;">
                 <label>Attach Bill Copy (PDF / Image) <span style="color:#64748b; font-weight:normal;">(Optional - बाद में भी जोड़ सकते हैं)</span></label>
                 <input type="file" id="billFile" accept="image/*,application/pdf" style="padding: 5px;">
@@ -91,11 +81,13 @@
             <div style="display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap;">
                 <div style="flex: 1; min-width: 150px;">
                     <label style="font-size:12px; font-weight:bold;">Model Code</label>
-                    <input type="text" id="gridModelCode" placeholder="Code (e.g. GP0018, OWN)" oninput="autoFillGridItemName(this)" style="padding:8px; width:100%; box-sizing:border-box; text-transform:uppercase;">
+                    <!-- 🔄 On Input Code-to-Name -->
+                    <input type="text" id="gridModelCode" placeholder="Code (e.g. GP0018)" oninput="autoFillByCode(this)" style="padding:8px; width:100%; box-sizing:border-box; text-transform:uppercase;">
                 </div>
                 <div style="flex: 2; min-width: 200px;">
                     <label style="font-size:12px; font-weight:bold;">Model Description / Name</label>
-                    <input type="text" id="gridModelName" placeholder="Item Name" style="padding:8px; width:100%; box-sizing:border-box;">
+                    <!-- 🔄 On Input Name-to-Code -->
+                    <input type="text" id="gridModelName" placeholder="Item Name (Type name to find code)" oninput="autoFillByName(this)" style="padding:8px; width:100%; box-sizing:border-box;">
                 </div>
                 <div style="flex: 1; min-width: 100px;">
                     <label style="font-size:12px; font-weight:bold;">Bill Qty</label>
@@ -120,7 +112,6 @@
         <button type="button" id="btnCancelEdit" class="btn-submit" style="background-color:#64748b; display:none; margin-top:10px; width:100%;" onclick="cancelEditMode()">Cancel Update</button>
     </form>
 
-    <!-- 📊🔍 History Controls Panel -->
     <div class="history-controls">
         <div>
             <label style="font-size:12px; font-weight:bold;">🔍 Search:</label>
@@ -162,17 +153,12 @@
 
 <div id="printSection"></div>
 
-<!-- 🚀 Firebase Live Libraries -->
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
 <script>
-    const firebaseConfig = {
-        databaseURL: "https://gvm-stock-control-default-rtdb.firebaseio.com"
-    };
-    if (!firebase.apps.length) {
-        firebase.initializeApp(firebaseConfig);
-    }
+    const firebaseConfig = { databaseURL: "https://gvm-stock-control-default-rtdb.firebaseio.com" };
+    if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
     const db = firebase.database();
 
     const session = JSON.parse(localStorage.getItem('activeSession'));
@@ -183,23 +169,15 @@
     let masterCatalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
     let masterCatalogFlat = {};
     let tempGridItems = [];
-    let currentBillBase64 = ""; // Base64 string for bill
-    
+    let currentBillBase64 = "";
     let displayLimit = 5;
 
-    // Handle File to Base64 (Optional File Conversion)
     document.getElementById('billFile').addEventListener('change', function(e) {
         const file = e.target.files[0];
         if (file) {
-            if(file.size > 2 * 1024 * 1024) { // 2MB Limit
-                alert("Warning: File size is large! Please upload a file smaller than 2MB.");
-                this.value = "";
-                return;
-            }
+            if(file.size > 2 * 1024 * 1024) { alert("Warning: File size is large! Keep < 2MB."); this.value = ""; return; }
             const reader = new FileReader();
-            reader.onload = function(evt) {
-                currentBillBase64 = evt.target.result;
-            };
+            reader.onload = function(evt) { currentBillBase64 = evt.target.result; };
             reader.readAsDataURL(file);
         }
     });
@@ -209,7 +187,6 @@
             const val = snapshot.val();
             masterCatalogFlat = val.systemMasterCatalogFlat || {};
             masterCatalog = val.bomMasterData || val.systemMasterCatalog || {};
-            
             if(val.freshStockVouchers) {
                 let fetched = [];
                 for(let k in val.freshStockVouchers) { fetched.push(val.freshStockVouchers[k]); }
@@ -223,12 +200,12 @@
         }
     });
 
-    function autoFillGridItemName(input) {
-        let code = input.value.trim().toUpperCase(); 
-        let foundName = ""; 
-        let foundCompany = "";
-
+    // 🔍 1. Search Code -> Auto-fill Name & Company
+    function autoFillByCode(input) {
+        let code = input.value.trim().toUpperCase();
         if(!code) return;
+        
+        let foundName = "", foundCompany = "";
 
         function checkItem(item, comp) {
             if(!item || typeof item !== 'object') return false;
@@ -242,22 +219,14 @@
         }
 
         if(masterCatalogFlat) {
-            for(let key in masterCatalogFlat) {
-                let item = masterCatalogFlat[key];
-                if(checkItem(item)) break;
-            }
+            for(let key in masterCatalogFlat) { if(checkItem(masterCatalogFlat[key])) break; }
         }
-
         if(!foundName && masterCatalog) {
             for(let key in masterCatalog) {
                 let compObj = masterCatalog[key];
                 if(checkItem(compObj, key)) break;
-                
                 if(typeof compObj === 'object') {
-                    for(let subKey in compObj) {
-                        let item = compObj[subKey];
-                        if(checkItem(item, key)) break;
-                    }
+                    for(let subKey in compObj) { if(checkItem(compObj[subKey], key)) break; }
                 }
                 if(foundName) break;
             }
@@ -265,6 +234,46 @@
 
         if(foundName) {
             document.getElementById('gridModelName').value = foundName;
+            if(!document.getElementById('companyName').value && foundCompany) { 
+                document.getElementById('companyName').value = foundCompany; 
+            }
+        }
+    }
+
+    // 🔍 2. Search Name -> Auto-fill Code & Company (Reverse Lookup)
+    function autoFillByName(input) {
+        let nameTyped = input.value.trim().toLowerCase();
+        if(nameTyped.length < 2) return; // 2 अक्षरों के बाद सर्च करेगा
+
+        let foundCode = "", foundCompany = "";
+
+        function checkItemByName(item, comp) {
+            if(!item || typeof item !== 'object') return false;
+            let n = (item.itemName || item.name || item.modelName || item.description || "").toString().trim().toLowerCase();
+            if(n === nameTyped || (n.length > 3 && n.includes(nameTyped))) {
+                foundCode = item.code || item.modelCode || "";
+                foundCompany = item.companyName || item.company || comp || "";
+                return true;
+            }
+            return false;
+        }
+
+        if(masterCatalogFlat) {
+            for(let key in masterCatalogFlat) { if(checkItemByName(masterCatalogFlat[key])) break; }
+        }
+        if(!foundCode && masterCatalog) {
+            for(let key in masterCatalog) {
+                let compObj = masterCatalog[key];
+                if(checkItemByName(compObj, key)) break;
+                if(typeof compObj === 'object') {
+                    for(let subKey in compObj) { if(checkItemByName(compObj[subKey], key)) break; }
+                }
+                if(foundCode) break;
+            }
+        }
+
+        if(foundCode) {
+            document.getElementById('gridModelCode').value = foundCode.toUpperCase();
             if(!document.getElementById('companyName').value && foundCompany) { 
                 document.getElementById('companyName').value = foundCompany; 
             }
@@ -318,7 +327,7 @@
             billDate: document.getElementById('billDate').value,
             gateInDate: document.getElementById('gateInDate').value, 
             gateInNo: document.getElementById('gateInNo').value.trim(),
-            billDoc: currentBillBase64 || (idx !== -1 ? stockData[idx].billDoc || "" : ""), // Optional Document Saved
+            billDoc: currentBillBase64 || (idx !== -1 ? stockData[idx].billDoc || "" : ""),
             gridItems: [...tempGridItems]
         };
 
@@ -344,9 +353,7 @@
         const toDate = document.getElementById('freshToDate').value;
 
         let filteredData = stockData.filter(i => {
-            let matchesQuery = true;
-            let matchesDate = true;
-
+            let matchesQuery = true, matchesDate = true;
             if(query) {
                 let itemsStr = JSON.stringify(i.gridItems || []).toLowerCase();
                 matchesQuery = (i.companyName && i.companyName.toLowerCase().includes(query)) ||
@@ -355,10 +362,8 @@
                                (i.gateInNo && i.gateInNo.toLowerCase().includes(query)) ||
                                itemsStr.includes(query);
             }
-
             if(fromDate && i.gateInDate < fromDate) matchesDate = false;
             if(toDate && i.gateInDate > toDate) matchesDate = false;
-
             return matchesQuery && matchesDate;
         });
 
@@ -372,7 +377,6 @@
                 if(parseInt(item.qty) < 5) document.getElementById('lowStockAlert').style.display = 'block';
             });
 
-            // Bill View/Upload Status Link
             let billBtnHtml = i.billDoc 
                 ? `<a href="${i.billDoc}" target="_blank" class="btn-bill-attach">📄 View Bill</a>` 
                 : `<button type="button" class="btn-edit-action" style="background:#eab308;" onclick="editFreshRow(${idx})" title="Edit to add bill">📎 Add Bill</button>`;
@@ -444,21 +448,11 @@
         shell.innerHTML = `
             <div style="border:1px solid #000; padding:6px; height:100%; box-sizing:border-box; display:flex; flex-direction:column; justify-content:space-between;">
                 <div style="text-align:center; font-weight:bold; font-size:12px; border-bottom:1px solid #000; padding-bottom:2px; text-transform:uppercase;">GVM RAIL PVT LTD - MATERIAL INWARD</div>
-                
                 <table style="width:100%; font-size:11px; margin-top:2px; line-height:1.2;">
-                    <tr>
-                        <td><b>Gate In Date:</b> ${i.gateInDate}</td>
-                        <td><b>Gate In No:</b> ${i.gateInNo}</td>
-                    </tr>
-                    <tr>
-                        <td><b>Bill No:</b> ${i.billNo}</td>
-                        <td><b>Company Name:</b> ${i.companyName}</td>
-                    </tr>
-                    <tr>
-                        <td colspan="2"><b>PO No:</b> ${i.poNo || 'N/A'} | <b>Bill Date:</b> ${i.billDate}</td>
-                    </tr>
+                    <tr><td><b>Gate In Date:</b> ${i.gateInDate}</td><td><b>Gate In No:</b> ${i.gateInNo}</td></tr>
+                    <tr><td><b>Bill No:</b> ${i.billNo}</td><td><b>Company Name:</b> ${i.companyName}</td></tr>
+                    <tr><td colspan="2"><b>PO No:</b> ${i.poNo || 'N/A'} | <b>Bill Date:</b> ${i.billDate}</td></tr>
                 </table>
-
                 <table style="width:100%; border-collapse:collapse; margin-top:4px; font-size:10px;">
                     <thead>
                         <tr style="background:#eee;">
