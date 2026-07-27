@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rework Management - Control System</title>
     <link rel="stylesheet" href="style.css">
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
     <style>
         .btn-edit-action { background-color: #0284c7; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
         .btn-edit-action:hover { background-color: #0369a1; }
@@ -12,10 +14,73 @@
         .btn-delete-action:hover { background-color: #b91c1c; }
         .btn-print-receipt { background-color: #007bff; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
 
-        /* S/N बटन की नई एक्टिव और डिसएबल स्टाइल */
         .btn-sn-setup { background-color: #2563eb; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 11px; }
         .btn-sn-setup.disabled-sn { background-color: #cbd5e1 !important; color: #94a3b8 !important; cursor: not-allowed; }
         .btn-sn-setup.configured { background-color: #16a34a !important; color: white !important; }
+
+        /* 🔍 Dynamic Row Table Search Container & Overflow Rules */
+        .grid-table {
+            width: 100% !important;
+            border-collapse: collapse;
+            table-layout: fixed !important;
+        }
+
+        #dynamicItemsBody tr {
+            position: relative !important;
+        }
+
+        .search-container { 
+            position: relative !important; 
+            width: 100%; 
+        }
+
+        .suggestions-dropdown {
+            position: absolute !important;
+            top: 100% !important;
+            left: 0 !important;
+            width: 100% !important;
+            min-width: 220px !important;
+            background: #ffffff !important;
+            border: 2px solid #2563eb !important;
+            border-radius: 0 0 6px 6px !important;
+            max-height: 180px !important;
+            overflow-y: auto !important;
+            z-index: 999999 !important;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3) !important;
+            display: none;
+        }
+
+        .suggestion-item {
+            padding: 8px 12px; 
+            font-size: 12px; 
+            cursor: pointer;
+            border-bottom: 1px solid #f1f5f9; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            color: #1e293b;
+        }
+        .suggestion-item:hover { 
+            background-color: #e0f2fe; 
+            color: #0369a1; 
+            font-weight: bold; 
+        }
+        .suggestion-item .item-code-badge { 
+            background: #3b82f6; 
+            color: white; 
+            padding: 2px 6px; 
+            border-radius: 3px; 
+            font-size: 10px; 
+            font-weight: bold; 
+        }
+        .no-suggestion-item { 
+            padding: 10px; 
+            font-size: 12px; 
+            color: #dc2626; 
+            text-align: center; 
+            font-weight: bold; 
+            background: #fef2f2; 
+        }
 
         @media print {
             body * { visibility: hidden; }
@@ -36,14 +101,19 @@
         <button class="logout-btn" onclick="logout()">Logout</button>
     </div>
     
+    <!-- 🗂️ पूर्ण टैब्स की सूची वापस जोड़ दी गई है -->
     <div class="tabs-nav">
         <a href="index.html" class="tab-link">📦 New Entry (Fresh)</a>
-        <a href="rework.html" class="tab-link active-rework" style="background-color: var(--success); color: white;">🛠️ Gate In (Rework)</a>
+        <a href="rework.html" class="tab-link active-rework" style="background-color: var(--primary); color: white;">🛠️ Gate In (Rework)</a>
         <a href="gateout.html" class="tab-link">🚪 Gate Out (Dispatch)</a>
         <a href="debit.html" class="tab-link">🧾 Debit Note (Vendor)</a>
         <a href="code.html" class="tab-link">🆕 Generate Code</a>
         <a href="ledger.html" class="tab-link">📊 Master Ledger & History</a>
         <a href="users.html" class="tab-link">👥 Manage Users</a>
+        <a href="bom.html" class="tab-link">🔗 BOM Master</a>
+        <a href="failure.html" class="tab-link">🛠️ Failure Defect Log</a>
+        <a href="production.html" class="tab-link">🏭 Production Planner</a>
+        <a href="reject_bin.html" class="tab-link">🗑️ Rejection Bin</a>
     </div>
 
     <h3 id="formTitleRework" style="color:var(--primary); margin: 0 0 10px 0;">🛠️ Gate In (Rework) Ledger</h3>
@@ -62,10 +132,17 @@
             <div class="form-group"><label>Dispatch Info Reference</label><input type="text" id="rwDispatch" required autocomplete="off"></div>
         </div>
 
-        <div style="overflow-x:auto;">
+        <div style="position: relative; z-index: 100; margin-top: 15px; overflow: visible;">
             <table class="grid-table">
-                <thead style="background-color: var(--success);">
-                    <tr><th>Item Code 🔍</th><th>Item Display Name</th><th>Qty</th><th>S/N Req?</th><th>Serial Configuration</th><th>Action</th></tr>
+                <thead style="background-color: var(--primary); color: white;">
+                    <tr>
+                        <th style="width: 25%;">Item Code 🔍</th>
+                        <th style="width: 35%;">Item Display Name</th>
+                        <th style="width: 12%;">Qty</th>
+                        <th style="width: 13%;">S/N Req?</th>
+                        <th style="width: 10%;">Serial Setup</th>
+                        <th style="width: 5%;">Action</th>
+                    </tr>
                 </thead>
                 <tbody id="dynamicItemsBody"></tbody>
             </table>
@@ -77,7 +154,7 @@
 
     <div class="table-responsive">
         <table class="history-table">
-            <thead style="background-color: var(--success);">
+            <thead style="background-color: var(--primary); color: white;">
                 <tr><th>Gate In Date</th><th>From Party</th><th>Challan / Bill Info</th><th>Gate Entry No</th><th>Items Enrolled</th><th>Action Controls</th></tr>
             </thead>
             <tbody id="reworkHistoryBody"></tbody>
@@ -109,8 +186,14 @@
         const body = document.getElementById('dynamicItemsBody');
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td><input type="text" required class="item-short" oninput="autofillItem(this)" style="text-transform:uppercase;"></td>
-            <td><input type="text" required class="item-name"></td>
+            <td class="search-container">
+                <input type="text" required class="item-short" placeholder="Search Code..." oninput="handleItemInput(this, 'code')" autocomplete="off" style="text-transform:uppercase;">
+                <div class="suggestions-dropdown"></div>
+            </td>
+            <td class="search-container">
+                <input type="text" required class="item-name" placeholder="Search Description/Name..." oninput="handleItemInput(this, 'name')" autocomplete="off">
+                <div class="suggestions-dropdown"></div>
+            </td>
             <td><input type="number" min="1" required class="item-qty" oninput="clearSN(this)"></td>
             <td>
                 <select class="item-sn-req" onchange="toggleSNButton(this)">
@@ -123,14 +206,91 @@
         body.appendChild(tr);
     }
 
-    // 🌟 YES/NO चेंज होने पर S/N बटन को इनेबल/डिसएबल करना
+    // 🔍 ऑटो-सर्च ड्रॉपडाउन लॉजिक (Code या Name दोनों से ढूंढेगा)
+    function handleItemInput(input, type) {
+        let text = input.value.trim().toLowerCase();
+        let td = input.parentElement;
+        let box = td.querySelector('.suggestions-dropdown');
+        let tr = input.closest('tr');
+
+        if(!text) {
+            box.style.display = "none";
+            box.innerHTML = "";
+            if(type === 'code') { tr.querySelector('.item-name').value = ""; }
+            else { tr.querySelector('.item-short').value = ""; }
+            return;
+        }
+
+        let matches = [];
+
+        function checkItemObj(item) {
+            if(!item || typeof item !== 'object') return;
+            let c = (item.code || item.modelCode || "").toString();
+            let n = (item.name || item.itemName || item.modelName || item.description || "").toString();
+
+            if(c.toLowerCase().includes(text) || n.toLowerCase().includes(text)) {
+                matches.push({ code: c, name: n });
+            }
+        }
+
+        if(masterCatalog) {
+            for(let key in masterCatalog) {
+                let catObj = masterCatalog[key];
+                if(Array.isArray(catObj)) {
+                    catObj.forEach(i => checkItemObj(i));
+                } else if(typeof catObj === 'object') {
+                    for(let subKey in catObj) { checkItemObj(catObj[subKey]); }
+                }
+            }
+        }
+
+        // Unique filter
+        let uniqueMatches = [];
+        let seenCodes = new Set();
+        matches.forEach(m => {
+            if(m.code && !seenCodes.has(m.code.toUpperCase())) {
+                seenCodes.add(m.code.toUpperCase());
+                uniqueMatches.push(m);
+            }
+        });
+
+        if(uniqueMatches.length > 0) {
+            let html = "";
+            uniqueMatches.forEach(m => {
+                let escName = m.name.replace(/'/g, "\\'");
+                html += `<div class="suggestion-item" onclick="selectItemSuggestion(this, '${m.code}', '${escName}')">
+                            <span><b>${m.code}</b> - ${m.name}</span>
+                         </div>`;
+            });
+            box.innerHTML = html;
+            box.style.display = "block";
+        } else {
+            box.innerHTML = `<div class="no-suggestion-item">⚠️ No Item / Code Found</div>`;
+            box.style.display = "block";
+        }
+    }
+
+    function selectItemSuggestion(elem, code, name) {
+        let tr = elem.closest('tr');
+        tr.querySelector('.item-short').value = code.toUpperCase();
+        tr.querySelector('.item-name').value = name;
+        let box = elem.closest('.suggestions-dropdown');
+        if(box) box.style.display = "none";
+    }
+
+    document.addEventListener('click', function(e) {
+        if(!e.target.closest('.search-container')) {
+            document.querySelectorAll('.suggestions-dropdown').forEach(b => b.style.display = "none");
+        }
+    });
+
+    // 🌟 S/N YES/NO टॉगल बटन लॉजिक
     function toggleSNButton(selectEl) {
         const tr = selectEl.closest('tr');
         const btn = tr.querySelector('.btn-sn-setup');
         if (selectEl.value === 'YES') {
             btn.removeAttribute('disabled');
             btn.classList.remove('disabled-sn');
-            // अगर Qty भरी हुई है तो तुरंत पॉपअप खोलें
             const qty = parseInt(tr.querySelector('.item-qty').value) || 0;
             if(qty > 0) { openSNModal(btn); }
         } else {
@@ -142,12 +302,6 @@
         }
     }
 
-    function autofillItem(input) {
-        let code = input.value.trim().toUpperCase(); let foundName = "";
-        for(let key in masterCatalog) { const match = masterCatalog[key].find(m => m.code === code); if(match) foundName = match.name; }
-        input.closest('tr').querySelector('.item-name').value = foundName;
-    }
-    
     function clearSN(input) { 
         const tr = input.closest('tr');
         const btn = tr.querySelector('.btn-sn-setup'); 
@@ -190,7 +344,6 @@
             const snData = row.querySelector('.btn-sn-setup').getAttribute('data-sn');
             const serialsArr = snData ? JSON.parse(snData) : [];
 
-            // 🛑 अगर YES चुना है तो सीरियल नंबर भरना ज़रूरी है
             if(snReq === 'YES' && serialsArr.length === 0) {
                 alert(`⚠️ Please configure S/N for item: ${row.querySelector('.item-short').value}`);
                 errorFound = true;
@@ -278,8 +431,14 @@
             const disabledAttr = isYes ? '' : 'disabled';
 
             tr.innerHTML = `
-                <td><input type="text" required class="item-short" value="${item.itemShort}" oninput="autofillItem(this)" style="text-transform:uppercase;"></td>
-                <td><input type="text" required class="item-name" value="${item.itemName}"></td>
+                <td class="search-container">
+                    <input type="text" required class="item-short" value="${item.itemShort}" oninput="handleItemInput(this, 'code')" style="text-transform:uppercase;">
+                    <div class="suggestions-dropdown"></div>
+                </td>
+                <td class="search-container">
+                    <input type="text" required class="item-name" value="${item.itemName}" oninput="handleItemInput(this, 'name')">
+                    <div class="suggestions-dropdown"></div>
+                </td>
                 <td><input type="number" min="1" required class="item-qty" value="${item.qty}" oninput="clearSN(this)"></td>
                 <td>
                     <select class="item-sn-req" onchange="toggleSNButton(this)">
