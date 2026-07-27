@@ -21,6 +21,10 @@
 
         .rework-pool-select { padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; background: white; font-weight: bold; cursor: pointer; width: 100%; box-sizing: border-box; }
 
+        .table-filter-panel { display: flex; justify-content: space-between; align-items: center; background: #f1f5f9; padding: 10px 15px; border-radius: 6px 6px 0 0; border: 1px solid #cbd5e1; border-bottom: none; margin-top: 25px; gap: 15px; flex-wrap: wrap; }
+        .search-input-box { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; width: 280px; text-transform: uppercase; }
+        .limit-dropdown-select { padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; cursor: pointer; background: #fff; font-weight: bold; }
+
         /* 🔍 Dynamic Row Table Search Container & Overflow Rules */
         .grid-table {
             width: 100% !important;
@@ -115,6 +119,7 @@
 
     <form id="reworkForm">
         <input type="hidden" id="editRowIndex" value="-1">
+        <input type="hidden" id="editFirebaseKey" value="">
 
         <div class="form-grid">
             <div class="form-group"><label>Challan / Bill No <span>*</span></label><input type="text" id="rwBillNo" required autocomplete="off"></div>
@@ -124,7 +129,7 @@
             <div class="form-group"><label>Gate In Date <span>*</span></label><input type="date" id="rwDate" required></div>
             
             <div class="form-group"><label>Party Name (Where From) <span>*</span></label><input type="text" id="rwPartyName" required autocomplete="off"></div>
-            <div class="form-group"><label>Dispatch Info Reference</label><input type="text" id="rwDispatch" required autocomplete="off"></div>
+            <div class="form-group"><label>Dispatch Info Reference</label><input type="text" id="rwDispatch" autocomplete="off"></div>
         </div>
 
         <div style="position: relative; z-index: 100; margin-top: 15px; overflow: visible;">
@@ -148,8 +153,32 @@
         <button type="button" id="btnCancelEdit" class="btn-submit" style="background-color:#64748b; display:none; margin-top:10px; width: 100%;" onclick="cancelEditMode()">Cancel Update</button>
     </form>
 
-    <div class="table-responsive">
-        <table class="history-table">
+    <!-- 📅 DATE FILTER & EXCEL DOWNLOAD PANEL -->
+    <div class="date-export-panel" style="margin-top: 30px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+        <label style="font-weight: bold;">From:</label> <input type="date" id="rwFromDate" style="padding:6px; border:1px solid #cbd5e1; border-radius:4px;">
+        <label style="font-weight: bold;">To:</label> <input type="date" id="goToDate" style="padding:6px; border:1px solid #cbd5e1; border-radius:4px;">
+        <button class="btn-excel" onclick="exportReworkToExcel()" style="margin-left: auto;">Download Excel</button>
+    </div>
+
+    <!-- 🔍 SEARCH & LIMIT PANEL -->
+    <div class="table-filter-panel">
+        <div>
+            <input type="text" id="liveTableSearchBox" class="search-input-box" placeholder="🔍 Search Party, Code, Challan, Remarks..." autocomplete="off" oninput="renderHistory()">
+        </div>
+        <div>
+            <label style="font-weight: bold; font-size: 13px; color:#475569;">Show Records:</label>
+            <select id="liveTableLimitSelect" class="limit-dropdown-select" onchange="renderHistory()">
+                <option value="5">5 Bills (Default)</option>
+                <option value="10">10 Bills</option>
+                <option value="15">15 Bills</option>
+                <option value="ALL">Show All Records</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- 📊 HISTORY TABLE -->
+    <div class="table-responsive" style="margin-top:0;">
+        <table class="history-table" style="border-top:none;">
             <thead style="background-color: var(--primary); color: white;">
                 <tr><th>Gate In Date</th><th>From Party</th><th>Challan / Bill Info</th><th>Gate Entry No</th><th>Items Enrolled</th><th>Action Controls</th></tr>
             </thead>
@@ -169,7 +198,7 @@
 <div id="printSection"></div>
 
 <script>
-    // 🔥 Firebase Initialization (Fresh Entry की तरह)
+    // 🔥 Firebase Config
     const firebaseConfig = {
         apiKey: "AIzaSyCAOXbPwuFR3wh1QSLBXWsodupKWoRYmqs",
         authDomain: "gvm-stock-control.firebaseapp.com",
@@ -187,18 +216,34 @@
 
     function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
 
-    let reworkData = JSON.parse(localStorage.getItem('reworkStockData')) || [];
+    let reworkData = [];
     let masterCatalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
     let flatPOList = [];
     let activeBtnRef = null;
 
-    // 🔥 Live Sync Firebase Master Catalog (Fresh entry वाला सेम लॉजिक)
+    function safeConvertToArray(rawVal) {
+        if (!rawVal) return [];
+        return Array.isArray(rawVal) ? rawVal : Object.values(rawVal);
+    }
+
+    // 🔄 Sync Master Catalog
     database.ref('systemMasterCatalogFlat').on('value', (snapshot) => {
         flatPOList = [];
         const data = snapshot.val();
-        if(data) { 
-            for(let key in data) { flatPOList.push(data[key]); } 
+        if(data) { for(let key in data) { flatPOList.push(data[key]); } }
+    });
+
+    // 🔄 Sync Live Rework History from Firebase Database
+    database.ref('reworkStockVouchers').on('value', (snapshot) => {
+        reworkData = [];
+        const data = snapshot.val();
+        if(data) {
+            for(let key in data) {
+                if(data[key] !== null) { reworkData.push({ fbKey: key, ...data[key] }); }
+            }
         }
+        reworkData.reverse();
+        renderHistory();
     });
 
     function addReworkRow(savedPool = "REWORK") {
@@ -231,7 +276,7 @@
         body.appendChild(tr);
     }
 
-    // 🔍 ऑटो-सर्च ड्रॉपडाउन लॉजिक (Firebase `flatPOList` + LocalStorage दोनों में से ढूंढेगा)
+    // 🔍 Auto-Search Dropdown Function
     function handleItemInput(input, type) {
         let text = input.value.trim().toLowerCase();
         let td = input.parentElement;
@@ -258,30 +303,15 @@
             }
         }
 
-        // 1. Firebase Live Catalog Check
-        if(flatPOList && flatPOList.length > 0) {
-            flatPOList.forEach(item => scanItem(item));
-        }
-
-        // 2. LocalStorage Catalog Check
+        if(flatPOList && flatPOList.length > 0) { flatPOList.forEach(item => scanItem(item)); }
         if(masterCatalog) {
             for(let key in masterCatalog) {
                 let catObj = masterCatalog[key];
-                if(Array.isArray(catObj)) {
-                    catObj.forEach(i => scanItem(i));
-                } else if(typeof catObj === 'object') {
-                    for(let subKey in catObj) { scanItem(catObj[subKey]); }
-                }
+                if(Array.isArray(catObj)) { catObj.forEach(i => scanItem(i)); } 
+                else if(typeof catObj === 'object') { for(let subKey in catObj) { scanItem(catObj[subKey]); } }
             }
         }
 
-        // 3. LocalStorage Flat Catalog backup check
-        let localFlat = JSON.parse(localStorage.getItem('systemMasterCatalogFlat')) || [];
-        if(Array.isArray(localFlat)) {
-            localFlat.forEach(item => scanItem(item));
-        }
-
-        // Duplicate code removal
         let uniqueMatches = [];
         let seenCodes = new Set();
         matches.forEach(m => {
@@ -365,6 +395,7 @@
         document.getElementById('serialModal').style.display = 'none';
     }
 
+    // 💾 SAVE RECORD TO FIREBASE & LOCAL STORAGE
     document.getElementById('reworkForm').addEventListener('submit', function(e) {
         e.preventDefault();
         let items = [];
@@ -400,6 +431,8 @@
         if(errorFound) return;
 
         const idx = parseInt(document.getElementById('editRowIndex').value);
+        const fbKey = document.getElementById('editFirebaseKey').value;
+
         const entry = { 
             date: document.getElementById('rwDate').value, 
             billDate: document.getElementById('rwBillDate').value,
@@ -411,24 +444,44 @@
         };
         
         if(idx === -1) {
-            reworkData.push(entry);
-            alert("🎉 Rework Gate In entry saved successfully!");
+            database.ref('reworkStockVouchers').push(entry).then(() => {
+                alert("🎉 Rework Gate In entry saved successfully!");
+                resetReworkForm();
+            });
         } else {
-            reworkData[idx] = entry;
-            alert("🎯 Entry updated successfully!");
+            database.ref('reworkStockVouchers/' + fbKey).set(entry).then(() => {
+                alert("🎯 Entry updated successfully!");
+                resetReworkForm();
+            });
         }
-
-        localStorage.setItem('reworkStockData', JSON.stringify(reworkData));
-        resetReworkForm(); renderHistory();
     });
 
+    // 📊 RENDER HISTORY TABLE WITH SEARCH & LIMIT
     function renderHistory() {
         const b = document.getElementById('reworkHistoryBody'); b.innerHTML = '';
-        reworkData.forEach((r, idx) => {
-            let desc = r.gridItems.map(i => {
+        if(!reworkData || reworkData.length === 0) {
+            b.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:15px; color:#64748b;">No records found on Cloud.</td></tr>`;
+            return;
+        }
+
+        const searchStr = (document.getElementById('liveTableSearchBox').value || "").trim().toUpperCase();
+        const limitVal = document.getElementById('liveTableLimitSelect').value;
+
+        let filtered = reworkData.filter(v => {
+            if(!v) return false;
+            return (v.partyName || "").toUpperCase().includes(searchStr) || 
+                   (v.billNo || "").toUpperCase().includes(searchStr) || 
+                   (v.gateEntryNo || "").toUpperCase().includes(searchStr);
+        });
+
+        let viewList = limitVal === "ALL" ? filtered : filtered.slice(0, parseInt(limitVal));
+
+        viewList.forEach((r) => {
+            let origIdx = reworkData.findIndex(x => x.fbKey === r.fbKey);
+            let desc = safeConvertToArray(r.gridItems).map(i => {
                 let poolLabel = i.pool ? `[<b>${i.pool}</b>] ` : '';
                 let snInfo = (i.serials && i.serials.length > 0) ? ` [S/N: ${i.serials.join(', ')}]` : '';
-                return `• ${poolLabel}${i.itemName} (<b>${i.qty} Nos</b>)${snInfo}`;
+                return `• ${poolLabel}${i.itemName || i.itemShort} (<b>${i.qty} Nos</b>)${snInfo}`;
             }).join('<br>');
             
             let challanInfo = `No: ${r.billNo}<br>Date: ${r.billDate || 'N/A'}`;
@@ -441,28 +494,29 @@
                 <td style="text-align:left; font-size:12px;">${desc}</td>
                 <td>
                     <button type="button" class="btn-print-receipt" onclick='triggerPrintPass(${JSON.stringify(r)})'>🖨️ Print</button>
-                    <button type="button" class="btn-edit-action" onclick="editReworkRow(${idx})">Edit</button>
-                    <button type="button" class="btn-delete-action" onclick="deleteReworkRow(${idx})">Delete</button>
+                    <button type="button" class="btn-edit-action" onclick="editReworkRow(${origIdx})">Edit</button>
+                    <button type="button" class="btn-delete-action" onclick="deleteReworkRow(${origIdx})">Delete</button>
                 </td>
             </tr>`;
         });
     }
 
     function editReworkRow(idx) {
-        const r = reworkData[idx];
+        const r = reworkData[idx]; if(!r) return;
         document.getElementById('editRowIndex').value = idx;
+        document.getElementById('editFirebaseKey').value = r.fbKey;
         
         document.getElementById('rwDate').value = r.date;
         document.getElementById('rwBillDate').value = r.billDate || '';
         document.getElementById('rwPartyName').value = r.partyName;
-        document.getElementById('rwDispatch').value = r.dispatch;
+        document.getElementById('rwDispatch').value = r.dispatch || '';
         document.getElementById('rwBillNo').value = r.billNo;
         document.getElementById('rwGateEntryNo').value = r.gateEntryNo;
 
         const body = document.getElementById('dynamicItemsBody');
         body.innerHTML = '';
         
-        r.gridItems.forEach(item => {
+        safeConvertToArray(r.gridItems).forEach(item => {
             const tr = document.createElement('tr');
             const isYes = item.snReq === 'YES' || (item.serials && item.serials.length > 0);
             const snText = (item.serials && item.serials.length > 0) ? `✔ Loaded (${item.serials.length})` : 'S/N';
@@ -505,6 +559,7 @@
 
     function resetReworkForm() {
         document.getElementById('editRowIndex').value = "-1";
+        document.getElementById('editFirebaseKey').value = "";
         document.getElementById('reworkForm').reset();
         document.getElementById('dynamicItemsBody').innerHTML = '';
         
@@ -518,18 +573,19 @@
     function cancelEditMode() { resetReworkForm(); }
 
     function deleteReworkRow(idx) {
+        const itemToDelete = reworkData[idx];
         if(confirm("Are you sure you want to permanently delete this rework entry from logs?")) {
-            reworkData.splice(idx, 1);
-            localStorage.setItem('reworkStockData', JSON.stringify(reworkData));
-            renderHistory();
-            resetReworkForm();
+            database.ref('reworkStockVouchers/' + itemToDelete.fbKey).remove().then(() => {
+                alert("🗑️ Record deleted successfully!");
+                resetReworkForm();
+            });
         }
     }
 
     function triggerPrintPass(e) {
         const shell = document.getElementById('printSection'); 
         let lines = ''; 
-        e.gridItems.forEach(i => { 
+        safeConvertToArray(e.gridItems).forEach(i => { 
             let poolText = i.pool ? `[${i.pool}] ` : '';
             let snText = (i.serials && i.serials.length > 0) ? i.serials.join(', ') : 'N/A';
             lines += `• ${poolText}<b>${i.itemName}</b> [${i.itemShort}] - Qty: ${i.qty} NOS (S/Ns: ${snText})<br>`; 
@@ -567,10 +623,11 @@
         document.getElementById('rwBillDate').setAttribute('max', todayStr);
         document.getElementById('rwDate').value = todayStr;
         document.getElementById('rwBillDate').value = todayStr;
+        document.getElementById('rwFromDate').value = todayStr;
+        document.getElementById('goToDate').value = todayStr;
     }
 
     applyLiveDateRestrictions();
-    renderHistory();
     addReworkRow();
 </script>
 </body>
