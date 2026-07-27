@@ -18,6 +18,8 @@
         .btn-sn-setup.disabled-sn { background-color: #cbd5e1 !important; color: #94a3b8 !important; cursor: not-allowed; }
         .btn-sn-setup.configured { background-color: #16a34a !important; color: white !important; }
 
+        .rework-pool-select { padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; background: white; font-weight: bold; cursor: pointer; width: 100%; box-sizing: border-box; }
+
         /* 🔍 Dynamic Row Table Search Container & Overflow Rules */
         .grid-table {
             width: 100% !important;
@@ -65,14 +67,6 @@
             color: #0369a1; 
             font-weight: bold; 
         }
-        .suggestion-item .item-code-badge { 
-            background: #3b82f6; 
-            color: white; 
-            padding: 2px 6px; 
-            border-radius: 3px; 
-            font-size: 10px; 
-            font-weight: bold; 
-        }
         .no-suggestion-item { 
             padding: 10px; 
             font-size: 12px; 
@@ -101,7 +95,7 @@
         <button class="logout-btn" onclick="logout()">Logout</button>
     </div>
     
-    <!-- 🗂️ पूर्ण टैब्स की सूची वापस जोड़ दी गई है -->
+    <!-- 🗂️ टैब्स की सूची -->
     <div class="tabs-nav">
         <a href="index.html" class="tab-link">📦 New Entry (Fresh)</a>
         <a href="rework.html" class="tab-link active-rework" style="background-color: var(--primary); color: white;">🛠️ Gate In (Rework)</a>
@@ -136,12 +130,13 @@
             <table class="grid-table">
                 <thead style="background-color: var(--primary); color: white;">
                     <tr>
-                        <th style="width: 25%;">Item Code 🔍</th>
-                        <th style="width: 35%;">Item Display Name</th>
-                        <th style="width: 12%;">Qty</th>
-                        <th style="width: 13%;">S/N Req?</th>
-                        <th style="width: 10%;">Serial Setup</th>
-                        <th style="width: 5%;">Action</th>
+                        <th style="width: 18%;">Stock Pool</th>
+                        <th style="width: 22%;">Item Code 🔍</th>
+                        <th style="width: 30%;">Item Display Name</th>
+                        <th style="width: 10%;">Qty</th>
+                        <th style="width: 10%;">S/N Req?</th>
+                        <th style="width: 6%;">Serial Setup</th>
+                        <th style="width: 4%;">Action</th>
                     </tr>
                 </thead>
                 <tbody id="dynamicItemsBody"></tbody>
@@ -182,10 +177,16 @@
     let masterCatalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
     let activeBtnRef = null;
 
-    function addReworkRow() {
+    function addReworkRow(savedPool = "REWORK") {
         const body = document.getElementById('dynamicItemsBody');
         const tr = document.createElement('tr');
         tr.innerHTML = `
+            <td>
+                <select class="rework-pool-select">
+                    <option value="REWORK" ${savedPool==='REWORK'?'selected':''}>REWORK POOL</option>
+                    <option value="FRESH" ${savedPool==='FRESH'?'selected':''}>PASSED TO FRESH</option>
+                </select>
+            </td>
             <td class="search-container">
                 <input type="text" required class="item-short" placeholder="Search Code..." oninput="handleItemInput(this, 'code')" autocomplete="off" style="text-transform:uppercase;">
                 <div class="suggestions-dropdown"></div>
@@ -206,7 +207,7 @@
         body.appendChild(tr);
     }
 
-    // 🔍 ऑटो-सर्च ड्रॉपडाउन लॉजिक (Code या Name दोनों से ढूंढेगा)
+    // 🔍 ऑटो-सर्च ड्रॉपडाउन लॉजिक
     function handleItemInput(input, type) {
         let text = input.value.trim().toLowerCase();
         let td = input.parentElement;
@@ -244,7 +245,6 @@
             }
         }
 
-        // Unique filter
         let uniqueMatches = [];
         let seenCodes = new Set();
         matches.forEach(m => {
@@ -284,7 +284,6 @@
         }
     });
 
-    // 🌟 S/N YES/NO टॉगल बटन लॉजिक
     function toggleSNButton(selectEl) {
         const tr = selectEl.closest('tr');
         const btn = tr.querySelector('.btn-sn-setup');
@@ -339,6 +338,7 @@
         let errorFound = false;
 
         rows.forEach(row => {
+            const pool = row.querySelector('.rework-pool-select').value;
             const qty = parseInt(row.querySelector('.item-qty').value);
             const snReq = row.querySelector('.item-sn-req').value;
             const snData = row.querySelector('.btn-sn-setup').getAttribute('data-sn');
@@ -351,6 +351,7 @@
             }
 
             items.push({ 
+                pool: pool,
                 itemShort: row.querySelector('.item-short').value.toUpperCase(), 
                 itemName: row.querySelector('.item-name').value, 
                 qty: qty, 
@@ -388,8 +389,9 @@
         const b = document.getElementById('reworkHistoryBody'); b.innerHTML = '';
         reworkData.forEach((r, idx) => {
             let desc = r.gridItems.map(i => {
+                let poolLabel = i.pool ? `[<b>${i.pool}</b>] ` : '';
                 let snInfo = (i.serials && i.serials.length > 0) ? ` [S/N: ${i.serials.join(', ')}]` : '';
-                return `${i.itemName} (<b>${i.qty} Nos</b>)${snInfo}`;
+                return `• ${poolLabel}${i.itemName} (<b>${i.qty} Nos</b>)${snInfo}`;
             }).join('<br>');
             
             let challanInfo = `No: ${r.billNo}<br>Date: ${r.billDate || 'N/A'}`;
@@ -429,8 +431,15 @@
             const snText = (item.serials && item.serials.length > 0) ? `✔ Loaded (${item.serials.length})` : 'S/N';
             const snClass = (item.serials && item.serials.length > 0) ? 'btn-sn-setup configured' : (isYes ? 'btn-sn-setup' : 'btn-sn-setup disabled-sn');
             const disabledAttr = isYes ? '' : 'disabled';
+            const poolVal = item.pool || "REWORK";
 
             tr.innerHTML = `
+                <td>
+                    <select class="rework-pool-select">
+                        <option value="REWORK" ${poolVal==='REWORK'?'selected':''}>REWORK POOL</option>
+                        <option value="FRESH" ${poolVal==='FRESH'?'selected':''}>PASSED TO FRESH</option>
+                    </select>
+                </td>
                 <td class="search-container">
                     <input type="text" required class="item-short" value="${item.itemShort}" oninput="handleItemInput(this, 'code')" style="text-transform:uppercase;">
                     <div class="suggestions-dropdown"></div>
@@ -484,8 +493,9 @@
         const shell = document.getElementById('printSection'); 
         let lines = ''; 
         e.gridItems.forEach(i => { 
+            let poolText = i.pool ? `[${i.pool}] ` : '';
             let snText = (i.serials && i.serials.length > 0) ? i.serials.join(', ') : 'N/A';
-            lines += `• <b>${i.itemName}</b> [${i.itemShort}] - Qty: ${i.qty} NOS (S/Ns: ${snText})<br>`; 
+            lines += `• ${poolText}<b>${i.itemName}</b> [${i.itemShort}] - Qty: ${i.qty} NOS (S/Ns: ${snText})<br>`; 
         });
         
         shell.innerHTML = `
