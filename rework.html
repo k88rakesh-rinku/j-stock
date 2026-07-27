@@ -3,41 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gate In (Rework) - Control Center</title>
+    <title>Rework Management - Control System</title>
     <link rel="stylesheet" href="style.css">
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
     <style>
-        .btn-edit-action { background-color: #0284c7; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
+        .btn-edit-action { background-color: #0284c7; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
         .btn-edit-action:hover { background-color: #0369a1; }
-        .btn-delete-action { background-color: #dc2626; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
+        .btn-delete-action { background-color: #dc2626; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; }
         .btn-delete-action:hover { background-color: #b91c1c; }
-        .btn-print-receipt { background-color: #007bff; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
-        .btn-print-receipt:hover { background-color: #0056b3; }
-        
-        .tabs-nav a { background-color: #e2e8f0; color: #334155; font-weight: 500; transition: all 0.3s; padding: 8px 12px; display: inline-block; border-radius: 4px; text-decoration: none; margin-right: 4px; }
-        .tabs-nav a:hover { background-color: #cbd5e1; }
-        .tabs-nav a.active-rework { background-color: #1e3a8a !important; color: white !important; font-weight: bold; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        .btn-print-receipt { background-color: #007bff; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-right: 4px; }
 
-        .table-filter-panel { display: flex; justify-content: space-between; align-items: center; background: #f1f5f9; padding: 10px 15px; border-radius: 6px 6px 0 0; border: 1px solid #cbd5e1; border-bottom: none; margin-top: 25px; gap: 15px; flex-wrap: wrap; }
-        .search-input-box { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; width: 280px; text-transform: uppercase; }
-        .limit-dropdown-select { padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; cursor: pointer; background: #fff; font-weight: bold; }
-
-        .secret-modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 99999; }
-        .secret-modal-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); text-align: center; width: 320px; }
-        .secret-modal-card h4 { margin: 0 0 12px 0; color: #1e3a8a; }
-        .secret-modal-input { width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #cbd5e1; border-radius: 4px; text-align: center; font-size: 16px; box-sizing: border-box; }
-        .secret-modal-btn-group { display: flex; gap: 10px; justify-content: center; }
-        .secret-modal-btn-confirm { background: #dc2626; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; }
-        .secret-modal-btn-cancel { background: #64748b; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; }
-
-        .rework-pool-select { padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; background: white; font-weight: bold; cursor: pointer; }
-        .rework-unit-select { padding: 5px; border: 1px solid #cbd5e1; border-radius: 4px; background: white; font-weight: bold; cursor: pointer; }
+        /* S/N बटन की नई एक्टिव और डिसएबल स्टाइल */
+        .btn-sn-setup { background-color: #2563eb; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 11px; }
+        .btn-sn-setup.disabled-sn { background-color: #cbd5e1 !important; color: #94a3b8 !important; cursor: not-allowed; }
+        .btn-sn-setup.configured { background-color: #16a34a !important; color: white !important; }
 
         @media print {
             body * { visibility: hidden; }
             #printSection, #printSection * { visibility: visible; }
-            #printSection { position: absolute; left: 0; top: 0; width: 210mm; padding: 4mm 6mm; background: #fff; font-family: monospace; font-size: 11px; }
+            #printSection {
+                position: absolute; left: 0; top: 0; width: 210mm; height: 74.25mm;
+                box-sizing: border-box; padding: 4mm 6mm; margin: 0; background: #fff;
+                font-family: monospace; font-size: 11px; line-height: 1.3;
+            }
             @page { size: A4 portrait; margin: 0; }
         }
     </style>
@@ -51,522 +38,334 @@
     
     <div class="tabs-nav">
         <a href="index.html" class="tab-link">📦 New Entry (Fresh)</a>
-        <a href="rework.html" class="tab-link active-rework">🛠️ Gate In (Rework)</a>
+        <a href="rework.html" class="tab-link active-rework" style="background-color: var(--success); color: white;">🛠️ Gate In (Rework)</a>
         <a href="gateout.html" class="tab-link">🚪 Gate Out (Dispatch)</a>
         <a href="debit.html" class="tab-link">🧾 Debit Note (Vendor)</a>
         <a href="code.html" class="tab-link">🆕 Generate Code</a>
         <a href="ledger.html" class="tab-link">📊 Master Ledger & History</a>
         <a href="users.html" class="tab-link">👥 Manage Users</a>
-        <a href="bom.html" class="tab-link">🔗 BOM Master</a>
-        <a href="failure.html" class="tab-link">🛠️ Failure Defect Log</a>
-        <a href="production.html" class="tab-link">🏭 Production Planner</a>
-        <a href="reject_bin.html" class="tab-link">🗑️ Rejection Bin</a>
     </div>
 
-    <h3 id="formTitleRework" style="color:var(--primary); margin: 15px 0 10px 0;">🛠️ Gate In (Rework/Repair) Controller</h3>
-
-    <div style="margin: 10px 0 15px 0; background: #f8fafc; padding: 12px; border: 1px solid #cbd5e1; border-radius: 6px; display: flex; align-items: center; gap: 10px;">
-        <input type="checkbox" id="isDirectStock" onchange="toggleDirectStockMode()" style="width: 18px; height: 18px; cursor: pointer;">
-        <label for="isDirectStock" style="font-weight: bold; color: #1e3a8a; cursor: pointer; user-select: none; font-size: 14px;">📦 Direct Stock Entry / Opening Stock (No Challan Required)</label>
-    </div>
+    <h3 id="formTitleRework" style="color:var(--primary); margin: 0 0 10px 0;">🛠️ Gate In (Rework) Ledger</h3>
 
     <form id="reworkForm">
         <input type="hidden" id="editRowIndex" value="-1">
-        <input type="hidden" id="editFirebaseKey" value="">
 
         <div class="form-grid">
-            <div class="form-group" id="grpChallanNo"><label>Challan/GP Reference No <span>*</span></label><input type="text" id="rwChallanNo" required autocomplete="off" style="text-transform:uppercase;"></div>
-            <div class="form-group" id="grpChallanDate"><label>Challan Date <span>*</span></label><input type="date" id="rwChallanDate" required></div>
-            <div class="form-group" id="grpGateInNo"><label>Gate In No <span>*</span></label><input type="text" id="rwGateInNo" required autocomplete="off" style="text-transform:uppercase;"></div>
-            <div class="form-group"><label>Date <span>*</span></label><input type="date" id="rwDate" required></div>
-            <div class="form-group" id="grpPartyName"><label>Party Name <span>*</span></label><input type="text" id="rwPartyName" required autocomplete="off" style="text-transform:uppercase;"></div>
-            <div class="form-group"><label>Processed / Tested By</label><input type="text" id="rwTestedBy" autocomplete="off" style="text-transform:uppercase;"></div>
+            <div class="form-group"><label>Challan / Bill No <span>*</span></label><input type="text" id="rwBillNo" required autocomplete="off"></div>
+            <div class="form-group"><label>Challan / Bill Date <span>*</span></label><input type="date" id="rwBillDate" required></div>
+            
+            <div class="form-group"><label>Gate Entry No <span>*</span></label><input type="text" id="rwGateEntryNo" required autocomplete="off"></div>
+            <div class="form-group"><label>Gate In Date <span>*</span></label><input type="date" id="rwDate" required></div>
+            
+            <div class="form-group"><label>Party Name (Where From) <span>*</span></label><input type="text" id="rwPartyName" required autocomplete="off"></div>
+            <div class="form-group"><label>Dispatch Info Reference</label><input type="text" id="rwDispatch" required autocomplete="off"></div>
         </div>
 
-        <!-- 🚀 Overflow fix wrapper -->
-        <div style="position: relative; z-index: 100; margin-top: 15px; overflow: visible;">
+        <div style="overflow-x:auto;">
             <table class="grid-table">
-                <thead style="background-color: var(--secondary); color: white;">
-                    <tr>
-                        <th style="width: 18%;">TARGET STOCK POOL</th>
-                        <th style="width: 22%;">MODEL PART CODE 🔍</th>
-                        <th style="width: 35%;">ITEM DESCRIPTION NAME</th>
-                        <th style="width: 10%;">QTY</th>
-                        <th style="width: 10%;">UNIT TYPE</th>
-                        <th style="width: 5%;">ACTION</th>
-                    </tr>
+                <thead style="background-color: var(--success);">
+                    <tr><th>Item Code 🔍</th><th>Item Display Name</th><th>Qty</th><th>S/N Req?</th><th>Serial Configuration</th><th>Action</th></tr>
                 </thead>
-                <tbody id="reworkItemsBody"></tbody>
+                <tbody id="dynamicItemsBody"></tbody>
             </table>
+            <button type="button" class="btn-row-add" onclick="addReworkRow()">+</button>
         </div>
-        <button type="button" class="btn-row-add" onclick="addRwRow()">+</button>
-
-        <div class="form-group" style="margin-top: 15px;">
-            <label style="font-weight: bold;">Diagnostics / Adjustment Notes</label>
-            <input type="text" id="rwRemarks" placeholder="Enter reason for adjustment, card fault or diagnostic notes here..." autocomplete="off" style="text-transform:uppercase; padding: 10px; width: 100%; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 4px;">
-        </div>
-
-        <button type="submit" id="btnSubmitForm" class="btn-submit rework-btn" style="margin-top:15px; width: 100%;">Save Gate In Rework Voucher</button>
+        <button type="submit" id="btnSubmitForm" class="btn-submit rework-btn" style="margin-top:15px; width: 100%;">Save Rework Gate In</button>
         <button type="button" id="btnCancelEdit" class="btn-submit" style="background-color:#64748b; display:none; margin-top:10px; width: 100%;" onclick="cancelEditMode()">Cancel Update</button>
     </form>
 
-    <div class="date-export-panel" style="margin-top: 30px;">
-        <label>From:</label> <input type="date" id="rwFromDate">
-        <label>To:</label> <input type="date" id="goToDate">
-        <button class="btn-excel" onclick="exportReworkToExcel()">Download Excel</button>
-    </div>
-
-    <div class="table-filter-panel">
-        <div>
-            <input type="text" id="liveTableSearchBox" class="search-input-box" placeholder="🔍 Search Party, Code, Challan, Remarks..." autocomplete="off" oninput="triggerTableRender()">
-        </div>
-        <div>
-            <label style="font-weight: bold; font-size: 13px; color:#475569;">Show Records:</label>
-            <select id="liveTableLimitSelect" class="limit-dropdown-select" onchange="triggerTableRender()">
-                <option value="5">5 Bills (Default)</option>
-                <option value="10">10 Bills</option>
-                <option value="15">15 Bills</option>
-                <option value="ALL">Show All Records</option>
-            </select>
-        </div>
-    </div>
-
-    <div class="table-responsive" style="margin-top: 0;">
-        <table class="history-table" style="border-top: none;">
-            <thead style="background-color: #475569; color: white;">
-                <tr><th>GP Entry No</th><th>Date</th><th>Client / Party Name</th><th>Challan Ref / Mode</th><th>Items Details</th><th>Diagnostic Notes</th><th>Action Controls</th></tr>
+    <div class="table-responsive">
+        <table class="history-table">
+            <thead style="background-color: var(--success);">
+                <tr><th>Gate In Date</th><th>From Party</th><th>Challan / Bill Info</th><th>Gate Entry No</th><th>Items Enrolled</th><th>Action Controls</th></tr>
             </thead>
-            <tbody id="rwHistoryBody"></tbody>
+            <tbody id="reworkHistoryBody"></tbody>
         </table>
     </div>
 </div>
 
-<div id="secretPasswordModal" class="secret-modal-overlay">
-    <div class="secret-modal-card">
-        <h4>🔑 Security Check</h4>
-        <p style="font-size: 12px; color: #64748b; margin-bottom: 10px;">Enter Secret Password to Delete this Rework Record:</p>
-        <input type="password" id="secretModalPasswordField" class="secret-modal-input" placeholder="••••" autocomplete="off">
-        <div class="secret-modal-btn-group">
-            <button type="button" class="secret-modal-btn-confirm" onclick="submitSecretDeletePassword()">Wipe Record</button>
-            <button type="button" class="secret-modal-btn-cancel" onclick="closeSecretPasswordModal()">Cancel</button>
-        </div>
+<div id="serialModal" class="sn-modal">
+    <div class="modal-content" style="width:340px;">
+        <h3>Configure Serials</h3>
+        <div id="serialFieldsBox" style="display:flex; flex-direction:column; gap:8px;"></div>
+        <button type="button" class="btn-submit rework-btn" style="margin-top:15px;" onclick="lockSerials()">Done</button>
     </div>
 </div>
 
 <div id="printSection"></div>
 
 <script>
-    const firebaseConfig = {
-        apiKey: "AIzaSyCAOXbPwuFR3wh1QSLBXWsodupKWoRYmqs",
-        authDomain: "gvm-stock-control.firebaseapp.com",
-        databaseURL: "https://gvm-stock-control-default-rtdb.firebaseio.com",
-        projectId: "gvm-stock-control",
-        storageBucket: "gvm-stock-control.firebasestorage.app",
-        messagingSenderId: "202991207119",
-        appId: "1:202991207119:web:2246ffb7b92f9eb0c4adba"
-    };
-    firebase.initializeApp(firebaseConfig);
-    const database = firebase.database();
-
     const session = JSON.parse(localStorage.getItem('activeSession'));
     if(!session) { window.location.href = 'login.html'; }
+
     function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
 
-    let reworkData = [];
+    let reworkData = JSON.parse(localStorage.getItem('reworkStockData')) || [];
     let masterCatalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
-    let flatPOList = [];
-    let activeDeleteRowIdx = null;
+    let activeBtnRef = null;
 
-    const cleanStr = (str) => String(str || "").trim().toUpperCase().replace(/\s+/g, '');
-
-    function safeConvertToArray(rawVal) {
-        if (!rawVal) return [];
-        return Array.isArray(rawVal) ? rawVal : Object.values(rawVal);
-    }
-
-    function toggleDirectStockMode() {
-        const isDirect = document.getElementById('isDirectStock').checked;
-        const targetIds = ['rwChallanNo', 'rwChallanDate', 'rwGateInNo', 'rwPartyName'];
-        
-        targetIds.forEach(id => {
-            const inputEl = document.getElementById(id);
-            const parentGroup = inputEl.parentElement;
-            if(isDirect) {
-                parentGroup.style.display = 'none';
-                inputEl.removeAttribute('required');
-                inputEl.value = '';
-            } else {
-                parentGroup.style.display = 'block';
-                inputEl.setAttribute('required', 'required');
-            }
-        });
-
-        document.getElementById('btnSubmitForm').innerText = isDirect ? "Save Direct Stock Adjustment Voucher" : "Save Gate In Rework Voucher";
-    }
-
-    database.ref('systemMasterCatalogFlat').on('value', (snapshot) => {
-        flatPOList = [];
-        const data = snapshot.val();
-        if(data) { for(let key in data) { flatPOList.push(data[key]); } }
-    });
-
-    database.ref('reworkStockVouchers').on('value', (snapshot) => {
-        reworkData = [];
-        const data = snapshot.val();
-        if(data) {
-            for(let key in data) {
-                if(data[key] !== null) { reworkData.push({ fbKey: key, ...data[key] }); }
-            }
-        }
-        reworkData.reverse();
-        renderTable();
-    });
-
-    function addRwRow(savedPool = "REWORK", savedUnit = "NOS") {
-        const body = document.getElementById('reworkItemsBody');
+    function addReworkRow() {
+        const body = document.getElementById('dynamicItemsBody');
         const tr = document.createElement('tr');
-        
         tr.innerHTML = `
-            <td style="width: 18%;">
-                <select class="rework-pool-select">
-                    <option value="REWORK" ${savedPool==='REWORK'?'selected':''}>REWORK POOL</option>
-                    <option value="FRESH" ${savedPool==='FRESH'?'selected':''}>PASSED TO FRESH</option>
+            <td><input type="text" required class="item-short" oninput="autofillItem(this)" style="text-transform:uppercase;"></td>
+            <td><input type="text" required class="item-name"></td>
+            <td><input type="number" min="1" required class="item-qty" oninput="clearSN(this)"></td>
+            <td>
+                <select class="item-sn-req" onchange="toggleSNButton(this)">
+                    <option value="NO" selected>NO</option>
+                    <option value="YES">YES</option>
                 </select>
             </td>
-            <td style="width: 22%;" class="search-container">
-                <input type="text" required class="rw-code" placeholder="Search Code..." oninput="handleRwRowInput(this, 'code')" autocomplete="off" style="text-transform:uppercase;">
-                <div class="suggestions-dropdown"></div>
-            </td>
-            <td style="width: 35%;" class="search-container">
-                <input type="text" required class="rw-name" placeholder="Search Description/Name..." oninput="handleRwRowInput(this, 'name')" autocomplete="off">
-                <div class="suggestions-dropdown"></div>
-            </td>
-            <td style="width: 10%;">
-                <input type="number" min="0" step="0.001" required class="rw-qty" placeholder="Qty">
-            </td>
-            <td style="width: 10%;">
-                <select class="rework-unit-select">
-                    <option value="NOS" ${savedUnit==='NOS'?'selected':''}>NOS</option>
-                    <option value="MTR" ${savedUnit==='MTR'?'selected':''}>MTR</option>
-                    <option value="SET" ${savedUnit==='SET'?'selected':''}>SET</option>
-                </select>
-            </td>
-            <td style="width: 5%; text-align: center;">
-                <button type="button" class="btn-row-remove" onclick="this.closest('tr').remove()">×</button>
-            </td>`;
+            <td><button type="button" class="btn-sn-setup disabled-sn" onclick="openSNModal(this)" disabled>S/N</button></td>
+            <td><button type="button" class="btn-row-remove" onclick="this.closest('tr').remove()">×</button></td>`;
         body.appendChild(tr);
     }
 
-    function handleRwRowInput(input, fieldType) {
-        let text = input.value.trim().toLowerCase();
-        let td = input.parentElement;
-        let box = td.querySelector('.suggestions-dropdown');
-        let tr = input.closest('tr');
-
-        if(!text) {
-            box.style.display = "none";
-            box.innerHTML = "";
-            if(fieldType === 'code') { tr.querySelector('.rw-name').value = ""; }
-            else { tr.querySelector('.rw-code').value = ""; }
-            return;
-        }
-
-        let matches = [];
-
-        function scanCatalogItem(item, comp) {
-            if(!item || typeof item !== 'object') return;
-            let n = (item.itemName || item.name || item.modelName || item.description || "").toString();
-            let c = (item.code || item.modelCode || "").toString();
-            let unit = item.poUnit || item.unit || "NOS";
-
-            if(n.toLowerCase().includes(text) || c.toLowerCase().includes(text)) {
-                matches.push({ name: n, code: c, unit: unit });
-            }
-        }
-
-        if(flatPOList && flatPOList.length > 0) {
-            flatPOList.forEach(item => scanCatalogItem(item));
-        }
-        if(masterCatalog) {
-            for(let k in masterCatalog) {
-                let compObj = masterCatalog[k];
-                if(Array.isArray(compObj)) {
-                    compObj.forEach(item => scanCatalogItem(item, k));
-                } else if(typeof compObj === 'object') {
-                    for(let subKey in compObj) { scanCatalogItem(compObj[subKey], k); }
-                }
-            }
-        }
-
-        let uniqueMatches = [];
-        let seenCodes = new Set();
-        matches.forEach(m => {
-            if(m.code && !seenCodes.has(m.code.toUpperCase())) {
-                seenCodes.add(m.code.toUpperCase());
-                uniqueMatches.push(m);
-            }
-        });
-
-        if(uniqueMatches.length > 0) {
-            let html = "";
-            uniqueMatches.forEach(m => {
-                let escapedName = m.name.replace(/'/g, "\\'");
-                html += `<div class="suggestion-item" onclick="selectRwSuggestion(this, '${m.code}', '${escapedName}', '${m.unit}')">
-                            <span><b>${m.code}</b> - ${m.name}</span>
-                            <span class="item-code-badge">${m.unit}</span>
-                         </div>`;
-            });
-            box.innerHTML = html;
-            box.style.display = "block";
+    // 🌟 YES/NO चेंज होने पर S/N बटन को इनेबल/डिसएबल करना
+    function toggleSNButton(selectEl) {
+        const tr = selectEl.closest('tr');
+        const btn = tr.querySelector('.btn-sn-setup');
+        if (selectEl.value === 'YES') {
+            btn.removeAttribute('disabled');
+            btn.classList.remove('disabled-sn');
+            // अगर Qty भरी हुई है तो तुरंत पॉपअप खोलें
+            const qty = parseInt(tr.querySelector('.item-qty').value) || 0;
+            if(qty > 0) { openSNModal(btn); }
         } else {
-            box.innerHTML = `<div class="no-suggestion-item">⚠️ No Code or Item Found</div>`;
-            box.style.display = "block";
+            btn.setAttribute('disabled', 'disabled');
+            btn.classList.add('disabled-sn');
+            btn.classList.remove('configured');
+            btn.removeAttribute('data-sn');
+            btn.innerText = "S/N";
         }
     }
 
-    window.selectRwSuggestion = function(element, code, name, unit) {
-        let tr = element.closest('tr');
-        tr.querySelector('.rw-code').value = code.toUpperCase();
-        tr.querySelector('.rw-name').value = name;
-        if(tr.querySelector('.rework-unit-select') && unit) {
-            tr.querySelector('.rework-unit-select').value = unit;
-        }
-        let box = element.closest('.suggestions-dropdown');
-        if(box) box.style.display = "none";
-    };
+    function autofillItem(input) {
+        let code = input.value.trim().toUpperCase(); let foundName = "";
+        for(let key in masterCatalog) { const match = masterCatalog[key].find(m => m.code === code); if(match) foundName = match.name; }
+        input.closest('tr').querySelector('.item-name').value = foundName;
+    }
+    
+    function clearSN(input) { 
+        const tr = input.closest('tr');
+        const btn = tr.querySelector('.btn-sn-setup'); 
+        btn.removeAttribute('data-sn'); 
+        btn.classList.remove('configured'); 
+        btn.innerText = "S/N"; 
+    }
 
-    document.addEventListener('click', function(e) {
-        if(!e.target.closest('.search-container')) {
-            document.querySelectorAll('.suggestions-dropdown').forEach(box => box.style.display = "none");
-        }
-    });
+    function openSNModal(btn) {
+        if(btn.hasAttribute('disabled')) return;
+        activeBtnRef = btn; 
+        const qty = parseInt(btn.closest('tr').querySelector('.item-qty').value) || 0;
+        if(qty <= 0) { alert("Please input Quantity first!"); return; }
+        const box = document.getElementById('serialFieldsBox'); box.innerHTML = '';
+        const exist = btn.getAttribute('data-sn') ? JSON.parse(btn.getAttribute('data-sn')) : [];
+        for(let i=0; i<qty; i++) { box.innerHTML += `<input type="text" placeholder="Serial #${i+1}" value="${exist[i]||''}" class="popup-sn-input" style="padding:6px; border:1px solid #ced4da; border-radius:4px;" autocomplete="off">`; }
+        document.getElementById('serialModal').style.display = 'flex';
+    }
+
+    function lockSerials() {
+        let arr = []; const inputs = document.querySelectorAll('.popup-sn-input');
+        inputs.forEach(i => arr.push(i.value.trim()));
+        activeBtnRef.setAttribute('data-sn', JSON.stringify(arr));
+        activeBtnRef.classList.add('configured'); activeBtnRef.innerText = `✔ Loaded (${arr.length})`;
+        document.getElementById('serialModal').style.display = 'none';
+    }
 
     document.getElementById('reworkForm').addEventListener('submit', function(e) {
         e.preventDefault();
+        let items = [];
+        let rows = document.querySelectorAll('#dynamicItemsBody tr');
         
-        const idx = parseInt(document.getElementById('editRowIndex').value);
-        const fbKey = document.getElementById('editFirebaseKey').value;
-        const isDirectMode = document.getElementById('isDirectStock').checked;
-        
-        const currentChallan = document.getElementById('rwChallanNo').value.trim().toUpperCase();
-        const currentParty = document.getElementById('rwPartyName').value.trim().toUpperCase();
+        if(rows.length === 0) { alert("Please add at least one item row!"); return; }
 
-        if (idx === -1 && !isDirectMode) {
-            let isDuplicate = reworkData.some(v => !v.isDirectStock && cleanStr(v.challanNo) === cleanStr(currentChallan) && cleanStr(v.partyName) === cleanStr(currentParty));
-            if (isDuplicate) {
-                alert(`🚫 DUPLICATE CHALLAN REJECTED:\n\nThis Challan Reference already exists under this Party!`);
+        let errorFound = false;
+
+        rows.forEach(row => {
+            const qty = parseInt(row.querySelector('.item-qty').value);
+            const snReq = row.querySelector('.item-sn-req').value;
+            const snData = row.querySelector('.btn-sn-setup').getAttribute('data-sn');
+            const serialsArr = snData ? JSON.parse(snData) : [];
+
+            // 🛑 अगर YES चुना है तो सीरियल नंबर भरना ज़रूरी है
+            if(snReq === 'YES' && serialsArr.length === 0) {
+                alert(`⚠️ Please configure S/N for item: ${row.querySelector('.item-short').value}`);
+                errorFound = true;
                 return;
             }
-        }
 
-        let items = [];
-        let rows = document.querySelectorAll('#reworkItemsBody tr');
-        let seenCodes = [];
-        let blockSubmit = false;
-
-        for(let row of rows) {
-            let pool = row.querySelector('.rework-pool-select').value;
-            let rawCode = row.querySelector('.rw-code').value.trim().toUpperCase();
-            let qty = parseFloat(row.querySelector('.rw-qty').value) || 0;
-            let unit = row.querySelector('.rework-unit-select').value;
-            let name = row.querySelector('.rw-name').value.trim();
-
-            if (seenCodes.includes(cleanStr(rawCode))) {
-                alert(`🚫 Duplicate Row Code Detected: ${rawCode} in this grid list!`);
-                blockSubmit = true; break;
-            }
-            seenCodes.push(cleanStr(rawCode));
-
-            items.push({ pool, code: rawCode, name, qty, unit });
-        }
-
-        if (blockSubmit || items.length === 0) return;
-
-        const rwVoucher = {
-            voucherNo: idx === -1 ? (reworkData.length + 1) : reworkData.find(x => x.fbKey === fbKey).voucherNo,
-            date: document.getElementById('rwDate').value,
-            isDirectStock: isDirectMode,
-            challanNo: isDirectMode ? "DIRECT_STOCK" : currentChallan,
-            challanDate: isDirectMode ? "" : document.getElementById('rwChallanDate').value,
-            gateInNo: isDirectMode ? "DIRECT_ENTRY" : document.getElementById('rwGateInNo').value.trim().toUpperCase(),
-            partyName: isDirectMode ? "INTERNAL ADJUSTMENT" : currentParty,
-            testedBy: document.getElementById('rwTestedBy').value.trim().toUpperCase(),
-            remarks: document.getElementById('rwRemarks').value.trim().toUpperCase(),
-            gridItems: items
-        };
-
-        if(idx === -1) {
-            database.ref('reworkStockVouchers').push(rwVoucher).then(() => { alert("🎉 Record Saved Successfully!"); cancelEditMode(); });
-        } else {
-            database.ref('reworkStockVouchers/' + fbKey).set(rwVoucher).then(() => { alert("🎯 Record Updated Successfully!"); cancelEditMode(); });
-        }
-    });
-
-    function triggerTableRender() { renderTable(); }
-
-    function renderTable() {
-        const b = document.getElementById('rwHistoryBody'); b.innerHTML = '';
-        if(reworkData.length === 0) {
-            b.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:15px; color:#64748b;">No records found on Cloud.</td></tr>`;
-            return;
-        }
-
-        const searchStr = document.getElementById('liveTableSearchBox').value.trim().toUpperCase();
-        const limitVal = document.getElementById('liveTableLimitSelect').value;
-
-        let filtered = reworkData.filter(v => {
-            if(!v) return false;
-            return (v.partyName || "").toUpperCase().includes(searchStr) || 
-                   (v.challanNo || "").toUpperCase().includes(searchStr) || 
-                   (v.remarks || "").toUpperCase().includes(searchStr) ||
-                   (v.gateInNo || "").toUpperCase().includes(searchStr);
+            items.push({ 
+                itemShort: row.querySelector('.item-short').value.toUpperCase(), 
+                itemName: row.querySelector('.item-name').value, 
+                qty: qty, 
+                snReq: snReq,
+                serials: serialsArr 
+            });
         });
 
-        let viewList = limitVal === "ALL" ? filtered : filtered.slice(0, parseInt(limitVal));
+        if(errorFound) return;
 
-        viewList.forEach((v) => {
-            let origIdx = reworkData.findIndex(x => x.fbKey === v.fbKey);
-            let summaryHtml = "";
-            safeConvertToArray(v.gridItems).forEach(item => {
-                summaryHtml += `• [<b>${item.pool}</b>] <code>${item.code}</code> - ${item.name} (<b>${item.qty} ${item.unit}</b>)<br>`;
-            });
+        const idx = parseInt(document.getElementById('editRowIndex').value);
+        const entry = { 
+            date: document.getElementById('rwDate').value, 
+            billDate: document.getElementById('rwBillDate').value,
+            partyName: document.getElementById('rwPartyName').value.trim().toUpperCase(), 
+            dispatch: document.getElementById('rwDispatch').value.trim(), 
+            billNo: document.getElementById('rwBillNo').value.trim(), 
+            gateEntryNo: document.getElementById('rwGateEntryNo').value.trim(), 
+            gridItems: items 
+        };
+        
+        if(idx === -1) {
+            reworkData.push(entry);
+            alert("🎉 Rework Gate In entry saved successfully!");
+        } else {
+            reworkData[idx] = entry;
+            alert("🎯 Entry updated successfully!");
+        }
 
-            let partyDisplay = v.isDirectStock ? `<span style="color:#64748b; font-style:italic;">INTERNAL ADJUSTMENT</span>` : `<b>${v.partyName}</b>`;
-            let challanDisplay = v.isDirectStock ? `<span style="color:#16a34a; font-weight:bold;">📦 DIRECT STOCK</span>` : `No: ${v.challanNo}<br><small style="color:#64748b;">Dt: ${v.challanDate || '-'}</small>`;
+        localStorage.setItem('reworkStockData', JSON.stringify(reworkData));
+        resetReworkForm(); renderHistory();
+    });
 
+    function renderHistory() {
+        const b = document.getElementById('reworkHistoryBody'); b.innerHTML = '';
+        reworkData.forEach((r, idx) => {
+            let desc = r.gridItems.map(i => {
+                let snInfo = (i.serials && i.serials.length > 0) ? ` [S/N: ${i.serials.join(', ')}]` : '';
+                return `${i.itemName} (<b>${i.qty} Nos</b>)${snInfo}`;
+            }).join('<br>');
+            
+            let challanInfo = `No: ${r.billNo}<br>Date: ${r.billDate || 'N/A'}`;
+            
             b.innerHTML += `<tr>
-                <td>GVM-RW-${v.voucherNo}</td>
-                <td>${v.date}</td>
-                <td>${partyDisplay}</td>
-                <td>${challanDisplay}</td>
-                <td style="text-align:left;">${summaryHtml}</td>
-                <td>${v.remarks || '-'}</td>
+                <td>${r.date}</td>
+                <td><b>${r.partyName}</b></td>
+                <td>${challanInfo}</td>
+                <td>${r.gateEntryNo}</td>
+                <td style="text-align:left; font-size:12px;">${desc}</td>
                 <td>
-                    <button type="button" class="btn-print-receipt" onclick='triggerGateInReceipt(${JSON.stringify(v)})'>🖨️ Print</button>
-                    <button type="button" class="btn-edit-action" onclick="editReworkRow(${origIdx})">Edit</button>
-                    <button type="button" class="btn-delete-action" onclick="deleteReworkRow(${origIdx})">Delete</button>
+                    <button type="button" class="btn-print-receipt" onclick='triggerPrintPass(${JSON.stringify(r)})'>🖨️ Print</button>
+                    <button type="button" class="btn-edit-action" onclick="editReworkRow(${idx})">Edit</button>
+                    <button type="button" class="btn-delete-action" onclick="deleteReworkRow(${idx})">Delete</button>
                 </td>
             </tr>`;
         });
     }
 
-    function triggerGateInReceipt(v) {
-        if(!v) return;
-        const shell = document.getElementById('printSection');
-        let rowsHtml = "";
-        safeConvertToArray(v.gridItems).forEach(item => {
-            rowsHtml += `<tr>
-                <td style="border:1px solid #000; padding:4px; font-weight:bold;">${item.code}</td>
-                <td style="border:1px solid #000; padding:4px;">${item.name || 'Material Info'}</td>
-                <td style="border:1px solid #000; padding:4px; text-align:center; font-weight:bold;">${item.pool}</td>
-                <td style="border:1px solid #000; padding:4px; text-align:center; font-weight:bold;">${item.qty} ${item.unit || 'NOS'}</td>
-            </tr>`;
+    function editReworkRow(idx) {
+        const r = reworkData[idx];
+        document.getElementById('editRowIndex').value = idx;
+        
+        document.getElementById('rwDate').value = r.date;
+        document.getElementById('rwBillDate').value = r.billDate || '';
+        document.getElementById('rwPartyName').value = r.partyName;
+        document.getElementById('rwDispatch').value = r.dispatch;
+        document.getElementById('rwBillNo').value = r.billNo;
+        document.getElementById('rwGateEntryNo').value = r.gateEntryNo;
+
+        const body = document.getElementById('dynamicItemsBody');
+        body.innerHTML = '';
+        
+        r.gridItems.forEach(item => {
+            const tr = document.createElement('tr');
+            const isYes = item.snReq === 'YES' || (item.serials && item.serials.length > 0);
+            const snText = (item.serials && item.serials.length > 0) ? `✔ Loaded (${item.serials.length})` : 'S/N';
+            const snClass = (item.serials && item.serials.length > 0) ? 'btn-sn-setup configured' : (isYes ? 'btn-sn-setup' : 'btn-sn-setup disabled-sn');
+            const disabledAttr = isYes ? '' : 'disabled';
+
+            tr.innerHTML = `
+                <td><input type="text" required class="item-short" value="${item.itemShort}" oninput="autofillItem(this)" style="text-transform:uppercase;"></td>
+                <td><input type="text" required class="item-name" value="${item.itemName}"></td>
+                <td><input type="number" min="1" required class="item-qty" value="${item.qty}" oninput="clearSN(this)"></td>
+                <td>
+                    <select class="item-sn-req" onchange="toggleSNButton(this)">
+                        <option value="NO" ${!isYes ? 'selected' : ''}>NO</option>
+                        <option value="YES" ${isYes ? 'selected' : ''}>YES</option>
+                    </select>
+                </td>
+                <td><button type="button" class="${snClass}" ${disabledAttr} data-sn='${JSON.stringify(item.serials || [])}' onclick="openSNModal(this)">${snText}</button></td>
+                <td><button type="button" class="btn-row-remove" onclick="this.closest('tr').remove()">×</button></td>`;
+            body.appendChild(tr);
         });
 
-        let isDirect = v.isDirectStock || false;
-
-        shell.innerHTML = `
-            <div style="border:1px solid #000; padding:6px; height:100%; box-sizing:border-box; display:flex; flex-direction:column; justify-content:space-between;">
-                <div style="text-align:center; font-weight:bold; font-size:12px; border-bottom:1px solid #000; padding-bottom:2px; text-transform:uppercase;">GVM RAIL PVT LTD - ${isDirect ? 'DIRECT STOCK ADJUSTMENT REPORT' : 'GATE IN REWORK REPORT'}</div>
-                <table style="width:100%; font-size:11px; margin-top:2px; line-height:1.2;">
-                    <tr><td><b>${isDirect ? 'Adjustment Voucher:' : 'Gate In No:'}</b> ${isDirect ? 'GVM-STK-'+v.voucherNo : (v.gateInNo || 'N/A')}</td><td><b>Date:</b> ${v.date}</td></tr>
-                    ${isDirect ? '' : `<tr><td><b>Challan Ref No:</b> ${v.challanNo}</td><td><b>Challan Date:</b> ${v.challanDate || 'N/A'}</td></tr>`}
-                    <tr><td><b>${isDirect ? 'Entry Mode:' : 'Party Name:'}</b> ${isDirect ? 'Direct / Opening Stock' : v.partyName}</td><td><b>Processed By:</b> ${v.testedBy || 'N/A'}</td></tr>
-                    <tr><td colspan="2"><b>Adjustment Notes:</b> ${v.remarks || 'N/A'}</td></tr>
-                </table>
-                <table style="width:100%; border-collapse:collapse; margin-top:5px; font-size:10px;">
-                    <thead>
-                        <tr style="background:#eee;">
-                            <th style="border:1px solid #000; padding:4px; text-align:left;">Part / Model Code</th>
-                            <th style="border:1px solid #000; padding:4px; text-align:left;">Description</th>
-                            <th style="border:1px solid #000; padding:4px;">Stock Pool</th>
-                            <th style="border:1px solid #000; padding:4px;">Qty</th>
-                        </tr>
-                    </thead>
-                    <tbody>${rowsHtml}</tbody>
-                </table>
-                <div style="text-align:right; font-weight:bold; font-size:9px; margin-top:15px;">Authorized Stock Signature</div>
-            </div>`;
-        window.print();
+        document.getElementById('formTitleRework').innerText = "🛠️ Modify/Edit Rework Gate In Entry";
+        document.getElementById('btnSubmitForm').innerText = "Update Rework Entry";
+        document.getElementById('btnCancelEdit').style.display = "inline-block";
+        document.getElementById('reworkForm').scrollIntoView({ behavior: 'smooth' });
     }
 
-    window.editReworkRow = function(origIdx) {
-        const d = reworkData[origIdx]; if(!d) return;
-        document.getElementById('editRowIndex').value = origIdx;
-        document.getElementById('editFirebaseKey').value = d.fbKey;
+    function resetReworkForm() {
+        document.getElementById('editRowIndex').value = "-1";
+        document.getElementById('reworkForm').reset();
+        document.getElementById('dynamicItemsBody').innerHTML = '';
         
-        document.getElementById('isDirectStock').checked = d.isDirectStock || false;
-        toggleDirectStockMode();
+        document.getElementById('formTitleRework').innerText = "🛠️ Gate In (Rework) Ledger";
+        document.getElementById('btnSubmitForm').innerText = "Save Rework Gate In";
+        document.getElementById('btnCancelEdit').style.display = "none";
+        applyLiveDateRestrictions();
+        addReworkRow();
+    }
 
-        document.getElementById('rwDate').value = d.date;
-        if(!d.isDirectStock) {
-            document.getElementById('rwChallanNo').value = d.challanNo;
-            document.getElementById('rwChallanDate').value = d.challanDate || "";
-            document.getElementById('rwGateInNo').value = d.gateInNo || "";
-            document.getElementById('rwPartyName').value = d.partyName;
-        }
-        
-        document.getElementById('rwTestedBy').value = d.testedBy || "";
-        document.getElementById('rwRemarks').value = d.remarks || "";
-
-        const body = document.getElementById('reworkItemsBody'); body.innerHTML = '';
-        safeConvertToArray(d.gridItems).forEach(item => {
-            addRwRow(item.pool, item.unit);
-            let lastRow = body.lastElementChild;
-            lastRow.querySelector('.rw-code').value = item.code;
-            lastRow.querySelector('.rw-name').value = item.name;
-            lastRow.querySelector('.rw-qty').value = item.qty;
-        });
-
-        document.getElementById('formTitleRework').innerText = "🛠️ Modify / Edit Gate In Rework Voucher";
-        document.getElementById('reworkForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
-    };
+    function cancelEditMode() { resetReworkForm(); }
 
     function deleteReworkRow(idx) {
-        activeDeleteRowIdx = idx;
-        document.getElementById('secretModalPasswordField').value = "";
-        document.getElementById('secretPasswordModal').style.display = "flex";
-        document.getElementById('secretModalPasswordField').focus();
-    }
-
-    function closeSecretPasswordModal() { document.getElementById('secretPasswordModal').style.display = "none"; }
-
-    function submitSecretDeletePassword() {
-        const pass = document.getElementById('secretModalPasswordField').value;
-        if (btoa(pass) === "NzAwNA==") {
-            database.ref('reworkStockVouchers/' + reworkData[activeDeleteRowIdx].fbKey).remove().then(() => {
-                alert("🗑️ Success: Record completely wiped out.");
-                closeSecretPasswordModal(); cancelEditMode();
-            });
-        } else {
-            alert("❌ Access Denied: Incorrect Password!");
-            closeSecretPasswordModal();
+        if(confirm("Are you sure you want to permanently delete this rework entry from logs?")) {
+            reworkData.splice(idx, 1);
+            localStorage.setItem('reworkStockData', JSON.stringify(reworkData));
+            renderHistory();
+            resetReworkForm();
         }
     }
 
-    function cancelEditMode() {
-        document.getElementById('reworkForm').reset();
-        document.getElementById('reworkItemsBody').innerHTML = '';
-        document.getElementById('isDirectStock').checked = false;
-        toggleDirectStockMode();
+    function triggerPrintPass(e) {
+        const shell = document.getElementById('printSection'); 
+        let lines = ''; 
+        e.gridItems.forEach(i => { 
+            let snText = (i.serials && i.serials.length > 0) ? i.serials.join(', ') : 'N/A';
+            lines += `• <b>${i.itemName}</b> [${i.itemShort}] - Qty: ${i.qty} NOS (S/Ns: ${snText})<br>`; 
+        });
         
-        document.getElementById('formTitleRework').innerText = "🛠️ Gate In (Rework/Repair) Controller";
-        document.getElementById('editRowIndex').value = "-1";
-        document.getElementById('editFirebaseKey').value = "";
-        applyLiveDateRestrictions(); addRwRow();
+        shell.innerHTML = `
+            <div style="border:1px solid #000; padding:6px; height:100%; box-sizing:border-box; display:flex; flex-direction:column; justify-content:space-between;">
+                <div style="text-align:center; font-weight:bold; font-size:12px; border-bottom:1px solid #000; padding-bottom:2px; text-transform:uppercase;">GVM RAIL PVT LTD - REWORK INWARD</div>
+                
+                <table style="width:100%; font-size:11px; margin-top:2px; line-height:1.2;">
+                    <tr>
+                        <td><b>Gate In Date:</b> ${e.date}</td>
+                        <td><b>Gate In No:</b> ${e.gateEntryNo}</td>
+                    </tr>
+                    <tr>
+                        <td><b>Bill / Challan No:</b> ${e.billNo}</td>
+                        <td><b>Party Name:</b> ${e.partyName}</td>
+                    </tr>
+                    <tr>
+                        <td colspan="2"><b>Challan Date:</b> ${e.billDate || 'N/A'} | <b>Dispatch Ref:</b> ${e.dispatch || 'N/A'}</td>
+                    </tr>
+                </table>
+
+                <div style="margin-top:4px; font-size:10px; border-top:1px solid #eee; padding-top:2px; flex-grow:1;">
+                    <b>ITEMS DETAILS:</b><br>${lines}
+                </div>
+                <div style="text-align:right; font-weight:bold; font-size:9px; margin-top:2px;">Receiver Signature</div>
+            </div>`;
+        window.print();
     }
 
     function applyLiveDateRestrictions() {
         const todayStr = new Date().toISOString().split('T')[0];
         document.getElementById('rwDate').setAttribute('max', todayStr);
+        document.getElementById('rwBillDate').setAttribute('max', todayStr);
         document.getElementById('rwDate').value = todayStr;
-        document.getElementById('rwChallanDate').value = todayStr;
-        document.getElementById('rwFromDate').value = todayStr;
-        document.getElementById('goToDate').value = todayStr;
+        document.getElementById('rwBillDate').value = todayStr;
     }
 
     applyLiveDateRestrictions();
-    addRwRow();
+    renderHistory();
+    addReworkRow();
 </script>
 </body>
 </html>
