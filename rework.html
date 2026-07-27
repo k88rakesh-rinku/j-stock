@@ -456,7 +456,7 @@
         }
     });
 
-    // 📊 RENDER HISTORY TABLE WITH SEARCH & LIMIT
+    // 📊 RENDER HISTORY TABLE WITH SEARCH & LIMIT (🔍 Item Code Search & Display Fixed)
     function renderHistory() {
         const b = document.getElementById('reworkHistoryBody'); b.innerHTML = '';
         if(!reworkData || reworkData.length === 0) {
@@ -469,19 +469,31 @@
 
         let filtered = reworkData.filter(v => {
             if(!v) return false;
-            return (v.partyName || "").toUpperCase().includes(searchStr) || 
-                   (v.billNo || "").toUpperCase().includes(searchStr) || 
-                   (v.gateEntryNo || "").toUpperCase().includes(searchStr);
+            let partyMatch = (v.partyName || "").toUpperCase().includes(searchStr);
+            let billMatch = (v.billNo || "").toUpperCase().includes(searchStr);
+            let gateMatch = (v.gateEntryNo || "").toUpperCase().includes(searchStr);
+            
+            // 🌟 ITEM CODE & NAME FILTER MATCH
+            let itemMatch = safeConvertToArray(v.gridItems).some(i => {
+                let code = (i.itemShort || i.code || "").toUpperCase();
+                let name = (i.itemName || i.name || "").toUpperCase();
+                return code.includes(searchStr) || name.includes(searchStr);
+            });
+
+            return partyMatch || billMatch || gateMatch || itemMatch;
         });
 
         let viewList = limitVal === "ALL" ? filtered : filtered.slice(0, parseInt(limitVal));
 
         viewList.forEach((r) => {
             let origIdx = reworkData.findIndex(x => x.fbKey === r.fbKey);
+            
+            // 🌟 CODE DISPLAY IN HISTORY
             let desc = safeConvertToArray(r.gridItems).map(i => {
                 let poolLabel = i.pool ? `[<b>${i.pool}</b>] ` : '';
+                let itemCodeStr = (i.itemShort || i.code) ? `(<b>${i.itemShort || i.code}</b>) ` : '';
                 let snInfo = (i.serials && i.serials.length > 0) ? ` [S/N: ${i.serials.join(', ')}]` : '';
-                return `• ${poolLabel}${i.itemName || i.itemShort} (<b>${i.qty} Nos</b>)${snInfo}`;
+                return `• ${poolLabel}${itemCodeStr}${i.itemName || ''} (<b>${i.qty} Nos</b>)${snInfo}`;
             }).join('<br>');
             
             let challanInfo = `No: ${r.billNo}<br>Date: ${r.billDate || 'N/A'}`;
@@ -532,11 +544,11 @@
                     </select>
                 </td>
                 <td class="search-container">
-                    <input type="text" required class="item-short" value="${item.itemShort}" oninput="handleItemInput(this, 'code')" style="text-transform:uppercase;">
+                    <input type="text" required class="item-short" value="${item.itemShort || item.code || ''}" oninput="handleItemInput(this, 'code')" style="text-transform:uppercase;">
                     <div class="suggestions-dropdown"></div>
                 </td>
                 <td class="search-container">
-                    <input type="text" required class="item-name" value="${item.itemName}" oninput="handleItemInput(this, 'name')">
+                    <input type="text" required class="item-name" value="${item.itemName || ''}" oninput="handleItemInput(this, 'name')">
                     <div class="suggestions-dropdown"></div>
                 </td>
                 <td><input type="number" min="1" required class="item-qty" value="${item.qty}" oninput="clearSN(this)"></td>
@@ -587,8 +599,9 @@
         let lines = ''; 
         safeConvertToArray(e.gridItems).forEach(i => { 
             let poolText = i.pool ? `[${i.pool}] ` : '';
+            let itemCodeStr = (i.itemShort || i.code) ? `[${i.itemShort || i.code}] ` : '';
             let snText = (i.serials && i.serials.length > 0) ? i.serials.join(', ') : 'N/A';
-            lines += `• ${poolText}<b>${i.itemName}</b> [${i.itemShort}] - Qty: ${i.qty} NOS (S/Ns: ${snText})<br>`; 
+            lines += `• ${poolText}<b>${i.itemName}</b> ${itemCodeStr}- Qty: ${i.qty} NOS (S/Ns: ${snText})<br>`; 
         });
         
         shell.innerHTML = `
