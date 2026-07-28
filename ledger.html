@@ -8,55 +8,17 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
     <style>
-        /* टैब नेविगेशन स्टाइल */
-        .ledger-tabs { display: flex; gap: 10px; margin: 20px 0 15px 0; border-bottom: 2px solid #cbd5e1; padding-bottom: 8px; }
-        .ledger-tab-btn { padding: 10px 20px; font-size: 14px; font-weight: bold; border: none; background: #e2e8f0; color: #475569; border-radius: 6px; cursor: pointer; transition: all 0.2s; }
-        .ledger-tab-btn.active { background: #1e3a8a; color: white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
-        .ledger-tab-btn:hover:not(.active) { background: #cbd5e1; }
-
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
-
-        /* फ़िल्टर और सर्च बार पैनल */
-        .control-panel { display: flex; justify-content: space-between; align-items: center; background: #f8fafc; padding: 12px 18px; border: 1px solid #cbd5e1; border-radius: 6px; margin-bottom: 15px; gap: 15px; flex-wrap: wrap; }
-        .panel-left { display: flex; gap: 10px; align-items: center; }
-        .panel-right { display: flex; gap: 10px; align-items: center; }
-
-        .select-filter { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; font-weight: bold; background: #fff; cursor: pointer; }
-        .search-box { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; width: 280px; text-transform: uppercase; }
-
-        .tabs-nav a { background-color: #e2e8f0; color: #334155; font-weight: 500; transition: all 0.3s; padding: 8px 12px; display: inline-block; border-radius: 4px; text-decoration: none; margin-right: 4px; }
-        .tabs-nav a:hover { background-color: #cbd5e1; }
-        .tabs-nav a.active-ledger { background-color: #1e3a8a !important; color: white !important; font-weight: bold; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
-
-        code { background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-family: monospace; font-weight: bold; color: #0f172a; }
-        .badge-stock { padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 13px; display: inline-block; text-align: center; }
-        .badge-plus { background: #dcfce7; color: #15803d; }
-        .badge-rework { background: #e0f2fe; color: #0369a1; }
-        .badge-zero { background: #fee2e2; color: #b91c1c; }
-        .btn-excel { background: #16a34a; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .table-filter-panel { display: flex; justify-content: space-between; align-items: center; background: #f1f5f9; padding: 10px 15px; border-radius: 6px; border: 1px solid #cbd5e1; margin-bottom: 15px; gap: 15px; flex-wrap: wrap; }
+        .search-input-box { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; width: 280px; text-transform: uppercase; }
         
-        .btn-view-action { background-color: #64748b; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; }
-        .btn-view-action:hover { background-color: #475569; }
+        .stock-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+        .stock-table th { background-color: var(--primary, #1e3a8a); color: white; padding: 10px; text-align: left; }
+        .stock-table td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; }
+        .stock-table tr:hover { background-color: #f8fafc; }
 
-        /* History Modal Styling */
-        .history-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 10000; }
-        .history-modal-content { background: white; padding: 20px; border-radius: 8px; width: 850px; max-width: 95%; max-height: 85vh; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
-        .modal-header-title { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 15px; }
-        .modal-close-btn { background: #ef4444; color: white; border: none; padding: 5px 12px; font-weight: bold; border-radius: 4px; cursor: pointer; }
-        .sub-modal-table { width: 100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 15px; }
-        .sub-modal-table th { background: #475569; color: white; padding: 8px; font-size: 12px; text-align: left; }
-        .sub-modal-table td { padding: 8px; border: 1px solid #e2e8f0; font-size: 12px; }
-        .btn-modal-download { background: #0284c7; color: white; border: none; padding: 6px 12px; font-size: 12px; border-radius: 4px; font-weight: bold; cursor: pointer; }
-
-        /* 🌟 नया अपग्रेड: पॉपअप के अंदर लाइव सर्च + डेट रेंज फ़िल्टर पैनल */
-        .modal-search-wrapper { background: #f8fafc; border: 1px solid #cbd5e1; padding: 12px 15px; border-radius: 6px; margin: 10px 0 15px 0; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-        .modal-search-box { padding: 8px 12px; border: 1px solid #94a3b8; border-radius: 4px; font-size: 13px; flex: 1; min-width: 200px; text-transform: uppercase; font-weight: bold; color: #1e3a8a; background: #fff; box-sizing: border-box; }
-        .modal-search-box:focus { border-color: #1e3a8a; outline: none; }
-        .modal-date-group { display: flex; gap: 8px; align-items: center; background: #f1f5f9; padding: 4px 10px; border-radius: 4px; border: 1px solid #cbd5e1; }
-        .modal-date-input { padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 12px; font-weight: bold; cursor: pointer; }
-        .btn-modal-clear-date { background: #64748b; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 11px; }
-        .btn-modal-clear-date:hover { background: #475569; }
+        .badge-fresh { background: #dcfce7; color: #15803d; padding: 3px 8px; border-radius: 4px; font-weight: bold; }
+        .badge-rework { background: #fef9c3; color: #a16207; padding: 3px 8px; border-radius: 4px; font-weight: bold; }
+        .badge-out { background: #fee2e2; color: #b91c1c; padding: 3px 8px; border-radius: 4px; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -72,7 +34,7 @@
         <a href="gateout.html" class="tab-link">🚪 Gate Out (Dispatch)</a>
         <a href="debit.html" class="tab-link">🧾 Debit Note (Vendor)</a>
         <a href="code.html" class="tab-link">🆕 Generate Code</a>
-        <a href="ledger.html" class="tab-link active-ledger">📊 Master Ledger & History</a>
+        <a href="ledger.html" class="tab-link active-rework" style="background-color: var(--primary, #1e3a8a); color: white;">📊 Master Ledger & History</a>
         <a href="users.html" class="tab-link">👥 Manage Users</a>
         <a href="bom.html" class="tab-link">🔗 BOM Master</a>
         <a href="failure.html" class="tab-link">🛠️ Failure Defect Log</a>
@@ -80,151 +42,34 @@
         <a href="reject_bin.html" class="tab-link">🗑️ Rejection Bin</a>
     </div>
 
-    <div class="ledger-tabs">
-        <button class="ledger-tab-btn active" onclick="switchLedgerTab('po-tab', this)">📊 PO Ledger</button>
-        <button class="ledger-tab-btn" onclick="switchLedgerTab('stock-tab', this)">🏬 Fresh Stock</button>
-        <button class="ledger-tab-btn" onclick="switchLedgerTab('rework-tab', this)">🛠️Rework Stock</button>
-    </div>
+    <h3 style="color:var(--primary, #1e3a8a); margin: 15px 0 10px 0;">📊 Live Stock Master Ledger</h3>
 
-    <div id="po-tab" class="tab-content active">
-        <div class="control-panel">
-            <div class="panel-left">
-                <input type="text" id="poSearchBox" class="search-box" placeholder="🔍 Search PO No, Code, Name..." autocomplete="off" oninput="renderPoLedgerTable()">
-            </div>
-            <div class="panel-left">
-                <label style="font-weight: bold; font-size: 13px; color:#475569;">Status:</label>
-                <select id="poStatusDropdown" class="select-filter" onchange="renderPoLedgerTable()">
-                    <option value="ACTIVE">Active PO Only</option>
-                    <option value="COMPLETED">Completed PO Only</option>
-                    <option value="ALL">All PO Records</option>
-                </select>
-            </div>
-            <div class="form-group" style="margin-bottom:0; flex-direction:row; align-items:center; gap:5px;">
-                <label style="font-weight: bold; font-size: 13px; color:#475569;">Show:</label>
-                <select id="poLimitDropdown" class="select-filter" onchange="renderPoLedgerTable()">
-                    <option value="5" selected>5 Records</option>
-                    <option value="10">10 Records</option>
-                    <option value="15">15 Records</option>
-                    <option value="ALL">Show All PO</option>
-                </select>
-            </div>
-            <div class="panel-right">
-                <button class="btn-excel" onclick="exportPoLedgerToExcel()">Download PO Report</button>
-            </div>
+    <div class="table-filter-panel">
+        <div>
+            <input type="text" id="ledgerSearchBox" class="search-input-box" placeholder="🔍 Search Item Code or Description..." oninput="renderMasterLedger()">
         </div>
-
-        <div class="table-responsive">
-            <table class="history-table" id="poLedgerTableHead">
-                <thead style="background-color: #334155; color: white;">
-                    <tr>
-                        <th>PO No</th><th>Model Code</th><th>Item Name</th><th>Total PO Qty</th>
-                        <th>Total Received</th><th>Pending Balance</th><th>Last Updated Date</th><th>Status</th>
-                    </tr>
-                </thead>
-                <tbody id="poLedgerItemsBody"></tbody>
-            </table>
+        <div>
+            <span style="font-weight:bold; color:#475569;">Total Items Tracked: </span>
+            <span id="totalItemsCount" style="font-weight:bold; color:#1e3a8a;">0</span>
         </div>
     </div>
 
-    <div id="stock-tab" class="tab-content">
-        <div class="control-panel">
-            <div class="panel-left">
-                <input type="text" id="stockSearchBox" class="search-box" placeholder="🔍 Type Model Code or Item Name..." autocomplete="off" oninput="renderPhysicalStockTable()">
-            </div>
-            <div class="form-group" style="margin-bottom:0; flex-direction:row; align-items:center; gap:5px;">
-                <label style="font-weight: bold; font-size: 13px; color:#475569;">Show Records:</label>
-                <select id="stockLimitDropdown" class="select-filter" onchange="renderPhysicalStockTable()">
-                    <option value="5" selected>5 Records</option>
-                    <option value="10">10 Records</option>
-                    <option value="15">15 Records</option>
-                    <option value="ALL">Show All Stock</option>
-                </select>
-            </div>
-            <div class="panel-right">
-                <button class="btn-excel" style="background:#16a34a;" onclick="exportPhysicalStockToExcel()">Download Fresh Stock Excel</button>
-            </div>
-        </div>
-
-        <div class="table-responsive">
-            <table class="history-table" id="freshStockTableHead">
-                <thead style="background-color: #1e3a8a; color: white;">
-                    <tr>
-                        <th>Model Part Code</th><th>Description / Item Name</th>
-                        <th>Total Fresh Inward</th><th>Total Fresh Out (BOM)</th><th>Live Available Fresh Stock</th><th>Last Updated Date</th><th>Action</th>
-                    </tr>
-                </thead>
-                <tbody id="physicalStockBody"></tbody>
-            </table>
-        </div>
-    </div>
-
-    <div id="rework-tab" class="tab-content">
-        <div class="control-panel">
-            <div class="panel-left">
-                <input type="text" id="reworkSearchBox" class="search-box" placeholder="🔍 Type Model Code or Item Name..." autocomplete="off" oninput="renderReworkStockTable()">
-            </div>
-            <div class="form-group" style="margin-bottom:0; flex-direction:row; align-items:center; gap:5px;">
-                <label style="font-weight: bold; font-size: 13px; color:#475569;">Show Records:</label>
-                <select id="reworkLimitDropdown" class="select-filter" onchange="renderReworkStockTable()">
-                    <option value="5" selected>5 Records</option>
-                    <option value="10">10 Records</option>
-                    <option value="15">15 Records</option>
-                    <option value="ALL">Show All Rework</option>
-                </select>
-            </div>
-            <div class="panel-right">
-                <button class="btn-excel" style="background:#0369a1;" onclick="exportReworkStockToExcel()">Download Rework Excel</button>
-            </div>
-        </div>
-
-        <div class="table-responsive">
-            <table class="history-table" id="reworkStockTableHead">
-                <thead style="background-color: #0369a1; color: white;">
-                    <tr>
-                        <th>Model Part Code</th><th>Description / Item Name</th>
-                        <th>Total Rework Gate In</th><th>Total Rework Dispatched</th><th>Live Available Rework Stock</th><th>Last Updated Date</th><th>Action</th>
-                    </tr>
-                </thead>
-                <tbody id="reworkStockBody"></tbody>
-            </table>
-        </div>
-    </div>
-</div>
-
-<div id="itemHistoryModal" class="history-modal">
-    <div class="history-modal-content">
-        <div class="modal-header-title">
-            <h3 id="modalItemTitle" style="margin:0; color:#1e3a8a;">📋 Item Lifecycle Statement</h3>
-            <div>
-                <button class="btn-modal-download" id="btnModalDownloadCSV" onclick="exportModalStatementToCSV()">📥 Download Statement</button>
-                <button class="modal-close-btn" onclick="closeHistoryModal()" style="margin-left:10px;">X Close</button>
-            </div>
-        </div>
-        <div style="margin-bottom:15px;"><b style="color:#475569;">Part Code:</b> <code id="modalPartCodeLabel" style="font-size:14px;">-</code></div>
-        
-        <div class="modal-search-wrapper">
-            <span style="font-weight: bold; font-size: 13px; color: #1e3a8a; white-space: nowrap;">🔍 Filter Popup Records:</span>
-            <input type="text" id="modalBillSearchBox" class="modal-search-box" placeholder="Type Bill, Party, Location to filter..." oninput="filterModalTablesByBill()">
-            
-            <div class="modal-date-group">
-                <label style="font-size: 11px; font-weight: bold; color: #475569;">From:</label>
-                <input type="date" id="modalFromDate" class="modal-date-input" onchange="filterModalTablesByBill()">
-                <label style="font-size: 11px; font-weight: bold; color: #475569;">To:</label>
-                <input type="date" id="modalToDate" class="modal-date-input" onchange="filterModalTablesByBill()">
-                <button type="button" class="btn-modal-clear-date" onclick="clearModalDateFilters()">Clear Date</button>
-            </div>
-        </div>
-
-        <h4 style="color:#16a34a; margin: 10px 0 5px 0;">📥 Inward Logs (Store Received History)</h4>
-        <table class="sub-modal-table" id="modalInwardTable">
-            <thead><tr><th>Date</th><th>Ref No / Bill Ref</th><th>Source Party</th><th>Type Pool</th><th>Qty Received</th></tr></thead>
-            <tbody id="modalInwardTableBody"></tbody>
-        </table>
-
-        <h4 style="color:#ef4444; margin: 20px 0 5px 0;">📤 Outward Logs (Store Dispatched / BOM Deducted History)</h4>
-        <table class="sub-modal-table" id="modalOutwardTable">
-            <thead><tr><th>Date</th><th>Voucher No / Doc Ref</th><th>Destination Location</th><th>Type Pool</th><th>Qty Deducted</th></tr></thead>
-            <tbody id="modalOutwardTableBody"></tbody>
+    <div class="table-responsive">
+        <table class="stock-table">
+            <thead>
+                <tr>
+                    <th>Item Code</th>
+                    <th>Item Name / Description</th>
+                    <th>Total Fresh Inward</th>
+                    <th>Gate Out (BOM)</th>
+                    <th>Fresh Adjustments</th>
+                    <th>Live Fresh Available</th>
+                    <th>Live Rework Pool Stock</th>
+                </tr>
+            </thead>
+            <tbody id="masterLedgerBody">
+                <tr><td colspan="7" style="text-align:center; padding:15px; color:#64748b;">Loading Cloud Ledger Data...</td></tr>
+            </tbody>
         </table>
     </div>
 </div>
@@ -239,562 +84,168 @@
         messagingSenderId: "202991207119",
         appId: "1:202991207119:web:2246ffb7b92f9eb0c4adba"
     };
-    firebase.initializeApp(firebaseConfig);
+    if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
     const database = firebase.database();
 
     const session = JSON.parse(localStorage.getItem('activeSession'));
     if(!session) { window.location.href = 'login.html'; }
+
     function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
 
-    let catalogFlatList = []; let inboundVouchers = []; let reworkInboundVouchers = []; let outwardDispatches = []; let bomFormulaList = [];
-    
-    const cleanStr = (str) => String(str || "").trim().toUpperCase().replace(/[\s\-]+/g, '');
-    function safeConvertToArray(rawVal) { return rawVal ? (Array.isArray(rawVal) ? rawVal : Object.values(rawVal)) : []; }
+    let freshData = [];
+    let gateoutData = [];
+    let reworkData = [];
+    let catalogMap = {};
 
-    const formatQtyDisplay = (val) => {
-        let num = parseFloat(val || 0);
-        return num % 1 === 0 ? num.toString() : num.toFixed(3);
-    };
+    const cleanStr = (str) => String(str || "").trim().toUpperCase().replace(/\s+/g, '');
 
-    function switchLedgerTab(tabId, btn) {
-        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-        document.querySelectorAll('.ledger-tab-btn').forEach(b => b.classList.remove('active'));
-        document.getElementById(tabId).classList.add('active');
-        btn.classList.add('active');
+    function safeConvertToArray(rawVal) {
+        if (!rawVal) return [];
+        return Array.isArray(rawVal) ? rawVal : Object.values(rawVal);
     }
 
-    database.ref('systemMasterCatalogFlat').on('value', (snap) => { catalogFlatList = safeConvertToArray(snap.val()); calculateMasterLogic(); });
-    database.ref('freshStockVouchers').on('value', (snap) => { inboundVouchers = safeConvertToArray(snap.val()); calculateMasterLogic(); });
-    database.ref('reworkStockVouchers').on('value', (snap) => { reworkInboundVouchers = safeConvertToArray(snap.val()); calculateMasterLogic(); });
-    database.ref('gateoutStockData').on('value', (snap) => { outwardDispatches = safeConvertToArray(snap.val()); calculateMasterLogic(); });
-    database.ref('bomMasterData').on('value', (snap) => { bomFormulaList = safeConvertToArray(snap.val()); calculateMasterLogic(); });
-
-    function calculateMasterLogic() { renderPoLedgerTable(); renderPhysicalStockTable(); renderReworkStockTable(); }
-
-    // 1. PO LEDGER TABLE
-    function renderPoLedgerTable() {
-        const tbody = document.getElementById('poLedgerItemsBody'); tbody.innerHTML = '';
-        if (catalogFlatList.length === 0) return;
-        const searchStr = document.getElementById('poSearchBox').value.trim().toUpperCase();
-        const poFilter = document.getElementById('poStatusDropdown').value;
-        const limitVal = document.getElementById('poLimitDropdown').value;
-
-        let poSummaryMap = {}; let poDateMap = {};
-
-        inboundVouchers.forEach(v => {
-            if(!v) return;
-            let currentPoNo = v.poNo ? v.poNo.trim().toUpperCase() : "";
-            let entryDate = v.gateInDate || v.billDate || v.date || "";
-            safeConvertToArray(v.gridItems).forEach(item => {
-                if(!item) return;
-                let innerCode = item.modelCode || item.itemCode || item.code || "";
-                if(!innerCode) return;
-                let key = currentPoNo + "|||" + innerCode.trim().toUpperCase();
-                poSummaryMap[key] = (poSummaryMap[key] || 0) + parseFloat(item.qty || item.receiveQty || item.quantity || 0);
-                if (entryDate && (!poDateMap[key] || entryDate > poDateMap[key])) poDateMap[key] = entryDate;
-            });
-        });
-
-        let filteredCatalog = catalogFlatList.filter(c => {
-            if(!c || !c.poNumber) return false;
-            let key = c.poNumber.trim().toUpperCase() + "|||" + c.code.trim().toUpperCase();
-            let received = poSummaryMap[key] || 0;
-            let poQty = parseFloat(c.qty || c.poTotalQty || 0);
-            let isCompleted = (poQty - received) <= 0;
-            if(poFilter === 'ACTIVE' && isCompleted) return false;
-            if(poFilter === 'COMPLETED' && !isCompleted) return false;
-            return c.poNumber.toUpperCase().includes(searchStr) || c.code.toUpperCase().includes(searchStr) || c.name.toUpperCase().includes(searchStr);
-        });
-
-        if(limitVal !== 'ALL') filteredCatalog = filteredCatalog.slice(0, parseInt(limitVal));
-
-        filteredCatalog.forEach(c => {
-            let key = c.poNumber.trim().toUpperCase() + "|||" + c.code.trim().toUpperCase();
-            let received = poSummaryMap[key] || 0;
-            let poQty = parseFloat(c.qty || c.poTotalQty || 0);
-            let pending = poQty - received; if(pending < 0) pending = 0;
-            let unit = c.poUnit || "NOS";
-            let lastDate = poDateMap[key] ? poDateMap[key] : "-";
-
-            tbody.innerHTML += `<tr><td><code>${c.poNumber}</code></td><td><code>${c.code}</code></td><td>${c.name}</td><td><b>${formatQtyDisplay(poQty)} ${unit}</b></td><td style="color:#0284c7;">${formatQtyDisplay(received)} ${unit}</td><td style="color:${pending>0?'#dc2626':'#16a34a'}">${formatQtyDisplay(pending)} ${unit}</td><td style="color:#475569; font-weight:bold;">${lastDate}</td><td>${pending===0?'✅ Complete':'⏳ Active'}</td></tr>`;
-        });
-    }
-
-    // 2. LIVE FRESH STOCK TABLE (Consolidated)
-    function renderPhysicalStockTable() {
-        const tbody = document.getElementById('physicalStockBody'); tbody.innerHTML = '';
-        const searchStr = document.getElementById('stockSearchBox').value.trim().toUpperCase();
-        const limitVal = document.getElementById('stockLimitDropdown').value;
-
-        let globalFreshInMap = {}; let itemNamesMap = {}; let itemUnitsMap = {}; let freshDateMap = {};
-
-        inboundVouchers.forEach(v => {
-            if (!v) return;
-            let entryDate = v.gateInDate || v.billDate || v.date || "";
-            
-            let baseCode = v.modelCode || v.itemCode || v.code || v.partCode || "";
-            if (baseCode) {
-                let displayKey = baseCode.trim().toUpperCase();
-                globalFreshInMap[displayKey] = (globalFreshInMap[displayKey] || 0) + parseFloat(v.qty || v.receiveQty || v.passedQty || v.quantity || 0);
-                if (v.modelName || v.itemName) itemNamesMap[displayKey] = String(v.modelName || v.itemName || '').toUpperCase();
-                if (v.unit) itemUnitsMap[displayKey] = v.unit.trim().toUpperCase();
-                if (entryDate && (!freshDateMap[displayKey] || entryDate > freshDateMap[displayKey])) freshDateMap[displayKey] = entryDate;
+    // 📡 SYNC ALL NODES FROM FIREBASE
+    database.ref('systemMasterCatalogFlat').on('value', (snap) => {
+        const val = snap.val();
+        if(val) {
+            for(let k in val) {
+                let code = cleanStr(val[k].code || val[k].modelCode || val[k].itemShort);
+                if(code) catalogMap[code] = val[k].itemName || val[k].name || val[k].description || "N/A";
             }
+        }
+        renderMasterLedger();
+    });
 
-            safeConvertToArray(v.gridItems).forEach(item => {
-                if(!item) return;
-                let innerCode = item.modelCode || item.itemCode || item.code || item.partCode || "";
-                if (!innerCode) return;
-                let displayKey = innerCode.trim().toUpperCase();
-                globalFreshInMap[displayKey] = (globalFreshInMap[displayKey] || 0) + parseFloat(item.qty || item.receiveQty || item.quantity || 0);
-                itemNamesMap[displayKey] = String(item.modelName || item.itemName || itemNamesMap[displayKey] || '').toUpperCase();
-                itemUnitsMap[displayKey] = (item.unit || itemUnitsMap[displayKey] || 'NOS').trim().toUpperCase();
-                if (entryDate && (!freshDateMap[displayKey] || entryDate > freshDateMap[displayKey])) freshDateMap[displayKey] = entryDate;
-            });
-        });
+    database.ref('freshInwardVouchers').on('value', (snap) => {
+        freshData = safeConvertToArray(snap.val());
+        renderMasterLedger();
+    });
 
-        reworkInboundVouchers.forEach(v => {
-            if (!v) return;
-            let entryDate = v.date || v.gateInDate || "";
-            
-            let baseCode = v.modelCode || v.itemCode || v.code || v.itemShort || "";
-            let basePool = String(v.pool || 'REWORK').trim().toUpperCase();
-            if (baseCode && basePool === "FRESH") {
-                let displayKey = baseCode.trim().toUpperCase();
-                globalFreshInMap[displayKey] = (globalFreshInMap[displayKey] || 0) + parseFloat(v.qty || v.receiveQty || v.passedQty || v.quantity || 0);
-                if (v.modelName || v.itemName) itemNamesMap[displayKey] = String(v.modelName || v.itemName || '').toUpperCase();
-                if (v.unit) itemUnitsMap[displayKey] = v.unit.trim().toUpperCase();
-                if (entryDate && (!freshDateMap[displayKey] || entryDate > freshDateMap[displayKey])) freshDateMap[displayKey] = entryDate;
+    database.ref('gateoutVouchers').on('value', (snap) => {
+        gateoutData = safeConvertToArray(snap.val());
+        renderMasterLedger();
+    });
+
+    database.ref('reworkStockVouchers').on('value', (snap) => {
+        reworkData = safeConvertToArray(snap.val());
+        renderMasterLedger();
+    });
+
+    // 🎯 MASTER CALCULATOR
+    function calculateMasterLedger() {
+        let stockMap = {};
+
+        function getItemRecord(code, defaultName = "") {
+            let clean = cleanStr(code);
+            if (!clean) return null;
+            if (!stockMap[clean]) {
+                stockMap[clean] = {
+                    code: clean,
+                    name: catalogMap[clean] || defaultName || clean,
+                    freshIn: 0,
+                    bomOut: 0,
+                    freshAdj: 0,
+                    reworkAdj: 0
+                };
             }
-
-            safeConvertToArray(v.gridItems).forEach(item => {
-                if(!item) return;
-                let innerCode = item.itemShort || item.modelCode || item.code || item.partCode || "";
-                if (!innerCode) return;
-                let displayKey = innerCode.trim().toUpperCase();
-                let rowPool = String(item.pool || 'REWORK').trim().toUpperCase();
-                
-                if(rowPool === "FRESH") {
-                    globalFreshInMap[displayKey] = (globalFreshInMap[displayKey] || 0) + parseFloat(item.qty || item.receiveQty || item.quantity || item.passedQty || 0);
-                    if (entryDate && (!freshDateMap[displayKey] || entryDate > freshDateMap[displayKey])) freshDateMap[displayKey] = entryDate;
-                }
-                if(item.itemName || item.modelName) itemNamesMap[displayKey] = String(item.itemName || item.modelName).toUpperCase();
-                if(item.unit) itemUnitsMap[displayKey] = item.unit.trim().toUpperCase();
-            });
-        });
-
-        let globalFreshOutMap = {};
-        outwardDispatches.forEach(g => {
-            if (!g) return;
-            let entryDate = g.date || "";
-            safeConvertToArray(g.gridItems).forEach(item => {
-                if(!item || !item.code) return;
-                let mainDisplayKey = item.code.trim().toUpperCase();
-                let mainQty = parseFloat(item.qty || 0);
-                let rowPool = String(item.pool || 'FRESH').trim().toUpperCase();
-                
-                if(rowPool === 'FRESH') {
-                    globalFreshOutMap[mainDisplayKey] = (globalFreshOutMap[mainDisplayKey] || 0) + mainQty;
-                    if (entryDate && (!freshDateMap[mainDisplayKey] || entryDate > freshDateMap[mainDisplayKey])) freshDateMap[mainDisplayKey] = entryDate;
-                    
-                    let targetBOM = bomFormulaList.find(b => b && cleanStr(b.mainCode) === cleanStr(item.code));
-                    if(targetBOM) {
-                        safeConvertToArray(targetBOM.accessories).forEach(acc => {
-                            if(acc && acc.code) {
-                                let accDisplayKey = acc.code.trim().toUpperCase();
-                                globalFreshOutMap[accDisplayKey] = (globalFreshOutMap[accDisplayKey] || 0) + (parseFloat(acc.qty || 0) * mainQty);
-                                if (entryDate && (!freshDateMap[accDisplayKey] || entryDate > freshDateMap[accDisplayKey])) freshDateMap[accDisplayKey] = entryDate;
-                            }
-                        });
-                    }
-                }
-            });
-        });
-
-        catalogFlatList.forEach(c => { if(c && c.code) { let displayKey = c.code.trim().toUpperCase(); itemNamesMap[displayKey] = String(c.name).toUpperCase(); if(c.poUnit) itemUnitsMap[displayKey] = c.poUnit.trim().toUpperCase(); } });
-        let filteredCodes = Object.keys(itemNamesMap).filter(code => code.includes(searchStr) || itemNamesMap[code].includes(searchStr));
-        if(limitVal !== 'ALL') filteredCodes = filteredCodes.slice(0, parseInt(limitVal));
-
-        filteredCodes.forEach(code => {
-            let tin = globalFreshInMap[code] || 0; let tout = globalFreshOutMap[code] || 0; let live = tin - tout; if(live < 0) live = 0;
-            let unit = itemUnitsMap[code] || "NOS";
-            let lastDate = freshDateMap[code] ? freshDateMap[code] : "-";
-
-            tbody.innerHTML += `<tr>
-                <td><code>${code}</code></td><td>${itemNamesMap[code] || 'GENERIC ITEM'}</td>
-                <td style="color:#16a34a; font-weight:bold;">${formatQtyDisplay(tin)} ${unit}</td><td style="color:#64748b;">${formatQtyDisplay(tout)} ${unit}</td>
-                <td><span class="badge-stock ${live>0?'badge-plus':'badge-zero'}">${formatQtyDisplay(live)} ${unit}</span></td>
-                <td style="color:#475569; font-weight:bold;">${lastDate}</td>
-                <td><button type="button" class="btn-view-action" onclick="openItemLifecycleModal('${code}', 'FRESH')">👁️ View</button></td>
-            </tr>`;
-        });
-    }
-
-    // 3. REWORK STOCK TABLE (Pure rework only)
-    function renderReworkStockTable() {
-        const tbody = document.getElementById('reworkStockBody'); tbody.innerHTML = '';
-        const searchStr = document.getElementById('reworkSearchBox').value.trim().toUpperCase();
-        const limitVal = document.getElementById('reworkLimitDropdown').value;
-
-        let globalReworkInMap = {}; let itemNamesMap = {}; let itemUnitsMap = {}; let reworkDateMap = {};
-
-        reworkInboundVouchers.forEach(v => {
-            if (!v) return;
-            let entryDate = v.date || "";
-            
-            let baseCode = v.modelCode || v.itemCode || v.code || v.itemShort || "";
-            let basePool = String(v.pool || 'REWORK').trim().toUpperCase();
-            if (baseCode && basePool === "REWORK") {
-                let displayKey = baseCode.trim().toUpperCase();
-                globalReworkInMap[displayKey] = (globalReworkInMap[displayKey] || 0) + parseFloat(v.qty || v.receiveQty || v.passedQty || v.quantity || 0);
-                if (v.modelName || v.itemName) itemNamesMap[displayKey] = String(v.modelName || v.itemName || '').toUpperCase();
-                if (v.unit) itemUnitsMap[displayKey] = v.unit.trim().toUpperCase();
-                if (entryDate && (!reworkDateMap[displayKey] || entryDate > reworkDateMap[displayKey])) reworkDateMap[displayKey] = entryDate;
+            if (catalogMap[clean] && stockMap[clean].name === clean) {
+                stockMap[clean].name = catalogMap[clean];
             }
-
-            safeConvertToArray(v.gridItems).forEach(item => {
-                if(!item) return;
-                let innerCode = item.itemShort || item.modelCode || item.code || item.partCode || "";
-                if (!innerCode) return;
-                let displayKey = innerCode.trim().toUpperCase();
-                let rowPool = String(item.pool || 'REWORK').trim().toUpperCase();
-                
-                if(rowPool === "REWORK") {
-                    globalReworkInMap[displayKey] = (globalReworkInMap[displayKey] || 0) + parseFloat(item.qty || item.receiveQty || item.quantity || item.passedQty || 0);
-                    if (entryDate && (!reworkDateMap[displayKey] || entryDate > reworkDateMap[displayKey])) reworkDateMap[displayKey] = entryDate;
-                }
-                if(item.itemName || item.modelName) itemNamesMap[displayKey] = String(item.itemName || item.modelName).toUpperCase();
-                if(item.unit) itemUnitsMap[displayKey] = item.unit.trim().toUpperCase();
-            });
-        });
-
-        let globalReworkOutMap = {};
-        outwardDispatches.forEach(g => {
-            if (!g) return;
-            let entryDate = g.date || "";
-            safeConvertToArray(g.gridItems).forEach(item => {
-                if(item && item.code && String(item.pool || 'FRESH').trim().toUpperCase() === 'REWORK') {
-                    let displayKey = item.code.trim().toUpperCase();
-                    globalReworkOutMap[displayKey] = (globalReworkOutMap[displayKey] || 0) + parseFloat(item.qty || 0);
-                    if (entryDate && (!reworkDateMap[displayKey] || entryDate > reworkDateMap[displayKey])) reworkDateMap[displayKey] = entryDate;
-                }
-            });
-        });
-
-        catalogFlatList.forEach(c => { if(c && c.code) { let displayKey = c.code.trim().toUpperCase(); itemNamesMap[displayKey] = String(c.name).toUpperCase(); if(c.poUnit) itemUnitsMap[displayKey] = c.poUnit.trim().toUpperCase(); } });
-        let filteredCodes = Object.keys(globalReworkInMap).filter(code => code.includes(searchStr) || itemNamesMap[code].includes(searchStr));
-        if(limitVal !== 'ALL') filteredCodes = filteredCodes.slice(0, parseInt(limitVal));
-
-        filteredCodes.forEach(code => {
-            let rin = globalReworkInMap[code] || 0; let rout = globalReworkOutMap[code] || 0; let live = rin - rout; if(live < 0) live = 0;
-            let unit = itemUnitsMap[code] || "NOS";
-            let lastDate = reworkDateMap[code] ? reworkDateMap[code] : "-";
-
-            tbody.innerHTML += `<tr>
-                <td><code>${code}</code></td><td>${itemNamesMap[code] || 'REPAIR MATERIAL'}</td>
-                <td style="color:#0369a1; font-weight:bold;">${formatQtyDisplay(rin)} ${unit}</td><td style="color:#64748b;">${formatQtyDisplay(rout)} ${unit}</td>
-                <td><span class="badge-stock ${live>0?'badge-rework':'badge-zero'}">${formatQtyDisplay(live)} ${unit}</span></td>
-                <td style="color:#475569; font-weight:bold;">${lastDate}</td>
-                <td><button type="button" class="btn-view-action" onclick="openItemLifecycleModal('${code}', 'REWORK')">👁️ View</button></td>
-            </tr>`;
-        });
-    }
-
-    // 4. VIEW POPUP HISTORY STATEMENT ENGINE
-    let currentActiveModalCode = "";
-    let currentActiveModalPool = "";
-
-    function openItemLifecycleModal(targetCode, poolType) {
-        let cleanTarget = cleanStr(targetCode);
-        currentActiveModalCode = targetCode.trim().toUpperCase(); 
-        currentActiveModalPool = poolType;
-
-        document.getElementById('modalPartCodeLabel').innerText = currentActiveModalCode;
-        
-        // 🌟 पॉपअप कैलेंडर पर फ़्यूचर डेट लॉक गियर और इनपुट रीसेट
-        const todayStr = new Date().toISOString().split('T')[0];
-        document.getElementById('modalFromDate').setAttribute('max', todayStr);
-        document.getElementById('modalToDate').setAttribute('max', todayStr);
-        document.getElementById('modalBillSearchBox').value = ""; 
-        document.getElementById('modalFromDate').value = "";
-        document.getElementById('modalToDate').value = "";
-        
-        let inBody = document.getElementById('modalInwardTableBody'); inBody.innerHTML = '';
-        let outBody = document.getElementById('modalOutwardTableBody'); outBody.innerHTML = '';
-
-        if(poolType === 'FRESH') {
-            inboundVouchers.forEach(v => {
-                if(!v) return;
-                let billDate = v.gateInDate || v.billDate || v.date || "-";
-                let refNo = v.billNo || v.invoiceNo || v.gateInNo || "-";
-                let vName = v.companyName || v.vendorName || v.supplier || "-";
-
-                let baseCode = v.modelCode || v.itemCode || v.code || v.partCode || "";
-                if (baseCode && cleanStr(baseCode) === cleanTarget) {
-                    let qty = parseFloat(v.qty || v.receiveQty || v.passedQty || v.quantity || 0);
-                    inBody.innerHTML += `<tr><td>${billDate}</td><td>Bill: ${refNo} (Root)</td><td>${vName}</td><td><span style="color:#16a34a;">FRESH</span></td><td><b>${formatQtyDisplay(qty)} ${v.unit || 'NOS'}</b></td></tr>`;
-                }
-
-                safeConvertToArray(v.gridItems).forEach(item => {
-                    let innerCode = item.modelCode || item.itemCode || item.code || item.partCode || "";
-                    if(item && cleanStr(innerCode) === cleanTarget) {
-                        let qty = parseFloat(item.qty || item.receiveQty || item.quantity || 0);
-                        inBody.innerHTML += `<tr><td>${billDate}</td><td>Bill: ${refNo}</td><td>${vName}</td><td><span style="color:#16a34a;">FRESH</span></td><td><b>${formatQtyDisplay(qty)} ${item.unit || 'NOS'}</b></td></tr>`;
-                    }
-                });
-            });
+            return stockMap[clean];
         }
 
-        reworkInboundVouchers.forEach(v => {
-            if(!v) return;
-            let entryDate = v.date || v.gateInDate || "-";
-            let refNo = v.gateEntryNo || v.gpNo || v.challanNo || "-";
-            let pName = v.partyName || v.clientName || "-";
+        // 1. Fresh Inward
+        freshData.forEach(v => {
+            safeConvertToArray(v.gridItems).forEach(i => {
+                let c = i.code || i.itemShort || i.modelCode;
+                let rec = getItemRecord(c, i.itemName || i.name);
+                if (rec) rec.freshIn += (parseFloat(i.qty) || 0);
+            });
+        });
 
-            let baseCode = v.modelCode || v.itemCode || v.code || v.itemShort || "";
-            let basePool = String(v.pool || 'REWORK').trim().toUpperCase();
-            if (baseCode && cleanStr(baseCode) === cleanTarget && basePool === poolType) {
-                let qty = parseFloat(v.qty || v.receiveQty || v.passedQty || v.quantity || 0);
-                inBody.innerHTML += `<tr><td>${entryDate}</td><td>GP Root: ${refNo}</td><td>${pName}</td><td><span style="color:#0369a1;">${basePool}</span></td><td><b>${formatQtyDisplay(qty)} ${v.unit || 'NOS'}</b></td></tr>`;
-            }
+        // 2. Gate Out (ONLY BOM OUT DEDUCTS HERE)
+        gateoutData.forEach(v => {
+            safeConvertToArray(v.gridItems).forEach(i => {
+                let c = i.code || i.itemShort || i.modelCode;
+                let rec = getItemRecord(c, i.itemName || i.name);
+                if (rec) rec.bomOut += (parseFloat(i.qty) || 0);
+            });
+        });
 
-            safeConvertToArray(v.gridItems).forEach(item => {
-                if(!item) return;
-                let innerCode = item.itemShort || item.modelCode || item.code || item.partCode || "";
-                let rowPool = String(item.pool || 'REWORK').trim().toUpperCase();
-                if(cleanStr(innerCode) === cleanTarget && rowPool === poolType) {
-                    let qty = parseFloat(item.qty || item.receiveQty || item.quantity || item.passedQty || 0);
-                    inBody.innerHTML += `<tr><td>${entryDate}</td><td>GP Entry: ${refNo}</td><td>${pName}</td><td><span style="color:#0369a1;">${rowPool}</span></td><td><b>${formatQtyDisplay(qty)} ${item.unit || 'NOS'}</b></td></tr>`;
+        // 3. Rework & Direct Stock Adjustments
+        reworkData.forEach(v => {
+            safeConvertToArray(v.gridItems).forEach(i => {
+                let c = i.itemShort || i.code || i.modelCode;
+                let rec = getItemRecord(c, i.itemName || i.name);
+                if (!rec) return;
+
+                let rawQty = parseFloat(i.qty) || 0;
+                let qty = Math.abs(rawQty); // Absolute Qty
+                let pool = (i.pool || 'REWORK').toUpperCase();
+                let isOut = (i.adjType === 'OUT' || rawQty < 0);
+
+                if (pool === 'FRESH') {
+                    // Fresh Pool Direct Stock Adjustment
+                    if (isOut) rec.freshAdj -= qty;
+                    else rec.freshAdj += qty;
+                } else {
+                    // Rework Pool Adjustment
+                    if (isOut) rec.reworkAdj -= qty;
+                    else rec.reworkAdj += qty;
                 }
             });
         });
 
-        outwardDispatches.forEach(g => {
-            if(!g) return;
-            let outDate = g.date || "-";
-            let vNo = g.voucherNo || g.gateOutNo || "-";
-            let docType = g.docType || "CHALLAN";
-            let loc = g.deliveryShipping || g.destination || "-";
-
-            safeConvertToArray(g.gridItems).forEach(item => {
-                if(!item) return;
-                let innerCode = item.code || item.modelCode || item.itemCode || "";
-                let mainCode = cleanStr(innerCode);
-                let mainQty = parseFloat(item.qty || 0);
-                let rowPool = String(item.pool || 'FRESH').trim().toUpperCase();
-
-                if(mainCode === cleanTarget && rowPool === poolType) {
-                    outBody.innerHTML += `<tr><td>${outDate}</td><td>GO-${vNo} (${docType})</td><td>Loc: ${loc}</td><td>${item.pool}</td><td><b>${formatQtyDisplay(mainQty)} ${item.unit || 'NOS'}</b></td></tr>`;
-                }
-
-                if(poolType === 'FRESH' && rowPool === 'FRESH') {
-                    let targetBOM = bomFormulaList.find(b => b && cleanStr(b.mainCode) === mainCode);
-                    if(targetBOM && targetBOM.accessories) {
-                        safeConvertToArray(targetBOM.accessories).forEach(acc => {
-                            if(acc && acc.code) {
-                                let accCode = cleanStr(acc.code);
-                                if (accCode === cleanTarget) {
-                                    let totalCut = parseFloat(acc.qty) * mainQty;
-                                    outBody.innerHTML += `<tr><td>${outDate}</td><td>BOM Cut (Main: ${innerCode})</td><td>Loc: ${loc}</td><td>FRESH (BOM)</td><td style="color:#ef4444;"><b>${formatQtyDisplay(totalCut)} ${acc.unit || 'NOS'}</b></td></tr>`;
-                                }
-                            }
-                        });
-                    }
-                }
-            });
-        });
-
-        if(!inBody.innerHTML) inBody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#64748b;">No Inward transaction history found for this pool.</td></tr>`;
-        if(!outBody.innerHTML) outBody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#64748b;">No Outward dispatch history found for this pool.</td></tr>`;
-
-        document.getElementById('itemHistoryModal').style.display = 'flex';
+        return stockMap;
     }
 
-    // 🌟 महा-अपग्रेड: पॉपअप के अंदर लाइव बिल टेक्स्ट फ़िल्टर + डेट रेंज कंबाइंड इंजन भाई
-    function filterModalTablesByBill() {
-        const query = document.getElementById('modalBillSearchBox').value.trim().toUpperCase();
-        const fromDate = document.getElementById('modalFromDate').value;
-        const toDate = document.getElementById('modalToDate').value;
+    function renderMasterLedger() {
+        const tbody = document.getElementById('masterLedgerBody');
+        const searchVal = (document.getElementById('ledgerSearchBox').value || "").trim().toUpperCase();
         
-        // Inward Table Filter Rows Logic
-        const inwardRows = document.querySelectorAll('#modalInwardTableBody tr');
-        inwardRows.forEach(row => {
-            if(row.cells.length > 1) { 
-                let rowDate = row.cells[0].innerText.trim();
-                let textMatch = row.innerText.toUpperCase().includes(query);
-                let dateMatch = true;
+        const stockMap = calculateMasterLedger();
+        const codeKeys = Object.keys(stockMap);
 
-                if (fromDate && rowDate < fromDate) dateMatch = false;
-                if (toDate && rowDate > toDate) dateMatch = false;
+        document.getElementById('totalItemsCount').innerText = codeKeys.length;
 
-                row.style.display = (textMatch && dateMatch) ? "" : "none";
-            }
-        });
-
-        // Outward Table Filter Rows Logic
-        const outwardRows = document.querySelectorAll('#modalOutwardTableBody tr');
-        outwardRows.forEach(row => {
-            if(row.cells.length > 1) {
-                let rowDate = row.cells[0].innerText.trim();
-                let textMatch = row.innerText.toUpperCase().includes(query);
-                let dateMatch = true;
-
-                if (fromDate && rowDate < fromDate) dateMatch = false;
-                if (toDate && rowDate > toDate) dateMatch = false;
-
-                row.style.display = (textMatch && dateMatch) ? "" : "none";
-            }
-        });
-    }
-
-    // 🌟 डेट रेंज फ़िल्टर रीसेट हेल्पर गियर
-    function clearModalDateFilters() {
-        document.getElementById('modalFromDate').value = "";
-        document.getElementById('modalToDate').value = "";
-        filterModalTablesByBill();
-    }
-
-    function closeHistoryModal() { document.getElementById('itemHistoryModal').style.display = 'none'; }
-
-    function exportModalStatementToCSV() {
-        let csvRows = [];
-        let matchedItemName = "GENERIC ITEM";
-
-        catalogFlatList.forEach(c => {
-            if(c && cleanStr(c.code) === cleanStr(currentActiveModalCode)) { matchedItemName = c.name; }
-        });
-
-        csvRows.push([`"Item Code:",,,"${currentActiveModalCode}"`].join(","));
-        csvRows.push([`"Item Name:",,,"${matchedItemName.toUpperCase().replace(/"/g, '""')}"`].join(","));
-        csvRows.push([]); 
-
-        csvRows.push(['"Gate Id"', '"Gate in Date"', '"Reference Doc"', '"Quantity Ledger"', '"Pool Type"'].join(","));
-        
-        if(currentActiveModalPool === 'FRESH') {
-            inboundVouchers.forEach((v, index) => {
-                if(!v) return;
-                let billDate = v.billDate || v.gateInDate || v.date || "-";
-                let refNo = v.billNo || v.invoiceNo || "-";
-                let gateId = v.gateInNo || `G-${1000 + index}`;
-
-                let baseCode = v.modelCode || v.itemCode || v.code || "";
-                if (baseCode && cleanStr(baseCode) === cleanStr(currentActiveModalCode)) {
-                    let qty = parseFloat(v.qty || v.receiveQty || 0);
-                    csvRows.push([`"${gateId}"`, `"${billDate}"`, `"Bill: ${refNo}"`, `"${qty.toFixed(3)}"`, `"${currentActiveModalPool}"`].join(","));
-                }
-
-                safeConvertToArray(v.gridItems).forEach(item => {
-                    let innerCode = item.modelCode || item.itemCode || item.code || "";
-                    if(item && cleanStr(innerCode) === cleanStr(currentActiveModalCode)) {
-                        let qty = parseFloat(item.qty || item.receiveQty || 0);
-                        csvRows.push([`"${gateId}"`, `"${billDate}"`, `"Bill: ${refNo}"`, `"${qty.toFixed(3)}"`, `"${currentActiveModalPool}"`].join(","));
-                    }
-                });
-            });
-        } 
-        
-        reworkInboundVouchers.forEach((v, index) => {
-            if(!v) return;
-            let gateInDate = v.date || "-";
-            let refNo = v.gateEntryNo || v.challanNo || "-";
-            let gateId = v.gateEntryNo || `GP-${2000 + index}`;
-
-            let baseCode = v.modelCode || v.itemCode || v.code || v.itemShort || "";
-            let basePool = String(v.pool || 'REWORK').trim().toUpperCase();
-            if (baseCode && cleanStr(baseCode) === cleanStr(currentActiveModalCode) && basePool === currentActiveModalPool) {
-                let qty = parseFloat(v.qty || v.receiveQty || 0);
-                csvRows.push([`"${gateId}"`, `"${gateInDate}"`, `"GP Root: ${refNo}"`, `"${qty.toFixed(3)}"`, `"${currentActiveModalPool}"`].join(","));
-            }
-
-            safeConvertToArray(v.gridItems).forEach(item => {
-                let innerCode = item.itemShort || item.modelCode || item.code || "";
-                let rowPool = String(item.pool || 'REWORK').trim().toUpperCase();
-                if(cleanStr(innerCode) === cleanStr(currentActiveModalCode) && rowPool === currentActiveModalPool) {
-                    let qty = parseFloat(item.qty || item.receiveQty || 0);
-                    csvRows.push([`"${gateId}"`, `"${gateInDate}"`, `"GP Entry: ${refNo}"`, `"${qty.toFixed(3)}"`, `"${currentActiveModalPool}"`].join(","));
-                }
-            });
-        });
-
-        const csvContent = "\uFEFF" + csvRows.join("\n");
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.setAttribute("href", url);
-        link.setAttribute("download", `Statement_${currentActiveModalCode}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    }
-
-    function downloadTableToCSV(tableId, filename) {
-        const table = document.getElementById(tableId);
-        if(!table) return;
-        let csvRows = [];
-        const rows = table.querySelectorAll("tr");
-        for (let i = 0; i < rows.length; i++) {
-            let rowData = [];
-            const cols = rows[i].querySelectorAll("th, td");
-            for (let j = 0; j < cols.length; j++) {
-                if((tableId === "freshStockTableHead" || tableId === "reworkStockTableHead") && j === cols.length - 1) continue; 
-                let cellText = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, "").trim().replace(/"/g, '""');
-                rowData.push('"' + cellText + '"');
-            }
-            csvRows.push(rowData.join(","));
+        if (codeKeys.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:15px; color:#64748b;">No Stock Data Available.</td></tr>`;
+            return;
         }
-        const csvContent = "\uFEFF" + csvRows.join("\n");
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.setAttribute("href", url);
-        link.setAttribute("download", filename);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    }
 
-    function exportPoLedgerToExcel() { downloadTableToCSV("poLedgerTableHead", "PO_Matrix_Ledger_Report.csv"); }
-    function exportReworkStockToExcel() { downloadTableToCSV("reworkStockTableHead", "Live_Rework_Inventory_Report.csv"); }
-    
-    function exportPhysicalStockToExcel() { 
-        if (inboundVouchers.length === 0) { alert("ಡೇಟाबेस में कोई रिकॉर्ड नहीं मिला!"); return; }
-        let csvRows = [];
-        csvRows.push(['"Inward Date"', '"Bill No / Ref"', '"Vendor / Company Name"', '"Model Part Code"', '"Item Description"', '"Received Qty"', '"Unit"'].join(","));
-        
-        inboundVouchers.forEach(v => {
-            if (!v) return;
-            let billDate = v.gateInDate || v.billDate || v.date || "-";
-            let billNo = (v.billNo || v.invoiceNo || "-").replace(/"/g, '""');
-            let vendorName = (v.companyName || v.vendorName || "-").replace(/"/g, '""');
-            
-            let baseCode = v.modelCode || v.itemCode || v.code || "";
-            if (baseCode) {
-                let pCode = baseCode.trim().toUpperCase();
-                let pName = String(v.modelName || v.itemName || "GENERIC ITEM").toUpperCase().replace(/"/g, '""');
-                let qty = parseFloat(v.qty || v.receiveQty || 0);
-                let unit = (v.unit || "NOS").trim().toUpperCase();
-                csvRows.push(['"' + billDate + '"', '"' + billNo + '"', '"' + vendorName + '"', '"' + pCode + '"', '"' + pName + '"', '"' + qty.toFixed(3) + '"', '"' + unit + '"'].join(","));
-            }
-
-            safeConvertToArray(v.gridItems).forEach(item => {
-                if (!item) return;
-                let innerCode = item.modelCode || item.itemCode || item.code || "";
-                let pCode = innerCode.trim().toUpperCase();
-                let pName = String(item.modelName || "GENERIC ITEM").toUpperCase().replace(/"/g, '""');
-                let qty = parseFloat(item.qty || item.receiveQty || 0);
-                let unit = (item.unit || "NOS").trim().toUpperCase();
-                csvRows.push(['"' + billDate + '"', '"' + billNo + '"', '"' + vendorName + '"', '"' + pCode + '"', '"' + pName + '"', '"' + qty.toFixed(3) + '"', '"' + unit + '"'].join(","));
-            });
+        let filteredKeys = codeKeys.filter(k => {
+            let item = stockMap[k];
+            return item.code.includes(searchVal) || item.name.toUpperCase().includes(searchVal);
         });
-        const csvContent = "\uFEFF" + csvRows.join("\n");
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.setAttribute("href", url);
-        link.setAttribute("download", "Detailed_Fresh_Inward_Bill_Report.csv");
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+
+        if (filteredKeys.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:15px; color:#dc2626; font-weight:bold;">⚠️ No matching item found!</td></tr>`;
+            return;
+        }
+
+        let html = '';
+        filteredKeys.forEach(k => {
+            let item = stockMap[k];
+            
+            // 🎯 EXACT FORMULA: (Fresh In - Gate Out BOM) + Fresh Direct Adjustments
+            let liveFresh = (item.freshIn - item.bomOut) + item.freshAdj;
+            let liveRework = item.reworkAdj;
+
+            let freshAdjDisplay = item.freshAdj > 0 ? `+${item.freshAdj}` : (item.freshAdj < 0 ? `${item.freshAdj}` : `0`);
+            let freshAdjColor = item.freshAdj < 0 ? `color:#dc2626; font-weight:bold;` : (item.freshAdj > 0 ? `color:#16a34a; font-weight:bold;` : `color:#64748b;`);
+
+            html += `<tr>
+                <td><b>${item.code}</b></td>
+                <td>${item.name}</td>
+                <td>${item.freshIn} NOS</td>
+                <td style="color:#dc2626; font-weight:bold;">${item.bomOut} NOS</td>
+                <td style="${freshAdjColor}">${freshAdjDisplay} NOS</td>
+                <td><span class="badge-fresh" style="${liveFresh < 0 ? 'background:#fee2e2; color:#b91c1c;' : ''}">${liveFresh} NOS</span></td>
+                <td><span class="badge-rework">${liveRework} NOS</span></td>
+            </tr>`;
+        });
+
+        tbody.innerHTML = html;
     }
 </script>
 </body>
