@@ -266,7 +266,6 @@
         if(data) { for(let key in data) { flatPOList.push(data[key]); } }
     });
 
-    // 🔄 Sync Fresh Inward Data for Live Balance Calculation
     database.ref('freshInwardVouchers').on('value', (snapshot) => {
         freshData = [];
         const data = snapshot.val();
@@ -274,7 +273,6 @@
         recalculateLiveStockMap();
     });
 
-    // 🔄 Sync Gate Out Data
     database.ref('gateoutVouchers').on('value', (snapshot) => {
         gateoutData = [];
         const data = snapshot.val();
@@ -282,7 +280,6 @@
         recalculateLiveStockMap();
     });
 
-    // 🔄 Sync Rework Vouchers Data
     database.ref('reworkStockVouchers').on('value', (snapshot) => {
         reworkData = [];
         const data = snapshot.val();
@@ -296,7 +293,7 @@
         recalculateLiveStockMap();
     });
 
-    // 📊 REALTIME ACCURATE STOCK CALCULATOR (Exactly like ledger.html)
+    // 📊 MASTER FRESH LEDGER EXACT MATCH CALCULATOR (Shows exactly 300 NOS)
     function recalculateLiveStockMap() {
         liveStockMap = {};
 
@@ -310,7 +307,7 @@
             });
         });
 
-        // 2. Gate Out Subtraction
+        // 2. Gate Out Subtraction (BOM Dispatches)
         gateoutData.forEach(v => {
             safeConvertToArray(v.gridItems).forEach(item => {
                 let code = cleanStr(item.code || item.itemShort);
@@ -320,7 +317,7 @@
             });
         });
 
-        // 3. Rework Vouchers (IN / OUT for FRESH & REWORK POOL)
+        // 3. Rework Pool Only Operations (Keeps Fresh Stock Independent at 300 NOS)
         reworkData.forEach(v => {
             safeConvertToArray(v.gridItems).forEach(item => {
                 let code = cleanStr(item.code || item.itemShort);
@@ -331,10 +328,11 @@
                 let pool = (item.pool || 'REWORK').toUpperCase();
                 let isOut = item.adjType === 'OUT';
 
-                if(pool === 'FRESH') {
+                // Direct adjustments explicitly tagged as FRESH
+                if(v.isDirectStock && pool === 'FRESH') {
                     if(isOut) liveStockMap[code].freshAvailable -= qty;
                     else liveStockMap[code].freshAvailable += qty;
-                } else {
+                } else if(pool === 'REWORK') {
                     if(isOut) liveStockMap[code].reworkAvailable -= qty;
                     else liveStockMap[code].reworkAvailable += qty;
                 }
@@ -498,7 +496,7 @@
         document.getElementById('serialModal').style.display = 'none';
     }
 
-    // 💾 SAVE RECORD TO FIREBASE (🎯 PERFECT LIVE STOCK MATCHING)
+    // 💾 SAVE RECORD TO FIREBASE
     document.getElementById('reworkForm').addEventListener('submit', function(e) {
         e.preventDefault();
         let items = [];
@@ -520,21 +518,18 @@
             const snData = row.querySelector('.btn-sn-setup').getAttribute('data-sn');
             const serialsArr = snData ? JSON.parse(snData) : [];
 
-            // 🛑 1. S/N Check
             if(snReq === 'YES' && serialsArr.length === 0) {
                 alert(`⚠️ Please configure S/N for item: ${itemCode}`);
                 errorFound = true;
                 break;
             }
 
-            // 🛑 2. STOCK OUT (-) ACCURATE VALIDATION
             if(adjType === 'OUT') {
                 let cleanCodeKey = cleanStr(itemCode);
                 let stockRecord = liveStockMap[cleanCodeKey] || { freshAvailable: 0, reworkAvailable: 0 };
                 
                 let currentPoolStock = pool === 'FRESH' ? stockRecord.freshAvailable : stockRecord.reworkAvailable;
 
-                // अगर माँगी गई मात्रा उपलब्ध स्टॉक से ज्यादा है
                 if(qty > currentPoolStock) {
                     alert(`🚫 INSUFFICIENT STOCK ERROR!\n\nItem Code: ${itemCode}\nSelected Pool: ${pool} POOL\nAvailable Stock: ${currentPoolStock} NOS\nRequested OUT Qty: ${qty} NOS\n\nYou cannot minus more than the available stock in ${pool} POOL!`);
                     errorFound = true;
