@@ -289,9 +289,20 @@
         renderHistory();
     });
 
-    // 🎯 MASTER LEDGER DIRECT CALCULATION (FRESH STOCK = 894 INWARD - 594 BOM OUT = EXACT 300 NOS)
-    function getExactLiveStock(targetCode) {
+    // 🎯 LIVE STOCK CALCULATOR
+    async function getExactLiveStock(targetCode) {
         let cleanTarget = cleanStr(targetCode);
+        
+        // Ensure fresh snapshots if local array is empty
+        if(freshData.length === 0) {
+            let snap = await database.ref('freshInwardVouchers').once('value');
+            if(snap.exists()) freshData = safeConvertToArray(snap.val());
+        }
+        if(gateoutData.length === 0) {
+            let snap = await database.ref('gateoutVouchers').once('value');
+            if(snap.exists()) gateoutData = safeConvertToArray(snap.val());
+        }
+
         let freshIn = 0;
         let freshOut = 0;
         let reworkIn = 0;
@@ -315,7 +326,7 @@
             });
         });
 
-        // 3. Rework Pool Only (Do NOT deduct old rework vouchers from fresh stock)
+        // 3. Rework Pool
         reworkData.forEach(v => {
             safeConvertToArray(v.gridItems).forEach(i => {
                 if(cleanStr(i.itemShort || i.code || i.modelCode) === cleanTarget) {
@@ -332,7 +343,7 @@
         });
 
         return {
-            freshStock: freshIn - freshOut, // 👈 Exactly 894 - 594 = 300 NOS
+            freshStock: freshIn - freshOut,
             reworkStock: reworkIn - reworkOut
         };
     }
@@ -493,8 +504,8 @@
         document.getElementById('serialModal').style.display = 'none';
     }
 
-    // 💾 SAVE RECORD TO FIREBASE
-    document.getElementById('reworkForm').addEventListener('submit', function(e) {
+    // 💾 SAVE RECORD TO FIREBASE (🎯 WITH DIRECT ADJUSTMENT OVERRIDE)
+    document.getElementById('reworkForm').addEventListener('submit', async function(e) {
         e.preventDefault();
         let items = [];
         let rows = document.querySelectorAll('#dynamicItemsBody tr');
@@ -521,15 +532,25 @@
                 break;
             }
 
-            // 🛑 OUT (-) VALIDATION (LIVE AVAILABLE FRESH STOCK CHECK)
+            // 🛑 OUT (-) VALIDATION WITH FORCE ADJUSTMENT OPTION IN DIRECT MODE
             if(adjType === 'OUT') {
-                let stockRecord = getExactLiveStock(itemCode);
+                let stockRecord = await getExactLiveStock(itemCode);
                 let currentPoolStock = pool === 'FRESH' ? stockRecord.freshStock : stockRecord.reworkStock;
 
                 if(qty > currentPoolStock) {
-                    alert(`🚫 INSUFFICIENT STOCK ERROR!\n\nItem Code: ${itemCode}\nSelected Pool: ${pool} POOL\nAvailable Stock: ${currentPoolStock} NOS\nRequested OUT Qty: ${qty} NOS\n\nYou cannot minus more than the available stock in ${pool} POOL!`);
-                    errorFound = true;
-                    break;
+                    if(isDirectMode) {
+                        // 📦 Direct Mode me Warning dega par Force Adjust karne dega!
+                        let confirmAdjust = confirm(`⚠️ STOCK SHORTAGE WARNING!\n\nItem Code: ${itemCode}\nSelected Pool: ${pool} POOL\nAvailable System Stock: ${currentPoolStock} NOS\nRequested OUT Qty: ${qty} NOS\n\nDo you want to FORCE ADJUST / MINUS this stock balance anyway?`);
+                        if(!confirmAdjust) {
+                            errorFound = true;
+                            break;
+                        }
+                    } else {
+                        // Regular Gate In me strict alert
+                        alert(`🚫 INSUFFICIENT STOCK ERROR!\n\nItem Code: ${itemCode}\nSelected Pool: ${pool} POOL\nAvailable Stock: ${currentPoolStock} NOS\nRequested OUT Qty: ${qty} NOS\n\nYou cannot minus more than the available stock in ${pool} POOL!`);
+                        errorFound = true;
+                        break;
+                    }
                 }
             }
 
