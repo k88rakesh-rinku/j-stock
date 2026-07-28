@@ -221,8 +221,10 @@
     let reworkData = [];
     let masterCatalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
     let flatPOList = [];
-    let liveStockMap = {}; // 📊 स्टॉक बैलेंस ट्रैक करने के लिए Map
+    let liveStockMap = {}; 
     let activeBtnRef = null;
+
+    const cleanStr = (str) => String(str || "").trim().toUpperCase().replace(/\s+/g, '');
 
     function safeConvertToArray(rawVal) {
         if (!rawVal) return [];
@@ -262,7 +264,7 @@
         if(data) { for(let key in data) { flatPOList.push(data[key]); } }
     });
 
-    // 📊 लाइव स्टॉक बैलेंस सिंक (FRESH vs REWORK POOL)
+    // 📊 लाइव स्टॉक बैलेंस सिंक
     database.ref('liveStockInventory').on('value', (snapshot) => {
         liveStockMap = snapshot.val() || {};
     });
@@ -435,7 +437,7 @@
         document.getElementById('serialModal').style.display = 'none';
     }
 
-    // 💾 SAVE RECORD TO FIREBASE (🚫 OUT (-) स्टॉक वैलिडेशन के साथ)
+    // 💾 SAVE RECORD TO FIREBASE (🎯 FLAWLESS CODE MATCHING & STOCK VALIDATION)
     document.getElementById('reworkForm').addEventListener('submit', function(e) {
         e.preventDefault();
         let items = [];
@@ -447,7 +449,7 @@
         let errorFound = false;
 
         for(let row of rows) {
-            const pool = row.querySelector('.rework-pool-select').value; // REWORK or FRESH
+            const pool = row.querySelector('.rework-pool-select').value; 
             const adjTypeSelect = row.querySelector('.adj-type-select');
             const adjType = isDirectMode && adjTypeSelect ? adjTypeSelect.value : "IN";
             const itemCode = row.querySelector('.item-short').value.toUpperCase().trim();
@@ -464,18 +466,29 @@
                 break;
             }
 
-            // 🛑 2. STOCK MINUS (OUT -) ERROR VALIDATION
+            // 🛑 2. PERFECT STOCK OUT (-) VALIDATION FIX
             if(adjType === 'OUT') {
                 let currentPoolStock = 0;
-                let cleanCodeKey = itemCode.replace(/[\.\#\$\[\]\/]/g, "_");
+                let targetCleanCode = cleanStr(itemCode);
                 
-                if(liveStockMap && liveStockMap[cleanCodeKey]) {
-                    currentPoolStock = pool === 'FRESH' 
-                        ? (liveStockMap[cleanCodeKey].freshQty || 0) 
-                        : (liveStockMap[cleanCodeKey].reworkQty || 0);
+                // 🔍 LiveStockInventory में से फ्लैक्सिबल कोड मैचिंग
+                if(liveStockMap) {
+                    for(let key in liveStockMap) {
+                        let node = liveStockMap[key];
+                        let nodeCode = cleanStr(node.code || node.modelCode || node.itemCode || key);
+                        
+                        if(nodeCode === targetCleanCode) {
+                            if(pool === 'FRESH') {
+                                currentPoolStock = parseFloat(node.freshAvailable || node.freshStock || node.liveFreshStock || node.freshQty || 0);
+                            } else {
+                                currentPoolStock = parseFloat(node.reworkAvailable || node.reworkStock || node.liveReworkStock || node.reworkQty || 0);
+                            }
+                            break;
+                        }
+                    }
                 }
 
-                // अगर स्टॉक कम है तो अलर्ट रोक देगा
+                // अगर माँगी गई मात्रा उपलब्ध स्टॉक से ज्यादा है
                 if(qty > currentPoolStock) {
                     alert(`🚫 INSUFFICIENT STOCK ERROR!\n\nItem Code: ${itemCode}\nSelected Pool: ${pool} POOL\nAvailable Stock: ${currentPoolStock} NOS\nRequested OUT Qty: ${qty} NOS\n\nYou cannot minus more than the available stock in ${pool} POOL!`);
                     errorFound = true;
