@@ -19,7 +19,9 @@
         .btn-sn-setup.disabled-sn { background-color: #cbd5e1 !important; color: #94a3b8 !important; cursor: not-allowed; }
         .btn-sn-setup.configured { background-color: #16a34a !important; color: white !important; }
 
-        .rework-pool-select { padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; background: white; font-weight: bold; cursor: pointer; width: 100%; box-sizing: border-box; }
+        .rework-pool-select, .adj-type-select { padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; background: white; font-weight: bold; cursor: pointer; width: 100%; box-sizing: border-box; }
+        .adj-type-select.type-out { color: #dc2626; background-color: #fef2f2; }
+        .adj-type-select.type-in { color: #16a34a; background-color: #f0fdf4; }
 
         .table-filter-panel { display: flex; justify-content: space-between; align-items: center; background: #f1f5f9; padding: 10px 15px; border-radius: 6px 6px 0 0; border: 1px solid #cbd5e1; border-bottom: none; margin-top: 25px; gap: 15px; flex-wrap: wrap; }
         .search-input-box { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; width: 280px; text-transform: uppercase; }
@@ -117,31 +119,38 @@
 
     <h3 id="formTitleRework" style="color:var(--primary); margin: 0 0 10px 0;">🛠️ Gate In (Rework) Ledger</h3>
 
+    <!-- 📦 DIRECT STOCK ENTRY / ADJUSTMENT MODE CHECKBOX -->
+    <div style="margin: 10px 0 15px 0; background: #f8fafc; padding: 12px; border: 1px solid #cbd5e1; border-radius: 6px; display: flex; align-items: center; gap: 10px;">
+        <input type="checkbox" id="isDirectStock" onchange="toggleDirectStockMode()" style="width: 18px; height: 18px; cursor: pointer;">
+        <label for="isDirectStock" style="font-weight: bold; color: #1e3a8a; cursor: pointer; user-select: none; font-size: 14px;">📦 Direct Stock Entry / Stock Adjustment (IN / OUT Balance Correction)</label>
+    </div>
+
     <form id="reworkForm">
         <input type="hidden" id="editRowIndex" value="-1">
         <input type="hidden" id="editFirebaseKey" value="">
 
         <div class="form-grid">
-            <div class="form-group"><label>Challan / Bill No <span>*</span></label><input type="text" id="rwBillNo" required autocomplete="off"></div>
-            <div class="form-group"><label>Challan / Bill Date <span>*</span></label><input type="date" id="rwBillDate" required></div>
+            <div class="form-group" id="grpChallanNo"><label>Challan / Bill No <span>*</span></label><input type="text" id="rwBillNo" required autocomplete="off"></div>
+            <div class="form-group" id="grpChallanDate"><label>Challan / Bill Date <span>*</span></label><input type="date" id="rwBillDate" required></div>
             
-            <div class="form-group"><label>Gate Entry No <span>*</span></label><input type="text" id="rwGateEntryNo" required autocomplete="off"></div>
-            <div class="form-group"><label>Gate In Date <span>*</span></label><input type="date" id="rwDate" required></div>
+            <div class="form-group" id="grpGateEntryNo"><label>Gate Entry No <span>*</span></label><input type="text" id="rwGateEntryNo" required autocomplete="off"></div>
+            <div class="form-group"><label>Date <span>*</span></label><input type="date" id="rwDate" required></div>
             
-            <div class="form-group"><label>Party Name (Where From) <span>*</span></label><input type="text" id="rwPartyName" required autocomplete="off"></div>
-            <div class="form-group"><label>Dispatch Info Reference</label><input type="text" id="rwDispatch" autocomplete="off"></div>
+            <div class="form-group" id="grpPartyName"><label>Party Name (Where From) <span>*</span></label><input type="text" id="rwPartyName" required autocomplete="off"></div>
+            <div class="form-group"><label>Dispatch / Diagnostic Ref</label><input type="text" id="rwDispatch" autocomplete="off" placeholder="Reason for adjustment / Notes..."></div>
         </div>
 
         <div style="position: relative; z-index: 100; margin-top: 15px; overflow: visible;">
             <table class="grid-table">
                 <thead style="background-color: var(--primary); color: white;">
                     <tr>
-                        <th style="width: 18%;">Stock Pool</th>
+                        <th style="width: 16%;">Stock Pool</th>
+                        <th style="width: 12%; display:none;" class="th-adj-type">In/Out Type</th>
                         <th style="width: 22%;">Item Code 🔍</th>
-                        <th style="width: 30%;">Item Display Name</th>
-                        <th style="width: 10%;">Qty</th>
-                        <th style="width: 10%;">S/N Req?</th>
-                        <th style="width: 6%;">Serial Setup</th>
+                        <th style="width: 28%;">Item Display Name</th>
+                        <th style="width: 8%;">Qty</th>
+                        <th style="width: 8%;">S/N Req?</th>
+                        <th style="width: 6%;">Serial</th>
                         <th style="width: 4%;">Action</th>
                     </tr>
                 </thead>
@@ -180,7 +189,7 @@
     <div class="table-responsive" style="margin-top:0;">
         <table class="history-table" style="border-top:none;">
             <thead style="background-color: var(--primary); color: white;">
-                <tr><th>Gate In Date</th><th>From Party</th><th>Challan / Bill Info</th><th>Gate Entry No</th><th>Items Enrolled</th><th>Action Controls</th></tr>
+                <tr><th>Gate In Date</th><th>From Party / Mode</th><th>Challan / Bill Info</th><th>Gate Entry No</th><th>Items Enrolled</th><th>Action Controls</th></tr>
             </thead>
             <tbody id="reworkHistoryBody"></tbody>
         </table>
@@ -226,6 +235,36 @@
         return Array.isArray(rawVal) ? rawVal : Object.values(rawVal);
     }
 
+    // 🔄 Direct Entry Toggle Logic (Show/Hide Challan Fields & IN/OUT Column)
+    function toggleDirectStockMode() {
+        const isDirect = document.getElementById('isDirectStock').checked;
+        const targetIds = ['rwBillNo', 'rwBillDate', 'rwGateEntryNo', 'rwPartyName'];
+        
+        targetIds.forEach(id => {
+            const inputEl = document.getElementById(id);
+            const parentGroup = inputEl.parentElement;
+            if(isDirect) {
+                parentGroup.style.display = 'none';
+                inputEl.removeAttribute('required');
+                inputEl.value = '';
+            } else {
+                parentGroup.style.display = 'flex';
+                inputEl.setAttribute('required', 'required');
+            }
+        });
+
+        // Toggle Header Column for IN/OUT
+        const thAdj = document.querySelector('.th-adj-type');
+        if(thAdj) { thAdj.style.display = isDirect ? 'table-cell' : 'none'; }
+
+        // Toggle Row Cells for IN/OUT
+        document.querySelectorAll('.td-adj-type').forEach(td => {
+            td.style.display = isDirect ? 'table-cell' : 'none';
+        });
+
+        document.getElementById('btnSubmitForm').innerText = isDirect ? "Save Direct Stock Adjustment (IN/OUT)" : "Save Rework Gate In";
+    }
+
     // 🔄 Sync Master Catalog
     database.ref('systemMasterCatalogFlat').on('value', (snapshot) => {
         flatPOList = [];
@@ -246,14 +285,22 @@
         renderHistory();
     });
 
-    function addReworkRow(savedPool = "REWORK") {
+    function addReworkRow(savedPool = "REWORK", savedAdjType = "IN") {
         const body = document.getElementById('dynamicItemsBody');
         const tr = document.createElement('tr');
+        const isDirect = document.getElementById('isDirectStock').checked;
+        
         tr.innerHTML = `
             <td>
                 <select class="rework-pool-select">
                     <option value="REWORK" ${savedPool==='REWORK'?'selected':''}>REWORK POOL</option>
                     <option value="FRESH" ${savedPool==='FRESH'?'selected':''}>PASSED TO FRESH</option>
+                </select>
+            </td>
+            <td class="td-adj-type" style="display:${isDirect ? 'table-cell' : 'none'};">
+                <select class="adj-type-select ${savedAdjType==='OUT'?'type-out':'type-in'}" onchange="this.className='adj-type-select ' + (this.value==='OUT'?'type-out':'type-in')">
+                    <option value="IN" ${savedAdjType==='IN'?'selected':''}>IN (+)</option>
+                    <option value="OUT" ${savedAdjType==='OUT'?'selected':''}>OUT (-)</option>
                 </select>
             </td>
             <td class="search-container">
@@ -400,6 +447,7 @@
         e.preventDefault();
         let items = [];
         let rows = document.querySelectorAll('#dynamicItemsBody tr');
+        let isDirectMode = document.getElementById('isDirectStock').checked;
         
         if(rows.length === 0) { alert("Please add at least one item row!"); return; }
 
@@ -407,6 +455,8 @@
 
         rows.forEach(row => {
             const pool = row.querySelector('.rework-pool-select').value;
+            const adjTypeSelect = row.querySelector('.adj-type-select');
+            const adjType = isDirectMode && adjTypeSelect ? adjTypeSelect.value : "IN";
             const qty = parseInt(row.querySelector('.item-qty').value);
             const snReq = row.querySelector('.item-sn-req').value;
             const snData = row.querySelector('.btn-sn-setup').getAttribute('data-sn');
@@ -420,6 +470,7 @@
 
             items.push({ 
                 pool: pool,
+                adjType: adjType, // "IN" या "OUT"
                 itemShort: row.querySelector('.item-short').value.toUpperCase(), 
                 itemName: row.querySelector('.item-name').value, 
                 qty: qty, 
@@ -434,18 +485,19 @@
         const fbKey = document.getElementById('editFirebaseKey').value;
 
         const entry = { 
+            isDirectStock: isDirectMode,
             date: document.getElementById('rwDate').value, 
-            billDate: document.getElementById('rwBillDate').value,
-            partyName: document.getElementById('rwPartyName').value.trim().toUpperCase(), 
+            billDate: isDirectMode ? "" : document.getElementById('rwBillDate').value,
+            partyName: isDirectMode ? "INTERNAL STOCK ADJUSTMENT" : document.getElementById('rwPartyName').value.trim().toUpperCase(), 
             dispatch: document.getElementById('rwDispatch').value.trim(), 
-            billNo: document.getElementById('rwBillNo').value.trim(), 
-            gateEntryNo: document.getElementById('rwGateEntryNo').value.trim(), 
+            billNo: isDirectMode ? "DIRECT_STK" : document.getElementById('rwBillNo').value.trim(), 
+            gateEntryNo: isDirectMode ? "ADJUSTMENT" : document.getElementById('rwGateEntryNo').value.trim(), 
             gridItems: items 
         };
         
         if(idx === -1) {
             database.ref('reworkStockVouchers').push(entry).then(() => {
-                alert("🎉 Rework Gate In entry saved successfully!");
+                alert("🎉 Rework / Stock Adjustment entry saved successfully!");
                 resetReworkForm();
             });
         } else {
@@ -456,7 +508,7 @@
         }
     });
 
-    // 📊 RENDER HISTORY TABLE WITH SEARCH & LIMIT (🔍 Item Code Search & Display Fixed)
+    // 📊 RENDER HISTORY TABLE WITH SEARCH & LIMIT
     function renderHistory() {
         const b = document.getElementById('reworkHistoryBody'); b.innerHTML = '';
         if(!reworkData || reworkData.length === 0) {
@@ -473,7 +525,6 @@
             let billMatch = (v.billNo || "").toUpperCase().includes(searchStr);
             let gateMatch = (v.gateEntryNo || "").toUpperCase().includes(searchStr);
             
-            // 🌟 ITEM CODE & NAME FILTER MATCH
             let itemMatch = safeConvertToArray(v.gridItems).some(i => {
                 let code = (i.itemShort || i.code || "").toUpperCase();
                 let name = (i.itemName || i.name || "").toUpperCase();
@@ -488,19 +539,20 @@
         viewList.forEach((r) => {
             let origIdx = reworkData.findIndex(x => x.fbKey === r.fbKey);
             
-            // 🌟 CODE DISPLAY IN HISTORY
             let desc = safeConvertToArray(r.gridItems).map(i => {
                 let poolLabel = i.pool ? `[<b>${i.pool}</b>] ` : '';
+                let typeBadge = i.adjType === 'OUT' ? `<span style="color:#dc2626; font-weight:bold;">[OUT (-)]</span> ` : `<span style="color:#16a34a; font-weight:bold;">[IN (+)]</span> `;
                 let itemCodeStr = (i.itemShort || i.code) ? `(<b>${i.itemShort || i.code}</b>) ` : '';
                 let snInfo = (i.serials && i.serials.length > 0) ? ` [S/N: ${i.serials.join(', ')}]` : '';
-                return `• ${poolLabel}${itemCodeStr}${i.itemName || ''} (<b>${i.qty} Nos</b>)${snInfo}`;
+                return `• ${poolLabel}${r.isDirectStock ? typeBadge : ''}${itemCodeStr}${i.itemName || ''} (<b>${i.qty} Nos</b>)${snInfo}`;
             }).join('<br>');
             
-            let challanInfo = `No: ${r.billNo}<br>Date: ${r.billDate || 'N/A'}`;
+            let partyDisplay = r.isDirectStock ? `<span style="color:#2563eb; font-weight:bold;">📦 DIRECT ADJUSTMENT</span>` : `<b>${r.partyName}</b>`;
+            let challanInfo = r.isDirectStock ? `<span style="color:#64748b; font-style:italic;">INTERNAL</span>` : `No: ${r.billNo}<br>Date: ${r.billDate || 'N/A'}`;
             
             b.innerHTML += `<tr>
                 <td>${r.date}</td>
-                <td><b>${r.partyName}</b></td>
+                <td>${partyDisplay}</td>
                 <td>${challanInfo}</td>
                 <td>${r.gateEntryNo}</td>
                 <td style="text-align:left; font-size:12px;">${desc}</td>
@@ -518,12 +570,17 @@
         document.getElementById('editRowIndex').value = idx;
         document.getElementById('editFirebaseKey').value = r.fbKey;
         
+        document.getElementById('isDirectStock').checked = r.isDirectStock || false;
+        toggleDirectStockMode();
+
         document.getElementById('rwDate').value = r.date;
-        document.getElementById('rwBillDate').value = r.billDate || '';
-        document.getElementById('rwPartyName').value = r.partyName;
+        if(!r.isDirectStock) {
+            document.getElementById('rwBillDate').value = r.billDate || '';
+            document.getElementById('rwPartyName').value = r.partyName || '';
+            document.getElementById('rwBillNo').value = r.billNo || '';
+            document.getElementById('rwGateEntryNo').value = r.gateEntryNo || '';
+        }
         document.getElementById('rwDispatch').value = r.dispatch || '';
-        document.getElementById('rwBillNo').value = r.billNo;
-        document.getElementById('rwGateEntryNo').value = r.gateEntryNo;
 
         const body = document.getElementById('dynamicItemsBody');
         body.innerHTML = '';
@@ -535,12 +592,20 @@
             const snClass = (item.serials && item.serials.length > 0) ? 'btn-sn-setup configured' : (isYes ? 'btn-sn-setup' : 'btn-sn-setup disabled-sn');
             const disabledAttr = isYes ? '' : 'disabled';
             const poolVal = item.pool || "REWORK";
+            const adjTypeVal = item.adjType || "IN";
+            const isDirect = r.isDirectStock || false;
 
             tr.innerHTML = `
                 <td>
                     <select class="rework-pool-select">
                         <option value="REWORK" ${poolVal==='REWORK'?'selected':''}>REWORK POOL</option>
                         <option value="FRESH" ${poolVal==='FRESH'?'selected':''}>PASSED TO FRESH</option>
+                    </select>
+                </td>
+                <td class="td-adj-type" style="display:${isDirect ? 'table-cell' : 'none'};">
+                    <select class="adj-type-select ${adjTypeVal==='OUT'?'type-out':'type-in'}" onchange="this.className='adj-type-select ' + (this.value==='OUT'?'type-out':'type-in')">
+                        <option value="IN" ${adjTypeVal==='IN'?'selected':''}>IN (+)</option>
+                        <option value="OUT" ${adjTypeVal==='OUT'?'selected':''}>OUT (-)</option>
                     </select>
                 </td>
                 <td class="search-container">
@@ -563,8 +628,8 @@
             body.appendChild(tr);
         });
 
-        document.getElementById('formTitleRework').innerText = "🛠️ Modify/Edit Rework Gate In Entry";
-        document.getElementById('btnSubmitForm').innerText = "Update Rework Entry";
+        document.getElementById('formTitleRework').innerText = "🛠️ Modify/Edit Rework Entry";
+        document.getElementById('btnSubmitForm').innerText = "Update Entry";
         document.getElementById('btnCancelEdit').style.display = "inline-block";
         document.getElementById('reworkForm').scrollIntoView({ behavior: 'smooth' });
     }
@@ -574,6 +639,8 @@
         document.getElementById('editFirebaseKey').value = "";
         document.getElementById('reworkForm').reset();
         document.getElementById('dynamicItemsBody').innerHTML = '';
+        document.getElementById('isDirectStock').checked = false;
+        toggleDirectStockMode();
         
         document.getElementById('formTitleRework').innerText = "🛠️ Gate In (Rework) Ledger";
         document.getElementById('btnSubmitForm').innerText = "Save Rework Gate In";
@@ -586,7 +653,7 @@
 
     function deleteReworkRow(idx) {
         const itemToDelete = reworkData[idx];
-        if(confirm("Are you sure you want to permanently delete this rework entry from logs?")) {
+        if(confirm("Are you sure you want to permanently delete this entry from logs?")) {
             database.ref('reworkStockVouchers/' + itemToDelete.fbKey).remove().then(() => {
                 alert("🗑️ Record deleted successfully!");
                 resetReworkForm();
@@ -599,26 +666,27 @@
         let lines = ''; 
         safeConvertToArray(e.gridItems).forEach(i => { 
             let poolText = i.pool ? `[${i.pool}] ` : '';
+            let typeBadge = e.isDirectStock ? `[${i.adjType || 'IN'}] ` : '';
             let itemCodeStr = (i.itemShort || i.code) ? `[${i.itemShort || i.code}] ` : '';
             let snText = (i.serials && i.serials.length > 0) ? i.serials.join(', ') : 'N/A';
-            lines += `• ${poolText}<b>${i.itemName}</b> ${itemCodeStr}- Qty: ${i.qty} NOS (S/Ns: ${snText})<br>`; 
+            lines += `• ${poolText}${typeBadge}<b>${i.itemName}</b> ${itemCodeStr}- Qty: ${i.qty} NOS (S/Ns: ${snText})<br>`; 
         });
         
         shell.innerHTML = `
             <div style="border:1px solid #000; padding:6px; height:100%; box-sizing:border-box; display:flex; flex-direction:column; justify-content:space-between;">
-                <div style="text-align:center; font-weight:bold; font-size:12px; border-bottom:1px solid #000; padding-bottom:2px; text-transform:uppercase;">GVM RAIL PVT LTD - REWORK INWARD</div>
+                <div style="text-align:center; font-weight:bold; font-size:12px; border-bottom:1px solid #000; padding-bottom:2px; text-transform:uppercase;">GVM RAIL PVT LTD - ${e.isDirectStock ? 'STOCK ADJUSTMENT SLIP' : 'REWORK INWARD'}</div>
                 
                 <table style="width:100%; font-size:11px; margin-top:2px; line-height:1.2;">
                     <tr>
-                        <td><b>Gate In Date:</b> ${e.date}</td>
-                        <td><b>Gate In No:</b> ${e.gateEntryNo}</td>
+                        <td><b>Date:</b> ${e.date}</td>
+                        <td><b>Ref No:</b> ${e.gateEntryNo}</td>
                     </tr>
                     <tr>
-                        <td><b>Bill / Challan No:</b> ${e.billNo}</td>
-                        <td><b>Party Name:</b> ${e.partyName}</td>
+                        <td><b>Challan / Mode:</b> ${e.billNo}</td>
+                        <td><b>Party / Account:</b> ${e.partyName}</td>
                     </tr>
                     <tr>
-                        <td colspan="2"><b>Challan Date:</b> ${e.billDate || 'N/A'} | <b>Dispatch Ref:</b> ${e.dispatch || 'N/A'}</td>
+                        <td colspan="2"><b>Remarks / Ref:</b> ${e.dispatch || 'N/A'}</td>
                     </tr>
                 </table>
 
