@@ -219,6 +219,8 @@
     function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
 
     let reworkData = [];
+    let freshData = [];
+    let gateoutData = [];
     let masterCatalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
     let flatPOList = [];
     let liveStockMap = {}; 
@@ -264,11 +266,23 @@
         if(data) { for(let key in data) { flatPOList.push(data[key]); } }
     });
 
-    // 📊 लाइव स्टॉक बैलेंस सिंक
-    database.ref('liveStockInventory').on('value', (snapshot) => {
-        liveStockMap = snapshot.val() || {};
+    // 🔄 Sync Fresh Inward Data for Live Balance Calculation
+    database.ref('freshInwardVouchers').on('value', (snapshot) => {
+        freshData = [];
+        const data = snapshot.val();
+        if(data) { for(let key in data) { if(data[key]) freshData.push(data[key]); } }
+        recalculateLiveStockMap();
     });
 
+    // 🔄 Sync Gate Out Data
+    database.ref('gateoutVouchers').on('value', (snapshot) => {
+        gateoutData = [];
+        const data = snapshot.val();
+        if(data) { for(let key in data) { if(data[key]) gateoutData.push(data[key]); } }
+        recalculateLiveStockMap();
+    });
+
+    // 🔄 Sync Rework Vouchers Data
     database.ref('reworkStockVouchers').on('value', (snapshot) => {
         reworkData = [];
         const data = snapshot.val();
@@ -279,7 +293,54 @@
         }
         reworkData.reverse();
         renderHistory();
+        recalculateLiveStockMap();
     });
+
+    // 📊 REALTIME ACCURATE STOCK CALCULATOR (Exactly like ledger.html)
+    function recalculateLiveStockMap() {
+        liveStockMap = {};
+
+        // 1. Fresh Inward Addition
+        freshData.forEach(v => {
+            safeConvertToArray(v.gridItems).forEach(item => {
+                let code = cleanStr(item.code || item.itemShort);
+                if(!code) return;
+                if(!liveStockMap[code]) liveStockMap[code] = { freshAvailable: 0, reworkAvailable: 0 };
+                liveStockMap[code].freshAvailable += (parseFloat(item.qty) || 0);
+            });
+        });
+
+        // 2. Gate Out Subtraction
+        gateoutData.forEach(v => {
+            safeConvertToArray(v.gridItems).forEach(item => {
+                let code = cleanStr(item.code || item.itemShort);
+                if(!code) return;
+                if(!liveStockMap[code]) liveStockMap[code] = { freshAvailable: 0, reworkAvailable: 0 };
+                liveStockMap[code].freshAvailable -= (parseFloat(item.qty) || 0);
+            });
+        });
+
+        // 3. Rework Vouchers (IN / OUT for FRESH & REWORK POOL)
+        reworkData.forEach(v => {
+            safeConvertToArray(v.gridItems).forEach(item => {
+                let code = cleanStr(item.code || item.itemShort);
+                if(!code) return;
+                if(!liveStockMap[code]) liveStockMap[code] = { freshAvailable: 0, reworkAvailable: 0 };
+
+                let qty = parseFloat(item.qty) || 0;
+                let pool = (item.pool || 'REWORK').toUpperCase();
+                let isOut = item.adjType === 'OUT';
+
+                if(pool === 'FRESH') {
+                    if(isOut) liveStockMap[code].freshAvailable -= qty;
+                    else liveStockMap[code].freshAvailable += qty;
+                } else {
+                    if(isOut) liveStockMap[code].reworkAvailable -= qty;
+                    else liveStockMap[code].reworkAvailable += qty;
+                }
+            });
+        });
+    }
 
     function addReworkRow(savedPool = "REWORK", savedAdjType = "IN") {
         const body = document.getElementById('dynamicItemsBody');
@@ -437,7 +498,7 @@
         document.getElementById('serialModal').style.display = 'none';
     }
 
-    // 💾 SAVE RECORD TO FIREBASE (🎯 FLAWLESS CODE MATCHING & STOCK VALIDATION)
+    // 💾 SAVE RECORD TO FIREBASE (🎯 PERFECT LIVE STOCK MATCHING)
     document.getElementById('reworkForm').addEventListener('submit', function(e) {
         e.preventDefault();
         let items = [];
@@ -466,27 +527,12 @@
                 break;
             }
 
-            // 🛑 2. PERFECT STOCK OUT (-) VALIDATION FIX
+            // 🛑 2. STOCK OUT (-) ACCURATE VALIDATION
             if(adjType === 'OUT') {
-                let currentPoolStock = 0;
-                let targetCleanCode = cleanStr(itemCode);
+                let cleanCodeKey = cleanStr(itemCode);
+                let stockRecord = liveStockMap[cleanCodeKey] || { freshAvailable: 0, reworkAvailable: 0 };
                 
-                // 🔍 LiveStockInventory में से फ्लैक्सिबल कोड मैचिंग
-                if(liveStockMap) {
-                    for(let key in liveStockMap) {
-                        let node = liveStockMap[key];
-                        let nodeCode = cleanStr(node.code || node.modelCode || node.itemCode || key);
-                        
-                        if(nodeCode === targetCleanCode) {
-                            if(pool === 'FRESH') {
-                                currentPoolStock = parseFloat(node.freshAvailable || node.freshStock || node.liveFreshStock || node.freshQty || 0);
-                            } else {
-                                currentPoolStock = parseFloat(node.reworkAvailable || node.reworkStock || node.liveReworkStock || node.reworkQty || 0);
-                            }
-                            break;
-                        }
-                    }
-                }
+                let currentPoolStock = pool === 'FRESH' ? stockRecord.freshAvailable : stockRecord.reworkAvailable;
 
                 // अगर माँगी गई मात्रा उपलब्ध स्टॉक से ज्यादा है
                 if(qty > currentPoolStock) {
