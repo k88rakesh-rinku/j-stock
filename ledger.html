@@ -18,7 +18,7 @@
 
         .badge-fresh { background: #dcfce7; color: #15803d; padding: 3px 8px; border-radius: 4px; font-weight: bold; }
         .badge-rework { background: #fef9c3; color: #a16207; padding: 3px 8px; border-radius: 4px; font-weight: bold; }
-        .badge-out { background: #fee2e2; color: #b91c1c; padding: 3px 8px; border-radius: 4px; font-weight: bold; }
+        .badge-total { background: #e0f2fe; color: #0369a1; padding: 3px 8px; border-radius: 4px; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -62,9 +62,9 @@
                     <th>Item Name / Description</th>
                     <th>Total Fresh Inward</th>
                     <th>Gate Out (BOM)</th>
-                    <th>Fresh Adjustments</th>
-                    <th>Live Fresh Available</th>
-                    <th>Live Rework Pool Stock</th>
+                    <th>Fresh Stock Available</th>
+                    <th>Rework Stock Available</th>
+                    <th>Total Combined Stock</th>
                 </tr>
             </thead>
             <tbody id="masterLedgerBody">
@@ -145,7 +145,8 @@
                     freshIn: 0,
                     bomOut: 0,
                     freshAdj: 0,
-                    reworkAdj: 0
+                    reworkIn: 0,
+                    reworkOut: 0
                 };
             }
             if (catalogMap[clean] && stockMap[clean].name === clean) {
@@ -163,7 +164,7 @@
             });
         });
 
-        // 2. Gate Out (ONLY BOM OUT DEDUCTS HERE)
+        // 2. Gate Out (ONLY BOM OUT)
         gateoutData.forEach(v => {
             safeConvertToArray(v.gridItems).forEach(i => {
                 let c = i.code || i.itemShort || i.modelCode;
@@ -180,7 +181,7 @@
                 if (!rec) return;
 
                 let rawQty = parseFloat(i.qty) || 0;
-                let qty = Math.abs(rawQty); // Absolute Qty
+                let qty = Math.abs(rawQty);
                 let pool = (i.pool || 'REWORK').toUpperCase();
                 let isOut = (i.adjType === 'OUT' || rawQty < 0);
 
@@ -189,9 +190,9 @@
                     if (isOut) rec.freshAdj -= qty;
                     else rec.freshAdj += qty;
                 } else {
-                    // Rework Pool Adjustment
-                    if (isOut) rec.reworkAdj -= qty;
-                    else rec.reworkAdj += qty;
+                    // Rework Pool Stock
+                    if (isOut) rec.reworkOut += qty;
+                    else rec.reworkIn += qty;
                 }
             });
         });
@@ -227,21 +228,23 @@
         filteredKeys.forEach(k => {
             let item = stockMap[k];
             
-            // 🎯 EXACT FORMULA: (Fresh In - Gate Out BOM) + Fresh Direct Adjustments
+            // 🎯 FRESH STOCK FORMULA: (Fresh In - BOM Gate Out) + Direct Fresh Adjustments
             let liveFresh = (item.freshIn - item.bomOut) + item.freshAdj;
-            let liveRework = item.reworkAdj;
-
-            let freshAdjDisplay = item.freshAdj > 0 ? `+${item.freshAdj}` : (item.freshAdj < 0 ? `${item.freshAdj}` : `0`);
-            let freshAdjColor = item.freshAdj < 0 ? `color:#dc2626; font-weight:bold;` : (item.freshAdj > 0 ? `color:#16a34a; font-weight:bold;` : `color:#64748b;`);
+            
+            // 🎯 REWORK STOCK FORMULA: Rework In - Rework Out
+            let liveRework = item.reworkIn - item.reworkOut;
+            
+            // 🎯 TOTAL COMBINED
+            let totalCombined = liveFresh + liveRework;
 
             html += `<tr>
                 <td><b>${item.code}</b></td>
                 <td>${item.name}</td>
                 <td>${item.freshIn} NOS</td>
                 <td style="color:#dc2626; font-weight:bold;">${item.bomOut} NOS</td>
-                <td style="${freshAdjColor}">${freshAdjDisplay} NOS</td>
                 <td><span class="badge-fresh" style="${liveFresh < 0 ? 'background:#fee2e2; color:#b91c1c;' : ''}">${liveFresh} NOS</span></td>
-                <td><span class="badge-rework">${liveRework} NOS</span></td>
+                <td><span class="badge-rework" style="${liveRework < 0 ? 'background:#fee2e2; color:#b91c1c;' : ''}">${liveRework} NOS</span></td>
+                <td><span class="badge-total">${totalCombined} NOS</span></td>
             </tr>`;
         });
 
