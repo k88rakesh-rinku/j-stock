@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rework Management - Control System</title>
     <link rel="stylesheet" href="style.css">
-    <!-- Firebase Realtime Sync Scripts -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
     <style>
@@ -275,55 +274,6 @@
         renderHistory();
     });
 
-    // 🎯 LIVE FRESH STOCK CALCULATOR (FETCHES DIRECTLY FROM FIREBASE FRESH VOUCHERS)
-    async function getExactLiveStock(targetCode) {
-        let cleanTarget = cleanStr(targetCode);
-        
-        let freshSnap = await database.ref('freshInwardVouchers').once('value');
-        let gateoutSnap = await database.ref('gateoutVouchers').once('value');
-        let reworkSnap = await database.ref('reworkStockVouchers').once('value');
-
-        let freshDataArr = safeConvertToArray(freshSnap.val());
-        let gateoutDataArr = safeConvertToArray(gateoutSnap.val());
-        let reworkDataArr = safeConvertToArray(reworkSnap.val());
-
-        let freshIn = 0;
-        let freshOut = 0;
-
-        // 1. Fresh Inward
-        freshDataArr.forEach(v => {
-            safeConvertToArray(v.gridItems).forEach(i => {
-                if(cleanStr(i.code || i.itemShort || i.modelCode) === cleanTarget) {
-                    freshIn += (parseFloat(i.qty) || 0);
-                }
-            });
-        });
-
-        // 2. Gate Out (BOM Out)
-        gateoutDataArr.forEach(v => {
-            safeConvertToArray(v.gridItems).forEach(i => {
-                if(cleanStr(i.code || i.itemShort || i.modelCode) === cleanTarget) {
-                    freshOut += (parseFloat(i.qty) || 0);
-                }
-            });
-        });
-
-        // 3. Direct Fresh Adjustments
-        reworkDataArr.forEach(v => {
-            if(v.isDirectStock) {
-                safeConvertToArray(v.gridItems).forEach(i => {
-                    if(cleanStr(i.itemShort || i.code || i.modelCode) === cleanTarget && (i.pool || '').toUpperCase() === 'FRESH') {
-                        let qty = parseFloat(i.qty) || 0;
-                        if(i.adjType === 'OUT') freshOut += qty;
-                        else freshIn += qty;
-                    }
-                });
-            }
-        });
-
-        return freshIn - freshOut; // 👈 894 - 594 = EXACT 300 NOS
-    }
-
     function addReworkRow(savedPool = "FRESH", savedAdjType = "IN") {
         const body = document.getElementById('dynamicItemsBody');
         const tr = document.createElement('tr');
@@ -481,7 +431,7 @@
     }
 
     // 💾 SAVE RECORD TO FIREBASE
-    document.getElementById('reworkForm').addEventListener('submit', async function(e) {
+    document.getElementById('reworkForm').addEventListener('submit', function(e) {
         e.preventDefault();
         let items = [];
         let rows = document.querySelectorAll('#dynamicItemsBody tr');
@@ -491,7 +441,7 @@
 
         let errorFound = false;
 
-        for(let row of rows) {
+        rows.forEach(row => {
             const pool = row.querySelector('.rework-pool-select').value; 
             const adjTypeSelect = row.querySelector('.adj-type-select');
             const adjType = isDirectMode && adjTypeSelect ? adjTypeSelect.value : "IN";
@@ -505,38 +455,19 @@
             if(snReq === 'YES' && serialsArr.length === 0) {
                 alert(`⚠️ Please configure S/N for item: ${itemCode}`);
                 errorFound = true;
-                break;
-            }
-
-            // 🛑 FRESH STOCK MINUS VALIDATION
-            if(adjType === 'OUT' && pool === 'FRESH') {
-                let currentFreshStock = await getExactLiveStock(itemCode);
-
-                if(qty > currentFreshStock) {
-                    if(isDirectMode) {
-                        let confirmAdjust = confirm(`⚠️ FRESH STOCK SHORTAGE!\n\nItem Code: ${itemCode}\nAvailable Fresh Stock: ${currentFreshStock} NOS\nRequested OUT Qty: ${qty} NOS\n\nDo you want to FORCE MINUS this stock from Fresh Pool anyway?`);
-                        if(!confirmAdjust) {
-                            errorFound = true;
-                            break;
-                        }
-                    } else {
-                        alert(`🚫 INSUFFICIENT FRESH STOCK ERROR!\n\nItem Code: ${itemCode}\nAvailable Fresh Stock: ${currentFreshStock} NOS\nRequested OUT Qty: ${qty} NOS`);
-                        errorFound = true;
-                        break;
-                    }
-                }
+                return;
             }
 
             items.push({ 
                 pool: pool,
-                adjType: adjType,
+                adjType: adjType, // "IN" या "OUT"
                 itemShort: itemCode, 
                 itemName: itemName, 
                 qty: qty, 
                 snReq: snReq,
                 serials: serialsArr 
             });
-        }
+        });
 
         if(errorFound) return;
 
@@ -556,7 +487,7 @@
         
         if(idx === -1) {
             database.ref('reworkStockVouchers').push(entry).then(() => {
-                alert("🎉 Stock Entry / Adjustment saved successfully!");
+                alert("🎉 Stock Adjustment / Entry saved successfully!");
                 resetReworkForm();
             });
         } else {
