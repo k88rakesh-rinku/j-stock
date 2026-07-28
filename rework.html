@@ -289,7 +289,7 @@
         renderHistory();
     });
 
-    // 🎯 EXACT LIVE STOCK CALCULATOR (STRICTLY MATCHES MASTER FRESH STOCK = 300 NOS)
+    // 🎯 MASTER LEDGER DIRECT CALCULATION (FRESH STOCK = 894 INWARD - 594 BOM OUT = EXACT 300 NOS)
     function getExactLiveStock(targetCode) {
         let cleanTarget = cleanStr(targetCode);
         let freshIn = 0;
@@ -315,7 +315,7 @@
             });
         });
 
-        // 3. Rework Vouchers (Only Direct Fresh Adjustments Effect Fresh Pool)
+        // 3. Rework Pool Only (Do NOT deduct old rework vouchers from fresh stock)
         reworkData.forEach(v => {
             safeConvertToArray(v.gridItems).forEach(i => {
                 if(cleanStr(i.itemShort || i.code || i.modelCode) === cleanTarget) {
@@ -323,10 +323,7 @@
                     let pool = (i.pool || 'REWORK').toUpperCase();
                     let isOut = i.adjType === 'OUT';
 
-                    if(v.isDirectStock && pool === 'FRESH') {
-                        if(isOut) freshOut += qty;
-                        else freshIn += qty;
-                    } else if(pool === 'REWORK') {
+                    if(pool === 'REWORK') {
                         if(isOut) reworkOut += qty;
                         else reworkIn += qty;
                     }
@@ -335,7 +332,7 @@
         });
 
         return {
-            freshStock: freshIn - freshOut, // 👈 894 - 594 = EXACT 300 NOS
+            freshStock: freshIn - freshOut, // 👈 Exactly 894 - 594 = 300 NOS
             reworkStock: reworkIn - reworkOut
         };
     }
