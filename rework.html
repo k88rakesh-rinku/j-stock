@@ -82,6 +82,25 @@
             background: #fef2f2; 
         }
 
+        /* 📦 Selective BOM Breakdown Box */
+        .bom-breakdown-panel {
+            background: #eff6ff;
+            border: 1px solid #3b82f6;
+            border-radius: 6px;
+            padding: 10px;
+            margin-top: 10px;
+            display: none;
+        }
+        .bom-breakdown-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            font-size: 12px;
+        }
+        .bom-breakdown-table th { background: #1e40af; color: white; padding: 6px; }
+        .bom-breakdown-table td { padding: 6px; border: 1px solid #cbd5e1; }
+        .chk-bom-item { transform: scale(1.2); cursor: pointer; }
+
         @media print {
             body * { visibility: hidden; }
             #printSection, #printSection * { visibility: visible; }
@@ -155,6 +174,30 @@
             </table>
             <button type="button" class="btn-row-add" onclick="addReworkRow()">+</button>
         </div>
+
+        <!-- 📦 Selective BOM Checklist Container -->
+        <div id="bomBreakdownContainer" class="bom-breakdown-panel">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <b style="color:#1e40af;" id="bomBreakdownTitle">📋 BOM Components Breakdown</b>
+                <div>
+                    <button type="button" onclick="selectAllBOMItems(true)" style="font-size:11px; cursor:pointer;">Select All</button>
+                    <button type="button" onclick="selectAllBOMItems(false)" style="font-size:11px; cursor:pointer;">Deselect All</button>
+                </div>
+            </div>
+            <p style="font-size:11px; color:#475569; margin:0 0 6px 0;">⚠️ केवल जिन आइटम्स पर <b>Tick (☑)</b> होगा, सिर्फ वही स्टॉक में एडजस्ट होंगे।</p>
+            <table class="bom-breakdown-table">
+                <thead>
+                    <tr>
+                        <th style="width:40px; text-align:center;">Select</th>
+                        <th>Component Code</th>
+                        <th>Component Description</th>
+                        <th style="width:90px;">Deduct Qty</th>
+                    </tr>
+                </thead>
+                <tbody id="bomBreakdownBody"></tbody>
+            </table>
+        </div>
+
         <button type="submit" id="btnSubmitForm" class="btn-submit rework-btn" style="margin-top:15px; width: 100%;">Save Rework Gate In</button>
         <button type="button" id="btnCancelEdit" class="btn-submit" style="background-color:#64748b; display:none; margin-top:10px; width: 100%;" onclick="cancelEditMode()">Cancel Update</button>
     </form>
@@ -222,6 +265,7 @@
     let masterCatalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
     let flatPOList = [];
     let activeBtnRef = null;
+    let bomMasterData = {};
 
     function safeConvertToArray(rawVal) {
         if (!rawVal) return [];
@@ -259,6 +303,10 @@
         flatPOList = [];
         const data = snapshot.val();
         if(data) { for(let key in data) { flatPOList.push(data[key]); } }
+    });
+
+    database.ref('bomMasterData').on('value', (snapshot) => {
+        bomMasterData = snapshot.val() || {};
     });
 
     database.ref('reworkStockVouchers').on('value', (snapshot) => {
@@ -299,7 +347,7 @@
                 <input type="text" required class="item-name" placeholder="Search Description/Name..." oninput="handleItemInput(this, 'name')" autocomplete="off">
                 <div class="suggestions-dropdown"></div>
             </td>
-            <td><input type="number" min="1" required class="item-qty" oninput="clearSN(this)"></td>
+            <td><input type="number" min="1" required class="item-qty" oninput="clearSN(this); updateBOMBreakdownQty(this)"></td>
             <td>
                 <select class="item-sn-req" onchange="toggleSNButton(this)">
                     <option value="NO" selected>NO</option>
@@ -307,7 +355,7 @@
                 </select>
             </td>
             <td><button type="button" class="btn-sn-setup disabled-sn" onclick="openSNModal(this)" disabled>S/N</button></td>
-            <td><button type="button" class="btn-row-remove" onclick="this.closest('tr').remove()">×</button></td>`;
+            <td><button type="button" class="btn-row-remove" onclick="this.closest('tr').remove(); hideBOMIfEmpty();">×</button></td>`;
         body.appendChild(tr);
     }
 
@@ -322,6 +370,7 @@
             box.innerHTML = "";
             if(type === 'code') { tr.querySelector('.item-name').value = ""; }
             else { tr.querySelector('.item-short').value = ""; }
+            document.getElementById('bomBreakdownContainer').style.display = 'none';
             return;
         }
 
@@ -343,6 +392,13 @@
                 let catObj = masterCatalog[key];
                 if(Array.isArray(catObj)) { catObj.forEach(i => scanItem(i)); } 
                 else if(typeof catObj === 'object') { for(let subKey in catObj) { scanItem(catObj[subKey]); } }
+            }
+        }
+
+        // Also Scan BOM Master Keys
+        for(let key in bomMasterData) {
+            if(key.toLowerCase().includes(text)) {
+                matches.push({ code: key, name: "BOM ASSEMBLY SET (" + key + ")" });
             }
         }
 
@@ -373,10 +429,70 @@
 
     function selectItemSuggestion(elem, code, name) {
         let tr = elem.closest('tr');
-        tr.querySelector('.item-short').value = code.toUpperCase();
+        let codeUpper = code.toUpperCase();
+        tr.querySelector('.item-short').value = codeUpper;
         tr.querySelector('.item-name').value = name;
         let box = elem.closest('.suggestions-dropdown');
         if(box) box.style.display = "none";
+
+        // 🎯 Check if this selected code is a BOM Code!
+        if(bomMasterData[codeUpper]) {
+            renderBOMComponentsChecklist(codeUpper, tr);
+        } else {
+            document.getElementById('bomBreakdownContainer').style.display = 'none';
+        }
+    }
+
+    // 📦 Render BOM Components with Selective Checkboxes (Card Auto-Checked)
+    function renderBOMComponentsChecklist(bomKey, tr) {
+        const container = document.getElementById('bomBreakdownContainer');
+        const tbody = document.getElementById('bomBreakdownBody');
+        document.getElementById('bomBreakdownTitle').innerText = `📋 BOM Components for: ${bomKey}`;
+        
+        tbody.innerHTML = '';
+        let items = Array.isArray(bomMasterData[bomKey]) ? bomMasterData[bomKey] : Object.values(bomMasterData[bomKey]);
+        let multiplier = parseFloat(tr.querySelector('.item-qty').value) || 1;
+
+        items.forEach((item, idx) => {
+            let cCode = (item.modelCode || item.code || item.partCode || "").toUpperCase();
+            let cName = (item.modelName || item.itemName || item.description || "N/A").toUpperCase();
+            let baseQty = parseFloat(item.qty || item.quantity || 1) || 1;
+            let totalQty = baseQty * multiplier;
+
+            // Auto Check if it's a Card / PCB
+            let isCard = cCode.includes("CARD") || cName.includes("CARD") || cName.includes("PCB");
+
+            tbody.innerHTML += `
+                <tr>
+                    <td style="text-align:center;">
+                        <input type="checkbox" class="chk-bom-item" id="chk_bom_${idx}" ${isCard ? 'checked' : ''} data-code="${cCode}" data-name="${cName}">
+                    </td>
+                    <td><code>${cCode}</code></td>
+                    <td><b>${cName}</b> ${isCard ? '<span style="color:#16a34a; font-size:10px;">(CARD DETECTED)</span>' : ''}</td>
+                    <td><input type="number" id="qty_bom_${idx}" value="${totalQty}" style="width:70px; padding:3px;"></td>
+                </tr>
+            `;
+        });
+
+        container.style.display = 'block';
+    }
+
+    function selectAllBOMItems(status) {
+        document.querySelectorAll('.chk-bom-item').forEach(chk => chk.checked = status);
+    }
+
+    function updateBOMBreakdownQty(input) {
+        let tr = input.closest('tr');
+        let code = tr.querySelector('.item-short').value.toUpperCase();
+        if(bomMasterData[code]) {
+            renderBOMComponentsChecklist(code, tr);
+        }
+    }
+
+    function hideBOMIfEmpty() {
+        if(document.querySelectorAll('#dynamicItemsBody tr').length === 0) {
+            document.getElementById('bomBreakdownContainer').style.display = 'none';
+        }
     }
 
     document.addEventListener('click', function(e) {
@@ -429,7 +545,7 @@
         document.getElementById('serialModal').style.display = 'none';
     }
 
-    // 💾 SAVE RECORD TO FIREBASE (🎯 Negative Qty logic for Master Ledger Subtraction)
+    // 💾 SAVE RECORD TO FIREBASE (With Selective BOM Component Support)
     document.getElementById('reworkForm').addEventListener('submit', function(e) {
         e.preventDefault();
         let items = [];
@@ -451,24 +567,57 @@
             const snData = row.querySelector('.btn-sn-setup').getAttribute('data-sn');
             const serialsArr = snData ? JSON.parse(snData) : [];
 
-            if(snReq === 'YES' && serialsArr.length === 0) {
-                alert(`⚠️ Please configure S/N for item: ${itemCode}`);
-                errorFound = true;
-                return;
+            // 🎯 Check if BOM Container is active & has checked items!
+            const bomContainer = document.getElementById('bomBreakdownContainer');
+            if(bomContainer.style.display === 'block' && bomMasterData[itemCode]) {
+                let chkList = document.querySelectorAll('.chk-bom-item');
+                let checkedCount = 0;
+
+                chkList.forEach((chk, idx) => {
+                    if(chk.checked) {
+                        checkedCount++;
+                        let cCode = chk.getAttribute('data-code');
+                        let cName = chk.getAttribute('data-name');
+                        let cQty = parseFloat(document.getElementById(`qty_bom_${idx}`).value) || 1;
+                        let finalQty = (adjType === 'OUT') ? -Math.abs(cQty) : Math.abs(cQty);
+
+                        items.push({
+                            pool: pool,
+                            adjType: adjType,
+                            itemShort: cCode,
+                            itemName: cName,
+                            qty: finalQty,
+                            snReq: 'NO',
+                            serials: []
+                        });
+                    }
+                });
+
+                if(checkedCount === 0) {
+                    alert("⚠️ BOM Components लिस्ट में से कम से कम 1 आइटम (जैसे Card) सिलेक्ट करें!");
+                    errorFound = true;
+                    return;
+                }
+            } else {
+                // Direct Item or Card Code
+                if(snReq === 'YES' && serialsArr.length === 0) {
+                    alert(`⚠️ Please configure S/N for item: ${itemCode}`);
+                    errorFound = true;
+                    return;
+                }
+
+                let finalQty = (adjType === 'OUT') ? -Math.abs(rawQty) : Math.abs(rawQty);
+
+                items.push({ 
+                    pool: pool,
+                    adjType: adjType,
+                    itemShort: itemCode, 
+                    itemName: itemName, 
+                    qty: finalQty, 
+                    snReq: snReq,
+                    serials: serialsArr 
+                });
             }
-
-            // 🛑 Direct Minus Trick: OUT Type me Qty Negative (-212) Hogi taki Master Ledger 300 - 212 = 88 kare!
-            let finalQty = (adjType === 'OUT') ? -Math.abs(rawQty) : Math.abs(rawQty);
-
-            items.push({ 
-                pool: pool,
-                adjType: adjType,
-                itemShort: itemCode, 
-                itemName: itemName, 
-                qty: finalQty, 
-                snReq: snReq,
-                serials: serialsArr 
-            });
         });
 
         if(errorFound) return;
@@ -616,7 +765,7 @@
                     </select>
                 </td>
                 <td><button type="button" class="${snClass}" ${disabledAttr} data-sn='${JSON.stringify(item.serials || [])}' onclick="openSNModal(this)">${snText}</button></td>
-                <td><button type="button" class="btn-row-remove" onclick="this.closest('tr').remove()">×</button></td>`;
+                <td><button type="button" class="btn-row-remove" onclick="this.closest('tr').remove(); hideBOMIfEmpty();">×</button></td>`;
             body.appendChild(tr);
         });
 
@@ -631,6 +780,7 @@
         document.getElementById('editFirebaseKey').value = "";
         document.getElementById('reworkForm').reset();
         document.getElementById('dynamicItemsBody').innerHTML = '';
+        document.getElementById('bomBreakdownContainer').style.display = 'none';
         document.getElementById('isDirectStock').checked = false;
         toggleDirectStockMode();
         
