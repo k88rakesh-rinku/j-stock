@@ -56,7 +56,7 @@
 
     <div class="table-filter-panel">
         <div>
-            <input type="text" id="ledgerSearchBox" class="search-input-box" placeholder="🔍 Search Code (e.g. GRMP), PO, Party..." oninput="renderCurrentTab()">
+            <input type="text" id="ledgerSearchBox" class="search-input-box" placeholder="🔍 Search Item Code, PO, Party..." oninput="renderCurrentTab()">
         </div>
         <div>
             <span style="font-weight:bold; color:#475569;">Total Items Found: </span>
@@ -148,9 +148,6 @@
     let gateoutData = {};
     let reworkData = {};
 
-    const cleanStr = (str) => String(str || "").trim().toUpperCase().replace(/[\s\-_]/g, '');
-    const displayStr = (str) => String(str || "").trim().toUpperCase();
-
     function switchLedgerTab(tabId, btn) {
         currentActiveTab = tabId;
         document.querySelectorAll('.ledger-tab-view').forEach(div => div.style.display = 'none');
@@ -185,28 +182,27 @@
     // 🎯 1. PO LEDGER
     function renderPOLedger() {
         const tbody = document.getElementById('poLedgerBody');
-        const searchVal = cleanStr(document.getElementById('ledgerSearchBox').value);
+        const rawSearch = (document.getElementById('ledgerSearchBox').value || "").trim().toUpperCase();
+        const cleanSearch = rawSearch.replace(/\s+/g, '');
         let poMap = {};
 
         Object.values(freshData).forEach(v => {
             if(!v) return;
-            let poNo = displayStr(v.poNo || v.billNo || "DIRECT");
-            let party = displayStr(v.partyName || "N/A");
+            let poNo = String(v.poNo || v.billNo || "DIRECT").trim().toUpperCase();
+            let party = String(v.partyName || "N/A").trim().toUpperCase();
             let items = v.gridItems || v.items || [];
             if(!Array.isArray(items)) items = Object.values(items);
 
             items.forEach(i => {
-                let rawCode = i.code || i.itemShort || i.modelCode || i.partCode || "";
-                let cleanC = cleanStr(rawCode);
-                if(!cleanC) return;
+                let fullCode = String(i.code || i.itemShort || i.modelCode || i.partCode || "").trim().toUpperCase();
+                if(!fullCode) return;
 
-                let key = poNo + "_" + cleanC;
+                let key = poNo.replace(/\s+/g, '') + "_" + fullCode.replace(/\s+/g, '');
                 if(!poMap[key]) {
                     poMap[key] = {
                         poNo: poNo,
                         party: party,
-                        displayCode: displayStr(rawCode),
-                        cleanCode: cleanC,
+                        displayCode: fullCode,
                         poQty: parseFloat(i.poQty) || parseFloat(i.qty) || 0,
                         rcvdQty: 0
                     };
@@ -217,7 +213,10 @@
 
         let keys = Object.keys(poMap).filter(k => {
             let item = poMap[k];
-            return item.poNo.includes(searchVal) || item.cleanCode.includes(searchVal) || cleanStr(item.party).includes(searchVal);
+            let poClean = item.poNo.replace(/\s+/g, '');
+            let codeClean = item.displayCode.replace(/\s+/g, '');
+            let partyClean = item.party.replace(/\s+/g, '');
+            return poClean.includes(cleanSearch) || codeClean.includes(cleanSearch) || partyClean.includes(cleanSearch);
         });
 
         document.getElementById('totalItemsCount').innerText = keys.length;
@@ -248,64 +247,71 @@
         tbody.innerHTML = html;
     }
 
-    // 🎯 2. FRESH STOCK LEDGER
+    // 🎯 2. EXACT ITEM CODE BASED FRESH STOCK LEDGER
     function renderFreshLedger() {
         const tbody = document.getElementById('freshLedgerBody');
-        const searchVal = cleanStr(document.getElementById('ledgerSearchBox').value);
+        const rawSearch = (document.getElementById('ledgerSearchBox').value || "").trim().toUpperCase();
+        const cleanSearch = rawSearch.replace(/\s+/g, '');
         let freshMap = {};
 
-        function getRecord(rawCode, name) {
-            let clean = cleanStr(rawCode);
-            if(!clean) return null;
-            if(!freshMap[clean]) {
-                freshMap[clean] = { 
-                    cleanCode: clean, 
-                    displayCode: displayStr(rawCode), 
-                    name: displayStr(name || rawCode), 
-                    freshIn: 0, 
-                    bomOut: 0, 
-                    freshAdj: 0 
+        function getExactRecord(item) {
+            let fullCode = String(item.code || item.itemShort || item.modelCode || item.partCode || "").trim().toUpperCase();
+            let desc = String(item.itemName || item.name || item.description || "").trim().toUpperCase();
+
+            if (!fullCode) return null;
+            let key = fullCode.replace(/\s+/g, '');
+
+            if (!freshMap[key]) {
+                freshMap[key] = {
+                    exactCode: fullCode,
+                    name: desc,
+                    freshIn: 0,
+                    bomOut: 0,
+                    freshAdj: 0
                 };
             }
-            return freshMap[clean];
+            if (desc && (!freshMap[key].name || freshMap[key].name === 'N/A')) {
+                freshMap[key].name = desc;
+            }
+            return freshMap[key];
         }
 
         // Fresh Inward
         Object.values(freshData).forEach(v => {
-            if(!v) return;
+            if (!v) return;
             let items = v.gridItems || v.items || [];
-            if(!Array.isArray(items)) items = Object.values(items);
+            if (!Array.isArray(items)) items = Object.values(items);
             items.forEach(i => {
-                let rec = getRecord(i.code || i.itemShort || i.modelCode, i.itemName || i.name);
-                if(rec) rec.freshIn += parseFloat(i.qty || 0);
+                let rec = getExactRecord(i);
+                if (rec) rec.freshIn += parseFloat(i.qty || 0);
             });
         });
 
         // Gate Out
         Object.values(gateoutData).forEach(v => {
-            if(!v) return;
+            if (!v) return;
             let items = v.gridItems || v.items || [];
-            if(!Array.isArray(items)) items = Object.values(items);
+            if (!Array.isArray(items)) items = Object.values(items);
             items.forEach(i => {
-                let rec = getRecord(i.code || i.itemShort || i.modelCode, i.itemName || i.name);
-                if(rec) rec.bomOut += parseFloat(i.qty || 0);
+                let rec = getExactRecord(i);
+                if (rec) rec.bomOut += parseFloat(i.qty || 0);
             });
         });
 
         // Direct Adjustments
         Object.values(reworkData).forEach(v => {
-            if(!v) return;
+            if (!v) return;
             let items = v.gridItems || v.items || [];
-            if(!Array.isArray(items)) items = Object.values(items);
+            if (!Array.isArray(items)) items = Object.values(items);
             items.forEach(i => {
                 let pool = (i.pool || 'REWORK').toUpperCase();
-                if(pool === 'FRESH') {
-                    let rec = getRecord(i.itemShort || i.code || i.modelCode, i.itemName || i.name);
-                    if(rec) {
+                if (pool === 'FRESH') {
+                    let rec = getExactRecord(i);
+                    if (rec) {
                         let rawQty = parseFloat(i.qty || 0);
                         let qty = Math.abs(rawQty);
                         let isOut = (i.adjType === 'OUT' || rawQty < 0);
-                        if(isOut) rec.freshAdj -= qty;
+                        if (isOut) rec.freshAdj -= qty;
                         else rec.freshAdj += qty;
                     }
                 }
@@ -314,12 +320,14 @@
 
         let keys = Object.keys(freshMap).filter(k => {
             let item = freshMap[k];
-            return item.cleanCode.includes(searchVal) || cleanStr(item.name).includes(searchVal);
+            let codeClean = item.exactCode.replace(/\s+/g, '');
+            let nameClean = item.name.replace(/\s+/g, '');
+            return codeClean.includes(cleanSearch) || nameClean.includes(cleanSearch);
         });
 
         document.getElementById('totalItemsCount').innerText = keys.length;
 
-        if(keys.length === 0) {
+        if (keys.length === 0) {
             tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:15px; color:#64748b;">No Fresh Stock Data Found.</td></tr>`;
             return;
         }
@@ -331,8 +339,8 @@
             let adjText = item.freshAdj > 0 ? `+${item.freshAdj}` : `${item.freshAdj}`;
 
             html += `<tr>
-                <td><b>${item.displayCode}</b></td>
-                <td>${item.name}</td>
+                <td><b>${item.exactCode}</b></td>
+                <td>${item.name || 'N/A'}</td>
                 <td>${item.freshIn} NOS</td>
                 <td style="color:#dc2626; font-weight:bold;">${item.bomOut} NOS</td>
                 <td style="font-weight:bold; ${item.freshAdj < 0 ? 'color:#dc2626;' : 'color:#16a34a;'}">${adjText} NOS</td>
@@ -345,37 +353,41 @@
     // 🎯 3. REWORK POOL LEDGER
     function renderReworkLedger() {
         const tbody = document.getElementById('reworkLedgerBody');
-        const searchVal = cleanStr(document.getElementById('ledgerSearchBox').value);
+        const rawSearch = (document.getElementById('ledgerSearchBox').value || "").trim().toUpperCase();
+        const cleanSearch = rawSearch.replace(/\s+/g, '');
         let reworkMap = {};
 
-        function getRecord(rawCode, name) {
-            let clean = cleanStr(rawCode);
-            if(!clean) return null;
-            if(!reworkMap[clean]) {
-                reworkMap[clean] = { 
-                    cleanCode: clean, 
-                    displayCode: displayStr(rawCode), 
-                    name: displayStr(name || rawCode), 
-                    rwIn: 0, 
-                    rwOut: 0 
+        function getExactRecord(item) {
+            let fullCode = String(item.code || item.itemShort || item.modelCode || item.partCode || "").trim().toUpperCase();
+            let desc = String(item.itemName || item.name || item.description || "").trim().toUpperCase();
+
+            if (!fullCode) return null;
+            let key = fullCode.replace(/\s+/g, '');
+
+            if (!reworkMap[key]) {
+                reworkMap[key] = {
+                    exactCode: fullCode,
+                    name: desc,
+                    rwIn: 0,
+                    rwOut: 0
                 };
             }
-            return reworkMap[clean];
+            return reworkMap[key];
         }
 
         Object.values(reworkData).forEach(v => {
-            if(!v) return;
+            if (!v) return;
             let items = v.gridItems || v.items || [];
-            if(!Array.isArray(items)) items = Object.values(items);
+            if (!Array.isArray(items)) items = Object.values(items);
             items.forEach(i => {
                 let pool = (i.pool || 'REWORK').toUpperCase();
-                if(pool === 'REWORK') {
-                    let rec = getRecord(i.itemShort || i.code || i.modelCode, i.itemName || i.name);
-                    if(rec) {
+                if (pool === 'REWORK') {
+                    let rec = getExactRecord(i);
+                    if (rec) {
                         let rawQty = parseFloat(i.qty || 0);
                         let qty = Math.abs(rawQty);
                         let isOut = (i.adjType === 'OUT' || rawQty < 0);
-                        if(isOut) rec.rwOut += qty;
+                        if (isOut) rec.rwOut += qty;
                         else rec.rwIn += qty;
                     }
                 }
@@ -384,12 +396,14 @@
 
         let keys = Object.keys(reworkMap).filter(k => {
             let item = reworkMap[k];
-            return item.cleanCode.includes(searchVal) || cleanStr(item.name).includes(searchVal);
+            let codeClean = item.exactCode.replace(/\s+/g, '');
+            let nameClean = item.name.replace(/\s+/g, '');
+            return codeClean.includes(cleanSearch) || nameClean.includes(cleanSearch);
         });
 
         document.getElementById('totalItemsCount').innerText = keys.length;
 
-        if(keys.length === 0) {
+        if (keys.length === 0) {
             tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:15px; color:#64748b;">No Rework Pool Data Found.</td></tr>`;
             return;
         }
@@ -400,8 +414,8 @@
             let liveRework = item.rwIn - item.rwOut;
 
             html += `<tr>
-                <td><b>${item.displayCode}</b></td>
-                <td>${item.name}</td>
+                <td><b>${item.exactCode}</b></td>
+                <td>${item.name || 'N/A'}</td>
                 <td>${item.rwIn} NOS</td>
                 <td style="color:#dc2626; font-weight:bold;">${item.rwOut} NOS</td>
                 <td><span class="badge-rework" style="${liveRework < 0 ? 'background:#fee2e2; color:#b91c1c;' : ''}">${liveRework} NOS</span></td>
