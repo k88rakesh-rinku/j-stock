@@ -24,8 +24,6 @@
         .badge-rework { background: #fef9c3; color: #a16207; padding: 3px 8px; border-radius: 4px; font-weight: bold; }
         .badge-pending { background: #fee2e2; color: #b91c1c; padding: 3px 8px; border-radius: 4px; font-weight: bold; }
         .badge-ok { background: #f0fdf4; color: #16a34a; padding: 3px 8px; border-radius: 4px; font-weight: bold; }
-        
-        #debugBox { background: #0f172a; color: #38bdf8; padding: 12px; font-family: monospace; font-size: 11px; border-radius: 6px; margin-bottom: 15px; max-height: 120px; overflow-y: auto; }
     </style>
 </head>
 <body>
@@ -49,9 +47,6 @@
         <a href="reject_bin.html" class="tab-link">🗑️ Rejection Bin</a>
     </div>
 
-    <!-- 🎯 DEBUG CONSOLE TO CHECK RAW DATA -->
-    <div id="debugBox">🔄 Syncing with Firebase... Please wait...</div>
-
     <!-- 🎯 SUB TABS -->
     <div class="ledger-subtabs">
         <button class="subtab-btn active" onclick="switchLedgerTab('poTab', this)">📋 PO / Vendor Wise Status</button>
@@ -61,7 +56,7 @@
 
     <div class="table-filter-panel">
         <div>
-            <input type="text" id="ledgerSearchBox" class="search-input-box" placeholder="🔍 Search Item Code, PO, Party..." oninput="renderCurrentTab()">
+            <input type="text" id="ledgerSearchBox" class="search-input-box" placeholder="🔍 Search Code (e.g. GRMP), PO, Party..." oninput="renderCurrentTab()">
         </div>
         <div>
             <span style="font-weight:bold; color:#475569;">Total Items Found: </span>
@@ -149,31 +144,12 @@
     function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
 
     let currentActiveTab = 'poTab';
-    let freshData = [];
-    let gateoutData = [];
-    let reworkData = [];
-    let catalogMap = {};
+    let freshData = {};
+    let gateoutData = {};
+    let reworkData = {};
 
     const cleanStr = (str) => String(str || "").trim().toUpperCase().replace(/[\s\-_]/g, '');
     const displayStr = (str) => String(str || "").trim().toUpperCase();
-
-    // 🎯 RECURSIVE CONVERTER (FLATTENS ANY NESTED FIREBASE OBJECT/ARRAY)
-    function deepFlatten(obj) {
-        let res = [];
-        if (!obj) return res;
-        if (Array.isArray(obj)) {
-            obj.forEach(item => { if (item) res = res.concat(deepFlatten(item)); });
-        } else if (typeof obj === 'object') {
-            if (obj.gridItems || obj.items) {
-                res.push(obj);
-            } else {
-                for (let k in obj) {
-                    if (obj[k]) res = res.concat(deepFlatten(obj[k]));
-                }
-            }
-        }
-        return res;
-    }
 
     function switchLedgerTab(tabId, btn) {
         currentActiveTab = tabId;
@@ -184,29 +160,19 @@
         renderCurrentTab();
     }
 
-    // 📡 SYNC DATA & LOG DEBUG INFO
-    database.ref().on('value', (snap) => {
-        const root = snap.val() || {};
-        const debugBox = document.getElementById('debugBox');
-        
-        freshData = deepFlatten(root.freshInwardVouchers || root.inwardVouchers || root.freshInwards);
-        gateoutData = deepFlatten(root.gateoutVouchers || root.gateOuts);
-        reworkData = deepFlatten(root.reworkStockVouchers || root.reworkVouchers);
+    // 📡 DIRECT DATABASE LISTENERS
+    database.ref('freshInwardVouchers').on('value', (snap) => {
+        freshData = snap.val() || {};
+        renderCurrentTab();
+    });
 
-        let catalogRaw = root.systemMasterCatalogFlat || root.masterCatalog || {};
-        catalogMap = {};
-        for(let k in catalogRaw) {
-            let item = catalogRaw[k];
-            let rawCode = item.code || item.modelCode || item.itemShort || item.partCode;
-            let c = cleanStr(rawCode);
-            if(c) catalogMap[c] = { origCode: displayStr(rawCode), name: item.itemName || item.name || item.description || "N/A" };
-        }
+    database.ref('gateoutVouchers').on('value', (snap) => {
+        gateoutData = snap.val() || {};
+        renderCurrentTab();
+    });
 
-        debugBox.innerHTML = `✅ <b>Firebase Synced Successfully!</b><br>
-        📦 Fresh Inward Vouchers Found: <b>${freshData.length}</b> | 
-        🚪 Gate Out Vouchers: <b>${gateoutData.length}</b> | 
-        🛠️ Rework Vouchers: <b>${reworkData.length}</b>`;
-
+    database.ref('reworkStockVouchers').on('value', (snap) => {
+        reworkData = snap.val() || {};
         renderCurrentTab();
     });
 
@@ -216,27 +182,21 @@
         else if(currentActiveTab === 'reworkTab') renderReworkLedger();
     }
 
-    function extractCode(item) {
-        return item.code || item.itemShort || item.modelCode || item.partCode || item.itemCode || "";
-    }
-
-    function extractQty(item) {
-        return parseFloat(item.qty || item.quantity || item.inQty || item.poQty || 0) || 0;
-    }
-
     // 🎯 1. PO LEDGER
     function renderPOLedger() {
         const tbody = document.getElementById('poLedgerBody');
         const searchVal = cleanStr(document.getElementById('ledgerSearchBox').value);
         let poMap = {};
 
-        freshData.forEach(v => {
-            let poNo = (v.poNo || v.billNo || v.challanNo || "DIRECT").toUpperCase();
-            let party = (v.partyName || v.supplier || "N/A").toUpperCase();
-            let items = v.gridItems || v.items || [v];
+        Object.values(freshData).forEach(v => {
+            if(!v) return;
+            let poNo = displayStr(v.poNo || v.billNo || "DIRECT");
+            let party = displayStr(v.partyName || "N/A");
+            let items = v.gridItems || v.items || [];
+            if(!Array.isArray(items)) items = Object.values(items);
 
-            deepFlatten(items).forEach(i => {
-                let rawCode = extractCode(i);
+            items.forEach(i => {
+                let rawCode = i.code || i.itemShort || i.modelCode || i.partCode || "";
                 let cleanC = cleanStr(rawCode);
                 if(!cleanC) return;
 
@@ -247,11 +207,11 @@
                         party: party,
                         displayCode: displayStr(rawCode),
                         cleanCode: cleanC,
-                        poQty: parseFloat(i.poQty) || extractQty(i),
+                        poQty: parseFloat(i.poQty) || parseFloat(i.qty) || 0,
                         rcvdQty: 0
                     };
                 }
-                poMap[key].rcvdQty += extractQty(i);
+                poMap[key].rcvdQty += parseFloat(i.qty || 0);
             });
         });
 
@@ -298,11 +258,10 @@
             let clean = cleanStr(rawCode);
             if(!clean) return null;
             if(!freshMap[clean]) {
-                let catalogInfo = catalogMap[clean] || {};
                 freshMap[clean] = { 
                     cleanCode: clean, 
-                    displayCode: catalogInfo.origCode || displayStr(rawCode), 
-                    name: catalogInfo.name || name || displayStr(rawCode), 
+                    displayCode: displayStr(rawCode), 
+                    name: displayStr(name || rawCode), 
                     freshIn: 0, 
                     bomOut: 0, 
                     freshAdj: 0 
@@ -311,30 +270,39 @@
             return freshMap[clean];
         }
 
-        freshData.forEach(v => {
-            let items = v.gridItems || v.items || [v];
-            deepFlatten(items).forEach(i => {
-                let rec = getRecord(extractCode(i), i.itemName || i.name);
-                if(rec) rec.freshIn += extractQty(i);
+        // Fresh Inward
+        Object.values(freshData).forEach(v => {
+            if(!v) return;
+            let items = v.gridItems || v.items || [];
+            if(!Array.isArray(items)) items = Object.values(items);
+            items.forEach(i => {
+                let rec = getRecord(i.code || i.itemShort || i.modelCode, i.itemName || i.name);
+                if(rec) rec.freshIn += parseFloat(i.qty || 0);
             });
         });
 
-        gateoutData.forEach(v => {
-            let items = v.gridItems || v.items || [v];
-            deepFlatten(items).forEach(i => {
-                let rec = getRecord(extractCode(i), i.itemName || i.name);
-                if(rec) rec.bomOut += extractQty(i);
+        // Gate Out
+        Object.values(gateoutData).forEach(v => {
+            if(!v) return;
+            let items = v.gridItems || v.items || [];
+            if(!Array.isArray(items)) items = Object.values(items);
+            items.forEach(i => {
+                let rec = getRecord(i.code || i.itemShort || i.modelCode, i.itemName || i.name);
+                if(rec) rec.bomOut += parseFloat(i.qty || 0);
             });
         });
 
-        reworkData.forEach(v => {
-            let items = v.gridItems || v.items || [v];
-            deepFlatten(items).forEach(i => {
+        // Direct Adjustments
+        Object.values(reworkData).forEach(v => {
+            if(!v) return;
+            let items = v.gridItems || v.items || [];
+            if(!Array.isArray(items)) items = Object.values(items);
+            items.forEach(i => {
                 let pool = (i.pool || 'REWORK').toUpperCase();
                 if(pool === 'FRESH') {
-                    let rec = getRecord(extractCode(i), i.itemName || i.name);
+                    let rec = getRecord(i.itemShort || i.code || i.modelCode, i.itemName || i.name);
                     if(rec) {
-                        let rawQty = extractQty(i);
+                        let rawQty = parseFloat(i.qty || 0);
                         let qty = Math.abs(rawQty);
                         let isOut = (i.adjType === 'OUT' || rawQty < 0);
                         if(isOut) rec.freshAdj -= qty;
@@ -384,11 +352,10 @@
             let clean = cleanStr(rawCode);
             if(!clean) return null;
             if(!reworkMap[clean]) {
-                let catalogInfo = catalogMap[clean] || {};
                 reworkMap[clean] = { 
                     cleanCode: clean, 
-                    displayCode: catalogInfo.origCode || displayStr(rawCode), 
-                    name: catalogInfo.name || name || displayStr(rawCode), 
+                    displayCode: displayStr(rawCode), 
+                    name: displayStr(name || rawCode), 
                     rwIn: 0, 
                     rwOut: 0 
                 };
@@ -396,14 +363,16 @@
             return reworkMap[clean];
         }
 
-        reworkData.forEach(v => {
-            let items = v.gridItems || v.items || [v];
-            deepFlatten(items).forEach(i => {
+        Object.values(reworkData).forEach(v => {
+            if(!v) return;
+            let items = v.gridItems || v.items || [];
+            if(!Array.isArray(items)) items = Object.values(items);
+            items.forEach(i => {
                 let pool = (i.pool || 'REWORK').toUpperCase();
                 if(pool === 'REWORK') {
-                    let rec = getRecord(extractCode(i), i.itemName || i.name);
+                    let rec = getRecord(i.itemShort || i.code || i.modelCode, i.itemName || i.name);
                     if(rec) {
-                        let rawQty = extractQty(i);
+                        let rawQty = parseFloat(i.qty || 0);
                         let qty = Math.abs(rawQty);
                         let isOut = (i.adjType === 'OUT' || rawQty < 0);
                         if(isOut) rec.rwOut += qty;
