@@ -30,11 +30,6 @@
         .grid-table {
             width: 100% !important;
             border-collapse: collapse;
-            table-layout: fixed !important;
-        }
-
-        #dynamicItemsBody tr {
-            position: relative !important;
         }
 
         .search-container { 
@@ -47,11 +42,11 @@
             top: 100% !important;
             left: 0 !important;
             width: 100% !important;
-            min-width: 250px !important;
+            min-width: 280px !important;
             background: #ffffff !important;
             border: 2px solid #2563eb !important;
             border-radius: 0 0 6px 6px !important;
-            max-height: 180px !important;
+            max-height: 220px !important;
             overflow-y: auto !important;
             z-index: 999999 !important;
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3) !important;
@@ -82,24 +77,26 @@
             background: #fef2f2; 
         }
 
-        /* 📦 Selective BOM Breakdown Box */
+        /* 📦 Selective BOM Breakdown Panel Style */
         .bom-breakdown-panel {
             background: #eff6ff;
-            border: 1px solid #3b82f6;
+            border: 2px solid #3b82f6;
             border-radius: 6px;
-            padding: 10px;
-            margin-top: 10px;
+            padding: 12px;
+            margin-top: 15px;
             display: none;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
         }
         .bom-breakdown-table {
             width: 100%;
             border-collapse: collapse;
             background: white;
             font-size: 12px;
+            margin-top: 8px;
         }
-        .bom-breakdown-table th { background: #1e40af; color: white; padding: 6px; }
-        .bom-breakdown-table td { padding: 6px; border: 1px solid #cbd5e1; }
-        .chk-bom-item { transform: scale(1.2); cursor: pointer; }
+        .bom-breakdown-table th { background: #1e40af; color: white; padding: 8px; text-align: left; }
+        .bom-breakdown-table td { padding: 8px; border: 1px solid #cbd5e1; }
+        .chk-bom-item { transform: scale(1.3); cursor: pointer; }
 
         @media print {
             body * { visibility: hidden; }
@@ -162,7 +159,7 @@
                     <tr>
                         <th style="width: 16%;">Stock Pool</th>
                         <th style="width: 12%; display:none;" class="th-adj-type">In/Out Type</th>
-                        <th style="width: 22%;">Item Code 🔍</th>
+                        <th style="width: 22%;">Item / BOM Code 🔍</th>
                         <th style="width: 28%;">Item Display Name</th>
                         <th style="width: 8%;">Qty</th>
                         <th style="width: 8%;">S/N Req?</th>
@@ -177,21 +174,21 @@
 
         <!-- 📦 Selective BOM Checklist Container -->
         <div id="bomBreakdownContainer" class="bom-breakdown-panel">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                <b style="color:#1e40af;" id="bomBreakdownTitle">📋 BOM Components Breakdown</b>
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <b style="color:#1e40af; font-size:14px;" id="bomBreakdownTitle">📋 BOM Components Breakdown</b>
                 <div>
-                    <button type="button" onclick="selectAllBOMItems(true)" style="font-size:11px; cursor:pointer;">Select All</button>
-                    <button type="button" onclick="selectAllBOMItems(false)" style="font-size:11px; cursor:pointer;">Deselect All</button>
+                    <button type="button" onclick="selectAllBOMItems(true)" style="font-size:11px; padding:3px 8px; cursor:pointer;">Select All</button>
+                    <button type="button" onclick="selectAllBOMItems(false)" style="font-size:11px; padding:3px 8px; cursor:pointer;">Deselect All</button>
                 </div>
             </div>
-            <p style="font-size:11px; color:#475569; margin:0 0 6px 0;">⚠️ केवल जिन आइटम्स पर <b>Tick (☑)</b> होगा, सिर्फ वही स्टॉक में एडजस्ट होंगे।</p>
+            <p style="font-size:11px; color:#475569; margin:4px 0 8px 0;">⚠️ केवल जिन कंपोनेंट्स पर <b>Tick (☑)</b> रहेगा, केवल वही माइनस या प्लस होंगे। बाकी पार्ट्स बिना छुए रहेंगे।</p>
             <table class="bom-breakdown-table">
                 <thead>
                     <tr>
                         <th style="width:40px; text-align:center;">Select</th>
                         <th>Component Code</th>
                         <th>Component Description</th>
-                        <th style="width:90px;">Deduct Qty</th>
+                        <th style="width:100px;">Adjust Qty</th>
                     </tr>
                 </thead>
                 <tbody id="bomBreakdownBody"></tbody>
@@ -299,14 +296,18 @@
         document.getElementById('btnSubmitForm').innerText = isDirect ? "Save Direct Stock Adjustment (IN/OUT)" : "Save Rework Gate In";
     }
 
+    // 📡 DATABASE REALTIME SYNC
     database.ref('systemMasterCatalogFlat').on('value', (snapshot) => {
         flatPOList = [];
         const data = snapshot.val();
         if(data) { for(let key in data) { flatPOList.push(data[key]); } }
     });
 
-    database.ref('bomMasterData').on('value', (snapshot) => {
-        bomMasterData = snapshot.val() || {};
+    database.ref().on('value', (snapshot) => {
+        if(snapshot.exists()) {
+            let val = snapshot.val();
+            bomMasterData = val.bomMasterData || val.systemMasterCatalog || val.bomMaster || {};
+        }
     });
 
     database.ref('reworkStockVouchers').on('value', (snapshot) => {
@@ -340,14 +341,14 @@
                 </select>
             </td>
             <td class="search-container">
-                <input type="text" required class="item-short" placeholder="Search Code..." oninput="handleItemInput(this, 'code')" autocomplete="off" style="text-transform:uppercase;">
+                <input type="text" required class="item-short" placeholder="Type Code or BOM..." oninput="handleItemInput(this, 'code')" autocomplete="off" style="text-transform:uppercase;">
                 <div class="suggestions-dropdown"></div>
             </td>
             <td class="search-container">
-                <input type="text" required class="item-name" placeholder="Search Description/Name..." oninput="handleItemInput(this, 'name')" autocomplete="off">
+                <input type="text" required class="item-name" placeholder="Type Name or BOM..." oninput="handleItemInput(this, 'name')" autocomplete="off">
                 <div class="suggestions-dropdown"></div>
             </td>
-            <td><input type="number" min="1" required class="item-qty" oninput="clearSN(this); updateBOMBreakdownQty(this)"></td>
+            <td><input type="number" min="1" required class="item-qty" value="1" oninput="clearSN(this); updateBOMBreakdownQty(this)"></td>
             <td>
                 <select class="item-sn-req" onchange="toggleSNButton(this)">
                     <option value="NO" selected>NO</option>
@@ -359,6 +360,7 @@
         body.appendChild(tr);
     }
 
+    // 🔍 SEARCH AUTOCOMPLETE WITH BOM DETECTION
     function handleItemInput(input, type) {
         let text = input.value.trim().toLowerCase();
         let td = input.parentElement;
@@ -382,7 +384,7 @@
             let n = (item.itemName || item.name || item.modelName || item.description || "").toString();
 
             if(c.toLowerCase().includes(text) || n.toLowerCase().includes(text)) {
-                matches.push({ code: c, name: n });
+                matches.push({ code: c, name: n, isBOM: false });
             }
         }
 
@@ -395,10 +397,10 @@
             }
         }
 
-        // Also Scan BOM Master Keys
+        // 🎯 BOM Keys Search Scan
         for(let key in bomMasterData) {
             if(key.toLowerCase().includes(text)) {
-                matches.push({ code: key, name: "BOM ASSEMBLY SET (" + key + ")" });
+                matches.push({ code: key, name: "📋 BOM ASSEMBLY: " + key, isBOM: true });
             }
         }
 
@@ -425,6 +427,13 @@
             box.innerHTML = `<div class="no-suggestion-item">⚠️ No Item / Code Found</div>`;
             box.style.display = "block";
         }
+
+        // Live check if exact BOM code typed
+        let upperCode = input.value.trim().toUpperCase();
+        let matchedKey = Object.keys(bomMasterData).find(k => k.toUpperCase() === upperCode);
+        if(matchedKey) {
+            renderBOMComponentsChecklist(matchedKey, tr);
+        }
     }
 
     function selectItemSuggestion(elem, code, name) {
@@ -435,31 +444,41 @@
         let box = elem.closest('.suggestions-dropdown');
         if(box) box.style.display = "none";
 
-        // 🎯 Check if this selected code is a BOM Code!
-        if(bomMasterData[codeUpper]) {
-            renderBOMComponentsChecklist(codeUpper, tr);
+        // 🎯 Check if BOM matched
+        let matchedBOMKey = Object.keys(bomMasterData).find(k => k.toUpperCase() === codeUpper);
+
+        if(matchedBOMKey) {
+            renderBOMComponentsChecklist(matchedBOMKey, tr);
         } else {
             document.getElementById('bomBreakdownContainer').style.display = 'none';
         }
     }
 
-    // 📦 Render BOM Components with Selective Checkboxes (Card Auto-Checked)
+    // 📦 RENDER SELECTIVE BOM CHECKLIST TABLE
     function renderBOMComponentsChecklist(bomKey, tr) {
         const container = document.getElementById('bomBreakdownContainer');
         const tbody = document.getElementById('bomBreakdownBody');
-        document.getElementById('bomBreakdownTitle').innerText = `📋 BOM Components for: ${bomKey}`;
+        document.getElementById('bomBreakdownTitle').innerText = `📋 BOM Components Checklist for: ${bomKey}`;
         
         tbody.innerHTML = '';
-        let items = Array.isArray(bomMasterData[bomKey]) ? bomMasterData[bomKey] : Object.values(bomMasterData[bomKey]);
+        let rawItems = bomMasterData[bomKey];
+        let items = Array.isArray(rawItems) ? rawItems : Object.values(rawItems);
         let multiplier = parseFloat(tr.querySelector('.item-qty').value) || 1;
 
+        if(!items || items.length === 0) {
+            container.style.display = 'none';
+            return;
+        }
+
         items.forEach((item, idx) => {
-            let cCode = (item.modelCode || item.code || item.partCode || "").toUpperCase();
-            let cName = (item.modelName || item.itemName || item.description || "N/A").toUpperCase();
+            let cCode = (item.modelCode || item.code || item.partCode || item.itemShort || "").toUpperCase();
+            let cName = (item.modelName || item.itemName || item.description || item.name || "N/A").toUpperCase();
             let baseQty = parseFloat(item.qty || item.quantity || 1) || 1;
             let totalQty = baseQty * multiplier;
 
-            // Auto Check if it's a Card / PCB
+            if(!cCode && !cName) return;
+
+            // Auto-tick if it's a Card or PCB
             let isCard = cCode.includes("CARD") || cName.includes("CARD") || cName.includes("PCB");
 
             tbody.innerHTML += `
@@ -467,9 +486,9 @@
                     <td style="text-align:center;">
                         <input type="checkbox" class="chk-bom-item" id="chk_bom_${idx}" ${isCard ? 'checked' : ''} data-code="${cCode}" data-name="${cName}">
                     </td>
-                    <td><code>${cCode}</code></td>
+                    <td><code>${cCode || 'N/A'}</code></td>
                     <td><b>${cName}</b> ${isCard ? '<span style="color:#16a34a; font-size:10px;">(CARD DETECTED)</span>' : ''}</td>
-                    <td><input type="number" id="qty_bom_${idx}" value="${totalQty}" style="width:70px; padding:3px;"></td>
+                    <td><input type="number" id="qty_bom_${idx}" value="${totalQty}" style="width:70px; padding:4px;"></td>
                 </tr>
             `;
         });
@@ -484,8 +503,9 @@
     function updateBOMBreakdownQty(input) {
         let tr = input.closest('tr');
         let code = tr.querySelector('.item-short').value.toUpperCase();
-        if(bomMasterData[code]) {
-            renderBOMComponentsChecklist(code, tr);
+        let matchedBOMKey = Object.keys(bomMasterData).find(k => k.toUpperCase() === code);
+        if(matchedBOMKey) {
+            renderBOMComponentsChecklist(matchedBOMKey, tr);
         }
     }
 
@@ -545,7 +565,7 @@
         document.getElementById('serialModal').style.display = 'none';
     }
 
-    // 💾 SAVE RECORD TO FIREBASE (With Selective BOM Component Support)
+    // 💾 SAVE RECORD TO FIREBASE
     document.getElementById('reworkForm').addEventListener('submit', function(e) {
         e.preventDefault();
         let items = [];
@@ -567,9 +587,10 @@
             const snData = row.querySelector('.btn-sn-setup').getAttribute('data-sn');
             const serialsArr = snData ? JSON.parse(snData) : [];
 
-            // 🎯 Check if BOM Container is active & has checked items!
             const bomContainer = document.getElementById('bomBreakdownContainer');
-            if(bomContainer.style.display === 'block' && bomMasterData[itemCode]) {
+            let matchedBOMKey = Object.keys(bomMasterData).find(k => k.toUpperCase() === itemCode);
+
+            if(bomContainer.style.display === 'block' && matchedBOMKey) {
                 let chkList = document.querySelectorAll('.chk-bom-item');
                 let checkedCount = 0;
 
@@ -594,12 +615,11 @@
                 });
 
                 if(checkedCount === 0) {
-                    alert("⚠️ BOM Components लिस्ट में से कम से कम 1 आइटम (जैसे Card) सिलेक्ट करें!");
+                    alert("⚠️ BOM Components लिस्ट में से कम से कम 1 कंपोनेंट (जैसे Card) सिलेक्ट करें!");
                     errorFound = true;
                     return;
                 }
             } else {
-                // Direct Item or Card Code
                 if(snReq === 'YES' && serialsArr.length === 0) {
                     alert(`⚠️ Please configure S/N for item: ${itemCode}`);
                     errorFound = true;
