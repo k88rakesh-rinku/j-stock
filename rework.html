@@ -169,7 +169,7 @@
             <button type="button" class="btn-row-add" onclick="addReworkRow()">+</button>
         </div>
 
-        <!-- 📦 SELECTIVE BOM CHECKLIST BOX -->
+        <!-- 📦 SELECTIVE BOM CHECKLIST CONTAINER -->
         <div id="bomBreakdownContainer" class="bom-breakdown-panel">
             <div style="display:flex; justify-content:space-between; align-items:center;">
                 <b style="color:#1e3a8a; font-size:14px;" id="bomBreakdownTitle">📋 Selective BOM Components Checklist</b>
@@ -259,8 +259,7 @@
     let masterCatalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
     let flatPOList = [];
     let activeBtnRef = null;
-    let bomMasterData = {};
-    let parsedBOMMap = {}; // Cleaned BOM Map
+    let parsedBOMMap = {}; // Perfectly mapped BOMs
 
     function safeConvertToArray(rawVal) {
         if (!rawVal) return [];
@@ -304,47 +303,61 @@
         if(data) { for(let key in data) { flatPOList.push(data[key]); } }
     });
 
-    // 📡 DEEP SCAN BOM MASTER & IGNORE FIREBASE PUSH KEYS
+    // 📡 ADVANCED RECURSIVE DEEP PARSER FOR FIREBASE BOM DATA
     database.ref().on('value', (snapshot) => {
         if(snapshot.exists()) {
             let val = snapshot.val();
-            bomMasterData = val.bomMasterData || val.systemMasterCatalog || val.bomMaster || {};
+            let rawBOMData = val.bomMasterData || val.systemMasterCatalog || val.bomMaster || {};
             parsedBOMMap = {};
 
-            Object.keys(bomMasterData).forEach(key => {
-                let bomObj = bomMasterData[key];
-                if(!bomObj) return;
+            function extractBOM(node, nodeKey) {
+                if(!node || typeof node !== 'object') return;
 
-                // If key is a Firebase Push Key like -OuNh..., find real name inside object
-                let realBOMName = key;
-                if(key.startsWith('-')) {
-                    realBOMName = bomObj.bomName || bomObj.modelCode || bomObj.code || bomObj.name || key;
+                // Determine BOM Code Name
+                let bomName = node.bomName || node.assemblyCode || node.modelCode || node.code || node.name || nodeKey;
+                
+                // Skip if key is pure Firebase Push Key (-Ou...) and no internal name
+                if(String(bomName).startsWith('-') && !node.bomName && !node.assemblyCode && !node.modelCode) {
+                    // Dive inside children
+                    for(let subKey in node) {
+                        extractBOM(node[subKey], subKey);
+                    }
+                    return;
                 }
 
-                let items = bomObj.gridItems || bomObj.items || bomObj.components || bomObj;
-                if(!Array.isArray(items)) items = Object.values(items);
+                // Look for Sub-components
+                let itemsRaw = node.gridItems || node.items || node.components || node.bomItems || node;
+                let itemsArr = safeConvertToArray(itemsRaw);
 
-                // Clean items array
-                let validItems = [];
-                items.forEach(i => {
-                    if(typeof i === 'object' && i !== null) {
-                        let cCode = String(i.modelCode || i.code || i.partCode || i.itemShort || "").trim();
-                        let cName = String(i.modelName || i.itemName || i.description || i.name || "").trim();
-                        let qty = parseFloat(i.qty || i.quantity || 1) || 1;
+                let validComponents = [];
+                itemsArr.forEach(comp => {
+                    if(comp && typeof comp === 'object') {
+                        let cCode = comp.modelCode || comp.partCode || comp.itemCode || comp.code || comp.itemShort || "";
+                        let cName = comp.modelName || comp.itemName || comp.description || comp.partName || comp.name || "";
+                        let cQty = parseFloat(comp.qty || comp.quantity || 1) || 1;
+
                         if(cCode || cName) {
-                            validItems.push({ code: cCode, name: cName, qty: qty });
+                            validComponents.push({
+                                code: String(cCode).trim().toUpperCase(),
+                                name: String(cName).trim().toUpperCase(),
+                                qty: cQty
+                            });
                         }
                     }
                 });
 
-                if(validItems.length > 0) {
-                    let cleanKey = cleanCodeStr(realBOMName);
+                if(validComponents.length > 0) {
+                    let cleanKey = cleanCodeStr(bomName);
                     parsedBOMMap[cleanKey] = {
-                        displayName: realBOMName,
-                        items: validItems
+                        displayName: String(bomName).trim().toUpperCase(),
+                        items: validComponents
                     };
                 }
-            });
+            }
+
+            for(let k in rawBOMData) {
+                extractBOM(rawBOMData[k], k);
+            }
         }
     });
 
@@ -436,7 +449,7 @@
             }
         }
 
-        // 🎯 Scan BOM Assembly Names
+        // 🎯 Scan Parsed BOM Assemblies (Ignore Push Keys)
         Object.keys(parsedBOMMap).forEach(bKey => {
             let bData = parsedBOMMap[bKey];
             if(bKey.includes(cleanText) || cleanCodeStr(bData.displayName).includes(cleanText)) {
