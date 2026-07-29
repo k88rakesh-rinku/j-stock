@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rework Management - Control System</title>
     <link rel="stylesheet" href="style.css">
+    <!-- Firebase Realtime Sync Scripts -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
     <style>
@@ -79,12 +80,13 @@
 
         /* 📦 BOM BREAKDOWN BOX STYLING */
         .bom-breakdown-panel {
-            background: #f0f9ff;
+            background: #eff6ff;
             border: 2px solid #2563eb;
             border-radius: 6px;
             padding: 12px;
             margin: 15px 0;
             display: none;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
         }
         .bom-breakdown-table {
             width: 100%;
@@ -180,7 +182,7 @@
                     <button type="button" onclick="selectAllBOMItems(false)" style="font-size:11px; padding:3px 8px; cursor:pointer;">Deselect All</button>
                 </div>
             </div>
-            <p style="font-size:11px; color:#475569; margin:4px 0;">⚠️ जिन पार्ट्स पर <b>Tick (☑)</b> रहेगा, केवल वही माइनस होंगे (Cards auto-selected)।</p>
+            <p style="font-size:11px; color:#475569; margin:4px 0;">⚠️ जिन कंपोनेंट्स पर <b>Tick (☑)</b> रहेगा, केवल वही माइनस होंगे (Cards auto-selected)।</p>
             <table class="bom-breakdown-table">
                 <thead>
                     <tr>
@@ -295,7 +297,7 @@
         document.getElementById('btnSubmitForm').innerText = isDirect ? "Save Direct Stock Adjustment (IN/OUT)" : "Save Rework Gate In";
     }
 
-    // 📡 FIREBASE REALTIME LISTENERS
+    // 📡 REALTIME FIREBASE LISTENERS
     database.ref('systemMasterCatalogFlat').on('value', (snapshot) => {
         flatPOList = [];
         const data = snapshot.val();
@@ -359,9 +361,15 @@
         body.appendChild(tr);
     }
 
+    // 🔍 HELPER: Clean text for fuzzy matching
+    function cleanCodeStr(str) {
+        return String(str || '').toUpperCase().replace(/[\s\-_]/g, '');
+    }
+
     // 🔍 SMART SEARCH AUTOCOMPLETE
     function handleItemInput(input, type) {
         let text = input.value.trim().toLowerCase();
+        let cleanText = cleanCodeStr(text);
         let td = input.parentElement;
         let box = td.querySelector('.suggestions-dropdown');
         let tr = input.closest('tr');
@@ -382,7 +390,7 @@
             let c = (item.code || item.modelCode || item.itemShort || item.partCode || "").toString();
             let n = (item.itemName || item.name || item.modelName || item.description || "").toString();
 
-            if(c.toLowerCase().includes(text) || n.toLowerCase().includes(text)) {
+            if(cleanCodeStr(c).includes(cleanText) || cleanCodeStr(n).includes(cleanText)) {
                 matches.push({ code: c, name: n, isBOM: false });
             }
         }
@@ -398,7 +406,7 @@
 
         // 🎯 Scan BOM Master Assembly Keys
         for(let key in bomMasterData) {
-            if(key.toLowerCase().includes(text)) {
+            if(cleanCodeStr(key).includes(cleanText)) {
                 matches.push({ code: key, name: "📋 BOM ASSEMBLY: " + key, isBOM: true });
             }
         }
@@ -427,11 +435,10 @@
             box.style.display = "block";
         }
 
-        // Live Match Check
-        let upperCode = input.value.trim().toUpperCase();
-        let matchedKey = Object.keys(bomMasterData).find(k => k.toUpperCase() === upperCode);
-        if(matchedKey) {
-            renderBOMComponentsChecklist(matchedKey, tr);
+        // 🎯 Live Smart Check for BOM Match
+        let foundKey = Object.keys(bomMasterData).find(k => cleanCodeStr(k) === cleanText || cleanCodeStr(k).includes(cleanText));
+        if(foundKey) {
+            renderBOMComponentsChecklist(foundKey, tr);
         }
     }
 
@@ -443,8 +450,9 @@
         let box = elem.closest('.suggestions-dropdown');
         if(box) box.style.display = "none";
 
-        // Check BOM
-        let matchedBOMKey = Object.keys(bomMasterData).find(k => k.toUpperCase() === codeUpper);
+        // Smart BOM Key Search
+        let targetClean = cleanCodeStr(codeUpper);
+        let matchedBOMKey = Object.keys(bomMasterData).find(k => cleanCodeStr(k) === targetClean || cleanCodeStr(k).includes(targetClean));
 
         if(matchedBOMKey) {
             renderBOMComponentsChecklist(matchedBOMKey, tr);
@@ -501,7 +509,8 @@
     function updateBOMBreakdownQty(input) {
         let tr = input.closest('tr');
         let code = tr.querySelector('.item-short').value.toUpperCase();
-        let matchedBOMKey = Object.keys(bomMasterData).find(k => k.toUpperCase() === code);
+        let targetClean = cleanCodeStr(code);
+        let matchedBOMKey = Object.keys(bomMasterData).find(k => cleanCodeStr(k) === targetClean);
         if(matchedBOMKey) {
             renderBOMComponentsChecklist(matchedBOMKey, tr);
         }
@@ -586,7 +595,8 @@
             const serialsArr = snData ? JSON.parse(snData) : [];
 
             const bomContainer = document.getElementById('bomBreakdownContainer');
-            let matchedBOMKey = Object.keys(bomMasterData).find(k => k.toUpperCase() === itemCode);
+            let targetClean = cleanCodeStr(itemCode);
+            let matchedBOMKey = Object.keys(bomMasterData).find(k => cleanCodeStr(k) === targetClean);
 
             if(bomContainer.style.display === 'block' && matchedBOMKey) {
                 let chkList = document.querySelectorAll('.chk-bom-item');
