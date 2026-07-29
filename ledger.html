@@ -13,7 +13,7 @@
         .subtab-btn.active { background: #1e3a8a; color: white; }
 
         .table-filter-panel { display: flex; justify-content: space-between; align-items: center; background: #f1f5f9; padding: 10px 15px; border-radius: 6px; border: 1px solid #cbd5e1; margin-bottom: 15px; gap: 15px; flex-wrap: wrap; }
-        .search-input-box { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; width: 280px; text-transform: uppercase; }
+        .search-input-box { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; width: 320px; text-transform: uppercase; }
         
         .stock-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
         .stock-table th { background-color: var(--primary, #1e3a8a); color: white; padding: 10px; text-align: left; }
@@ -47,7 +47,7 @@
         <a href="reject_bin.html" class="tab-link">🗑️ Rejection Bin</a>
     </div>
 
-    <!-- 🎯 SUB TABS FOR PO / FRESH / REWORK -->
+    <!-- 🎯 SUB TABS -->
     <div class="ledger-subtabs">
         <button class="subtab-btn active" onclick="switchLedgerTab('poTab', this)">📋 PO / Vendor Wise Status</button>
         <button class="subtab-btn" onclick="switchLedgerTab('freshTab', this)">📦 Fresh Stock Ledger</button>
@@ -56,15 +56,15 @@
 
     <div class="table-filter-panel">
         <div>
-            <input type="text" id="ledgerSearchBox" class="search-input-box" placeholder="🔍 Search Item Code, PO No, Party..." oninput="renderCurrentTab()">
+            <input type="text" id="ledgerSearchBox" class="search-input-box" placeholder="🔍 Search GRMP 000-M3N1, PO, Party..." oninput="renderCurrentTab()">
         </div>
         <div>
-            <span style="font-weight:bold; color:#475569;">Total Items Tracked: </span>
+            <span style="font-weight:bold; color:#475569;">Total Items Found: </span>
             <span id="totalItemsCount" style="font-weight:bold; color:#1e3a8a;">0</span>
         </div>
     </div>
 
-    <!-- 🎯 1. PO WISE TAB -->
+    <!-- 1. PO WISE TAB -->
     <div id="poTab" class="ledger-tab-view">
         <h4 style="margin:5px 0; color:#1e3a8a;">📋 PO Order Tracking (Ordered vs Received vs Pending Balance)</h4>
         <div class="table-responsive">
@@ -85,7 +85,7 @@
         </div>
     </div>
 
-    <!-- 🎯 2. FRESH STOCK TAB -->
+    <!-- 2. FRESH STOCK TAB -->
     <div id="freshTab" class="ledger-tab-view" style="display: none;">
         <h4 style="margin:5px 0; color:#15803d;">📦 Fresh Stock Ledger (Inward - Gate Out - Direct Adj = Live Stock)</h4>
         <div class="table-responsive">
@@ -105,7 +105,7 @@
         </div>
     </div>
 
-    <!-- 🎯 3. REWORK POOL TAB -->
+    <!-- 3. REWORK POOL TAB -->
     <div id="reworkTab" class="ledger-tab-view" style="display: none;">
         <h4 style="margin:5px 0; color:#a16207;">🛠️ Rework Pool Ledger (Rework Gate In - Rework Out = Balance)</h4>
         <div class="table-responsive">
@@ -149,7 +149,9 @@
     let reworkData = [];
     let catalogMap = {};
 
-    const cleanStr = (str) => String(str || "").trim().toUpperCase().replace(/\s+/g, '');
+    // 🎯 SMART STRING CLEANER (Removes extra spaces, hyphens for searching)
+    const cleanStr = (str) => String(str || "").trim().toUpperCase().replace(/[\s\-_]/g, '');
+    const displayStr = (str) => String(str || "").trim().toUpperCase();
 
     function safeConvertToArray(rawVal) {
         if (!rawVal) return [];
@@ -170,8 +172,9 @@
         const val = snap.val();
         if(val) {
             for(let k in val) {
-                let code = cleanStr(val[k].code || val[k].modelCode || val[k].itemShort);
-                if(code) catalogMap[code] = val[k].itemName || val[k].name || val[k].description || "N/A";
+                let rawCode = val[k].code || val[k].modelCode || val[k].itemShort;
+                let c = cleanStr(rawCode);
+                if(c) catalogMap[c] = { origCode: displayStr(rawCode), name: val[k].itemName || val[k].name || val[k].description || "N/A" };
             }
         }
         renderCurrentTab();
@@ -198,10 +201,15 @@
         else if(currentActiveTab === 'reworkTab') renderReworkLedger();
     }
 
-    // 🎯 1. RENDER PO TAB
+    // 🎯 Extract Item Code Helper
+    function extractCode(item) {
+        return item.code || item.itemShort || item.modelCode || item.partCode || "";
+    }
+
+    // 🎯 1. PO LEDGER
     function renderPOLedger() {
         const tbody = document.getElementById('poLedgerBody');
-        const searchVal = (document.getElementById('ledgerSearchBox').value || "").trim().toUpperCase();
+        const searchVal = cleanStr(document.getElementById('ledgerSearchBox').value);
         let poMap = {};
 
         freshData.forEach(v => {
@@ -209,15 +217,17 @@
             let party = (v.partyName || "N/A").toUpperCase();
 
             safeConvertToArray(v.gridItems).forEach(i => {
-                let code = cleanStr(i.code || i.itemShort || i.modelCode);
-                if(!code) return;
+                let rawCode = extractCode(i);
+                let cleanC = cleanStr(rawCode);
+                if(!cleanC) return;
 
-                let key = poNo + "_" + code;
+                let key = poNo + "_" + cleanC;
                 if(!poMap[key]) {
                     poMap[key] = {
                         poNo: poNo,
                         party: party,
-                        code: code,
+                        displayCode: displayStr(rawCode),
+                        cleanCode: cleanC,
                         poQty: parseFloat(i.poQty) || parseFloat(i.qty) || 0,
                         rcvdQty: 0
                     };
@@ -228,7 +238,7 @@
 
         let keys = Object.keys(poMap).filter(k => {
             let item = poMap[k];
-            return item.poNo.includes(searchVal) || item.code.includes(searchVal) || item.party.includes(searchVal);
+            return item.poNo.includes(searchVal) || item.cleanCode.includes(searchVal) || cleanStr(item.party).includes(searchVal);
         });
 
         document.getElementById('totalItemsCount').innerText = keys.length;
@@ -249,7 +259,7 @@
             html += `<tr>
                 <td><b>${item.poNo}</b></td>
                 <td>${item.party}</td>
-                <td><b>${item.code}</b></td>
+                <td><b>${item.displayCode}</b></td>
                 <td>${item.poQty} NOS</td>
                 <td style="color:#16a34a; font-weight:bold;">${item.rcvdQty} NOS</td>
                 <td style="color:#dc2626; font-weight:bold;">${pendingBalance < 0 ? 0 : pendingBalance} NOS</td>
@@ -259,40 +269,51 @@
         tbody.innerHTML = html;
     }
 
-    // 🎯 2. RENDER FRESH STOCK TAB
+    // 🎯 2. FRESH STOCK LEDGER
     function renderFreshLedger() {
         const tbody = document.getElementById('freshLedgerBody');
-        const searchVal = (document.getElementById('ledgerSearchBox').value || "").trim().toUpperCase();
+        const searchVal = cleanStr(document.getElementById('ledgerSearchBox').value);
         let freshMap = {};
 
-        function getRecord(code, name) {
-            let clean = cleanStr(code);
+        function getRecord(rawCode, name) {
+            let clean = cleanStr(rawCode);
             if(!clean) return null;
             if(!freshMap[clean]) {
-                freshMap[clean] = { code: clean, name: catalogMap[clean] || name || clean, freshIn: 0, bomOut: 0, freshAdj: 0 };
+                let catalogInfo = catalogMap[clean] || {};
+                freshMap[clean] = { 
+                    cleanCode: clean, 
+                    displayCode: catalogInfo.origCode || displayStr(rawCode), 
+                    name: catalogInfo.name || name || displayStr(rawCode), 
+                    freshIn: 0, 
+                    bomOut: 0, 
+                    freshAdj: 0 
+                };
             }
             return freshMap[clean];
         }
 
+        // 1. Fresh Inward
         freshData.forEach(v => {
             safeConvertToArray(v.gridItems).forEach(i => {
-                let rec = getRecord(i.code || i.itemShort, i.itemName);
+                let rec = getRecord(extractCode(i), i.itemName);
                 if(rec) rec.freshIn += (parseFloat(i.qty) || 0);
             });
         });
 
+        // 2. Gate Out
         gateoutData.forEach(v => {
             safeConvertToArray(v.gridItems).forEach(i => {
-                let rec = getRecord(i.code || i.itemShort, i.itemName);
+                let rec = getRecord(extractCode(i), i.itemName);
                 if(rec) rec.bomOut += (parseFloat(i.qty) || 0);
             });
         });
 
+        // 3. Direct Adjustments
         reworkData.forEach(v => {
             safeConvertToArray(v.gridItems).forEach(i => {
                 let pool = (i.pool || 'REWORK').toUpperCase();
                 if(pool === 'FRESH') {
-                    let rec = getRecord(i.itemShort || i.code, i.itemName);
+                    let rec = getRecord(extractCode(i), i.itemName);
                     if(rec) {
                         let rawQty = parseFloat(i.qty) || 0;
                         let qty = Math.abs(rawQty);
@@ -306,7 +327,7 @@
 
         let keys = Object.keys(freshMap).filter(k => {
             let item = freshMap[k];
-            return item.code.includes(searchVal) || item.name.toUpperCase().includes(searchVal);
+            return item.cleanCode.includes(searchVal) || cleanStr(item.name).includes(searchVal);
         });
 
         document.getElementById('totalItemsCount').innerText = keys.length;
@@ -323,7 +344,7 @@
             let adjText = item.freshAdj > 0 ? `+${item.freshAdj}` : `${item.freshAdj}`;
 
             html += `<tr>
-                <td><b>${item.code}</b></td>
+                <td><b>${item.displayCode}</b></td>
                 <td>${item.name}</td>
                 <td>${item.freshIn} NOS</td>
                 <td style="color:#dc2626; font-weight:bold;">${item.bomOut} NOS</td>
@@ -334,17 +355,24 @@
         tbody.innerHTML = html;
     }
 
-    // 🎯 3. RENDER REWORK TAB
+    // 🎯 3. REWORK POOL LEDGER
     function renderReworkLedger() {
         const tbody = document.getElementById('reworkLedgerBody');
-        const searchVal = (document.getElementById('ledgerSearchBox').value || "").trim().toUpperCase();
+        const searchVal = cleanStr(document.getElementById('ledgerSearchBox').value);
         let reworkMap = {};
 
-        function getRecord(code, name) {
-            let clean = cleanStr(code);
+        function getRecord(rawCode, name) {
+            let clean = cleanStr(rawCode);
             if(!clean) return null;
             if(!reworkMap[clean]) {
-                reworkMap[clean] = { code: clean, name: catalogMap[clean] || name || clean, rwIn: 0, rwOut: 0 };
+                let catalogInfo = catalogMap[clean] || {};
+                reworkMap[clean] = { 
+                    cleanCode: clean, 
+                    displayCode: catalogInfo.origCode || displayStr(rawCode), 
+                    name: catalogInfo.name || name || displayStr(rawCode), 
+                    rwIn: 0, 
+                    rwOut: 0 
+                };
             }
             return reworkMap[clean];
         }
@@ -353,7 +381,7 @@
             safeConvertToArray(v.gridItems).forEach(i => {
                 let pool = (i.pool || 'REWORK').toUpperCase();
                 if(pool === 'REWORK') {
-                    let rec = getRecord(i.itemShort || i.code, i.itemName);
+                    let rec = getRecord(extractCode(i), i.itemName);
                     if(rec) {
                         let rawQty = parseFloat(i.qty) || 0;
                         let qty = Math.abs(rawQty);
@@ -367,7 +395,7 @@
 
         let keys = Object.keys(reworkMap).filter(k => {
             let item = reworkMap[k];
-            return item.code.includes(searchVal) || item.name.toUpperCase().includes(searchVal);
+            return item.cleanCode.includes(searchVal) || cleanStr(item.name).includes(searchVal);
         });
 
         document.getElementById('totalItemsCount').innerText = keys.length;
@@ -383,7 +411,7 @@
             let liveRework = item.rwIn - item.rwOut;
 
             html += `<tr>
-                <td><b>${item.code}</b></td>
+                <td><b>${item.displayCode}</b></td>
                 <td>${item.name}</td>
                 <td>${item.rwIn} NOS</td>
                 <td style="color:#dc2626; font-weight:bold;">${item.rwOut} NOS</td>
