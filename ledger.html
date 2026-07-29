@@ -1,5 +1,463 @@
 <!DOCTYPE html>
+<html lang="en"><!DOCTYPE html>
 <html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Master Ledger & Stock Control</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+    <style>
+        .ledger-subtabs { display: flex; gap: 10px; margin: 15px 0; border-bottom: 2px solid #cbd5e1; padding-bottom: 8px; }
+        .subtab-btn { padding: 8px 16px; border: none; background: #e2e8f0; color: #475569; font-weight: bold; border-radius: 6px; cursor: pointer; font-size: 13px; }
+        .subtab-btn.active { background: #1e3a8a; color: white; }
+
+        .table-filter-panel { display: flex; justify-content: space-between; align-items: center; background: #f1f5f9; padding: 10px 15px; border-radius: 6px; border: 1px solid #cbd5e1; margin-bottom: 15px; gap: 15px; flex-wrap: wrap; }
+        .search-input-box { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; width: 320px; text-transform: uppercase; }
+        
+        .stock-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+        .stock-table th { background-color: var(--primary, #1e3a8a); color: white; padding: 10px; text-align: left; }
+        .stock-table td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; }
+        .stock-table tr:hover { background-color: #f8fafc; }
+
+        .badge-fresh { background: #dcfce7; color: #15803d; padding: 3px 8px; border-radius: 4px; font-weight: bold; }
+        .badge-rework { background: #fef9c3; color: #a16207; padding: 3px 8px; border-radius: 4px; font-weight: bold; }
+        .badge-pending { background: #fee2e2; color: #b91c1c; padding: 3px 8px; border-radius: 4px; font-weight: bold; }
+        .badge-ok { background: #f0fdf4; color: #16a34a; padding: 3px 8px; border-radius: 4px; font-weight: bold; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="erp-header">
+        <h1>Material Lifecycle Control & Inventory Ledger Systems</h1>
+        <button class="logout-btn" onclick="logout()">Logout</button>
+    </div>
+    
+    <div class="tabs-nav">
+        <a href="index.html" class="tab-link">📦 New Entry (Fresh)</a>
+        <a href="rework.html" class="tab-link">🛠️ Gate In (Rework)</a>
+        <a href="gateout.html" class="tab-link">🚪 Gate Out (Dispatch)</a>
+        <a href="debit.html" class="tab-link">🧾 Debit Note (Vendor)</a>
+        <a href="code.html" class="tab-link">🆕 Generate Code</a>
+        <a href="ledger.html" class="tab-link active-rework" style="background-color: var(--primary, #1e3a8a); color: white;">📊 Master Ledger & History</a>
+        <a href="users.html" class="tab-link">👥 Manage Users</a>
+        <a href="bom.html" class="tab-link">🔗 BOM Master</a>
+        <a href="failure.html" class="tab-link">🛠️ Failure Defect Log</a>
+        <a href="production.html" class="tab-link">🏭 Production Planner</a>
+        <a href="reject_bin.html" class="tab-link">🗑️ Rejection Bin</a>
+    </div>
+
+    <!-- 🎯 SUB TABS -->
+    <div class="ledger-subtabs">
+        <button class="subtab-btn active" onclick="switchLedgerTab('poTab', this)">📋 PO / Vendor Wise Status</button>
+        <button class="subtab-btn" onclick="switchLedgerTab('freshTab', this)">📦 Fresh Stock Ledger</button>
+        <button class="subtab-btn" onclick="switchLedgerTab('reworkTab', this)">🛠️ Rework Pool Ledger</button>
+    </div>
+
+    <div class="table-filter-panel">
+        <div>
+            <input type="text" id="ledgerSearchBox" class="search-input-box" placeholder="🔍 Search Item Code, PO, Party..." oninput="renderCurrentTab()">
+        </div>
+        <div>
+            <span style="font-weight:bold; color:#475569;">Total Items Found: </span>
+            <span id="totalItemsCount" style="font-weight:bold; color:#1e3a8a;">0</span>
+        </div>
+    </div>
+
+    <!-- 1. PO WISE TAB -->
+    <div id="poTab" class="ledger-tab-view">
+        <h4 style="margin:5px 0; color:#1e3a8a;">📋 PO Order Tracking (Ordered vs Received vs Pending Balance)</h4>
+        <div class="table-responsive">
+            <table class="stock-table">
+                <thead>
+                    <tr>
+                        <th>PO Number</th>
+                        <th>Vendor / Party Name</th>
+                        <th>Item Code</th>
+                        <th>PO Qty Ordered</th>
+                        <th>Qty Received Inward</th>
+                        <th>Pending PO Balance</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="poLedgerBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 2. FRESH STOCK TAB -->
+    <div id="freshTab" class="ledger-tab-view" style="display: none;">
+        <h4 style="margin:5px 0; color:#15803d;">📦 Fresh Stock Ledger (Inward - Gate Out - Direct Adj = Live Stock)</h4>
+        <div class="table-responsive">
+            <table class="stock-table">
+                <thead>
+                    <tr>
+                        <th>Item Code</th>
+                        <th>Item Description</th>
+                        <th>Total Fresh Inward</th>
+                        <th>Gate Out (BOM Out)</th>
+                        <th>Direct Fresh Adjustments</th>
+                        <th>Live Available Fresh Stock</th>
+                    </tr>
+                </thead>
+                <tbody id="freshLedgerBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 3. REWORK POOL TAB -->
+    <div id="reworkTab" class="ledger-tab-view" style="display: none;">
+        <h4 style="margin:5px 0; color:#a16207;">🛠️ Rework Pool Ledger (Rework Gate In - Rework Out = Balance)</h4>
+        <div class="table-responsive">
+            <table class="stock-table">
+                <thead>
+                    <tr>
+                        <th>Item Code</th>
+                        <th>Item Description</th>
+                        <th>Total Rework Gate In</th>
+                        <th>Rework Issues / Out</th>
+                        <th>Live Rework Pool Stock</th>
+                    </tr>
+                </thead>
+                <tbody id="reworkLedgerBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    const firebaseConfig = {
+        apiKey: "AIzaSyCAOXbPwuFR3wh1QSLBXWsodupKWoRYmqs",
+        authDomain: "gvm-stock-control.firebaseapp.com",
+        databaseURL: "https://gvm-stock-control-default-rtdb.firebaseio.com",
+        projectId: "gvm-stock-control",
+        storageBucket: "gvm-stock-control.firebasestorage.app",
+        messagingSenderId: "202991207119",
+        appId: "1:202991207119:web:2246ffb7b92f9eb0c4adba"
+    };
+    if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
+    const database = firebase.database();
+
+    const session = JSON.parse(localStorage.getItem('activeSession'));
+    if(!session) { window.location.href = 'login.html'; }
+
+    function logout() { localStorage.removeItem('activeSession'); window.location.href = 'login.html'; }
+
+    let currentActiveTab = 'poTab';
+    let freshData = {};
+    let gateoutData = {};
+    let reworkData = {};
+
+    function switchLedgerTab(tabId, btn) {
+        currentActiveTab = tabId;
+        document.querySelectorAll('.ledger-tab-view').forEach(div => div.style.display = 'none');
+        document.querySelectorAll('.subtab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(tabId).style.display = 'block';
+        btn.classList.add('active');
+        renderCurrentTab();
+    }
+
+    // 📡 DIRECT DATABASE LISTENERS
+    database.ref('freshInwardVouchers').on('value', (snap) => {
+        freshData = snap.val() || {};
+        renderCurrentTab();
+    });
+
+    database.ref('gateoutVouchers').on('value', (snap) => {
+        gateoutData = snap.val() || {};
+        renderCurrentTab();
+    });
+
+    database.ref('reworkStockVouchers').on('value', (snap) => {
+        reworkData = snap.val() || {};
+        renderCurrentTab();
+    });
+
+    function renderCurrentTab() {
+        if(currentActiveTab === 'poTab') renderPOLedger();
+        else if(currentActiveTab === 'freshTab') renderFreshLedger();
+        else if(currentActiveTab === 'reworkTab') renderReworkLedger();
+    }
+
+    // 🔍 MASTER ITEM PARSER (Catches plain text or complex objects)
+    function extractItemData(i) {
+        let fullText = "";
+        let qty = 0;
+        
+        if (typeof i === 'string') {
+            fullText = i;
+        } else if (typeof i === 'object' && i !== null) {
+            fullText = String(i.code || i.itemShort || i.modelCode || i.partCode || i.itemName || i.name || i.description || i.item || "").trim();
+            qty = parseFloat(i.qty || i.quantity || i.poQty || i.inQty || 0) || 0;
+
+            if (!qty) {
+                let match = fullText.match(/\((\d+)\s*NOS\)/i) || fullText.match(/(\d+)/);
+                if (match) qty = parseFloat(match[1]);
+            }
+        }
+
+        let exactCode = fullText;
+        let desc = "N/A";
+
+        if (fullText.includes(" - ")) {
+            let parts = fullText.split(" - ");
+            exactCode = parts[0].trim();
+            desc = parts.slice(1).join(" - ").replace(/\(\d+\s*NOS\)/gi, '').trim();
+        }
+
+        return {
+            exactCode: exactCode.toUpperCase(),
+            desc: desc.toUpperCase(),
+            qty: qty
+        };
+    }
+
+    // 🎯 1. PO LEDGER
+    function renderPOLedger() {
+        const tbody = document.getElementById('poLedgerBody');
+        const rawSearch = (document.getElementById('ledgerSearchBox').value || "").trim().toUpperCase();
+        const cleanSearch = rawSearch.replace(/[\s\-_]/g, '');
+        let poMap = {};
+
+        Object.values(freshData).forEach(v => {
+            if(!v) return;
+            let poNo = String(v.poNo || v.billNo || "DIRECT").trim().toUpperCase();
+            let party = String(v.partyName || "N/A").trim().toUpperCase();
+            let items = v.gridItems || v.items || v.itemList || [];
+            if(!Array.isArray(items)) items = Object.values(items);
+
+            items.forEach(i => {
+                let parsed = extractItemData(i);
+                if(!parsed.exactCode) return;
+
+                let key = poNo.replace(/[\s\-_]/g, '') + "_" + parsed.exactCode.replace(/[\s\-_]/g, '');
+                if(!poMap[key]) {
+                    poMap[key] = {
+                        poNo: poNo,
+                        party: party,
+                        displayCode: parsed.exactCode,
+                        poQty: parseFloat(i.poQty) || parsed.qty || 0,
+                        rcvdQty: 0
+                    };
+                }
+                poMap[key].rcvdQty += parsed.qty;
+            });
+        });
+
+        let keys = Object.keys(poMap).filter(k => {
+            let item = poMap[k];
+            let poClean = item.poNo.replace(/[\s\-_]/g, '');
+            let codeClean = item.displayCode.replace(/[\s\-_]/g, '');
+            let partyClean = item.party.replace(/[\s\-_]/g, '');
+            return poClean.includes(cleanSearch) || codeClean.includes(cleanSearch) || partyClean.includes(cleanSearch);
+        });
+
+        document.getElementById('totalItemsCount').innerText = keys.length;
+
+        if(keys.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:15px; color:#64748b;">No PO Orders Found.</td></tr>`;
+            return;
+        }
+
+        let html = '';
+        keys.forEach(k => {
+            let item = poMap[k];
+            let pendingBalance = item.poQty - item.rcvdQty;
+            let statusBadge = pendingBalance <= 0 
+                ? `<span class="badge-ok">COMPLETE</span>` 
+                : `<span class="badge-pending">PENDING (${pendingBalance})</span>`;
+
+            html += `<tr>
+                <td><b>${item.poNo}</b></td>
+                <td>${item.party}</td>
+                <td><b>${item.displayCode}</b></td>
+                <td>${item.poQty} NOS</td>
+                <td style="color:#16a34a; font-weight:bold;">${item.rcvdQty} NOS</td>
+                <td style="color:#dc2626; font-weight:bold;">${pendingBalance < 0 ? 0 : pendingBalance} NOS</td>
+                <td>${statusBadge}</td>
+            </tr>`;
+        });
+        tbody.innerHTML = html;
+    }
+
+    // 🎯 2. FRESH STOCK LEDGER (DEEP SCAN)
+    function renderFreshLedger() {
+        const tbody = document.getElementById('freshLedgerBody');
+        const rawSearch = (document.getElementById('ledgerSearchBox').value || "").trim().toUpperCase();
+        const cleanSearch = rawSearch.replace(/[\s\-_]/g, '');
+        let freshMap = {};
+
+        function getRecord(itemData) {
+            if (!itemData.exactCode) return null;
+            let key = itemData.exactCode.replace(/[\s\-_]/g, '');
+
+            if (!freshMap[key]) {
+                freshMap[key] = {
+                    exactCode: itemData.exactCode,
+                    name: itemData.desc,
+                    freshIn: 0,
+                    bomOut: 0,
+                    freshAdj: 0
+                };
+            }
+            if (itemData.desc && itemData.desc !== 'N/A' && freshMap[key].name === 'N/A') {
+                freshMap[key].name = itemData.desc;
+            }
+            return freshMap[key];
+        }
+
+        // 1. Fresh Inward SCAN
+        Object.values(freshData).forEach(v => {
+            if (!v) return;
+            let items = v.gridItems || v.items || v.itemList || [];
+            if (!Array.isArray(items)) items = Object.values(items);
+            items.forEach(i => {
+                let parsed = extractItemData(i);
+                let rec = getRecord(parsed);
+                if (rec) rec.freshIn += parsed.qty;
+            });
+        });
+
+        // 2. Gate Out SCAN
+        Object.values(gateoutData).forEach(v => {
+            if (!v) return;
+            let items = v.gridItems || v.items || v.itemList || [];
+            if (!Array.isArray(items)) items = Object.values(items);
+            items.forEach(i => {
+                let parsed = extractItemData(i);
+                let rec = getRecord(parsed);
+                if (rec) rec.bomOut += parsed.qty;
+            });
+        });
+
+        // 3. Direct Adjustments SCAN
+        Object.values(reworkData).forEach(v => {
+            if (!v) return;
+            let items = v.gridItems || v.items || v.itemList || [];
+            if (!Array.isArray(items)) items = Object.values(items);
+            items.forEach(i => {
+                let pool = (i.pool || 'REWORK').toUpperCase();
+                if (pool === 'FRESH') {
+                    let parsed = extractItemData(i);
+                    let rec = getRecord(parsed);
+                    if (rec) {
+                        let rawQty = parsed.qty;
+                        let qty = Math.abs(rawQty);
+                        let isOut = (i.adjType === 'OUT' || rawQty < 0);
+                        if (isOut) rec.freshAdj -= qty;
+                        else rec.freshAdj += qty;
+                    }
+                }
+            });
+        });
+
+        let keys = Object.keys(freshMap).filter(k => {
+            let item = freshMap[k];
+            let codeClean = item.exactCode.replace(/[\s\-_]/g, '');
+            let nameClean = item.name.replace(/[\s\-_]/g, '');
+            return codeClean.includes(cleanSearch) || nameClean.includes(cleanSearch);
+        });
+
+        document.getElementById('totalItemsCount').innerText = keys.length;
+
+        if (keys.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:15px; color:#64748b;">No Fresh Stock Data Found.</td></tr>`;
+            return;
+        }
+
+        let html = '';
+        keys.forEach(k => {
+            let item = freshMap[k];
+            let liveFresh = (item.freshIn - item.bomOut) + item.freshAdj;
+            let adjText = item.freshAdj > 0 ? `+${item.freshAdj}` : `${item.freshAdj}`;
+
+            html += `<tr>
+                <td><b>${item.exactCode}</b></td>
+                <td>${item.name}</td>
+                <td>${item.freshIn} NOS</td>
+                <td style="color:#dc2626; font-weight:bold;">${item.bomOut} NOS</td>
+                <td style="font-weight:bold; ${item.freshAdj < 0 ? 'color:#dc2626;' : 'color:#16a34a;'}">${adjText} NOS</td>
+                <td><span class="badge-fresh" style="${liveFresh < 0 ? 'background:#fee2e2; color:#b91c1c;' : ''}">${liveFresh} NOS</span></td>
+            </tr>`;
+        });
+        tbody.innerHTML = html;
+    }
+
+    // 🎯 3. REWORK POOL LEDGER
+    function renderReworkLedger() {
+        const tbody = document.getElementById('reworkLedgerBody');
+        const rawSearch = (document.getElementById('ledgerSearchBox').value || "").trim().toUpperCase();
+        const cleanSearch = rawSearch.replace(/[\s\-_]/g, '');
+        let reworkMap = {};
+
+        function getRecord(itemData) {
+            if (!itemData.exactCode) return null;
+            let key = itemData.exactCode.replace(/[\s\-_]/g, '');
+
+            if (!reworkMap[key]) {
+                reworkMap[key] = {
+                    exactCode: itemData.exactCode,
+                    name: itemData.desc,
+                    rwIn: 0,
+                    rwOut: 0
+                };
+            }
+            return reworkMap[key];
+        }
+
+        Object.values(reworkData).forEach(v => {
+            if (!v) return;
+            let items = v.gridItems || v.items || v.itemList || [];
+            if (!Array.isArray(items)) items = Object.values(items);
+            items.forEach(i => {
+                let pool = (i.pool || 'REWORK').toUpperCase();
+                if (pool === 'REWORK') {
+                    let parsed = extractItemData(i);
+                    let rec = getRecord(parsed);
+                    if (rec) {
+                        let rawQty = parsed.qty;
+                        let qty = Math.abs(rawQty);
+                        let isOut = (i.adjType === 'OUT' || rawQty < 0);
+                        if (isOut) rec.rwOut += qty;
+                        else rec.rwIn += qty;
+                    }
+                }
+            });
+        });
+
+        let keys = Object.keys(reworkMap).filter(k => {
+            let item = reworkMap[k];
+            let codeClean = item.exactCode.replace(/[\s\-_]/g, '');
+            let nameClean = item.name.replace(/[\s\-_]/g, '');
+            return codeClean.includes(cleanSearch) || nameClean.includes(cleanSearch);
+        });
+
+        document.getElementById('totalItemsCount').innerText = keys.length;
+
+        if (keys.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:15px; color:#64748b;">No Rework Pool Data Found.</td></tr>`;
+            return;
+        }
+
+        let html = '';
+        keys.forEach(k => {
+            let item = reworkMap[k];
+            let liveRework = item.rwIn - item.rwOut;
+
+            html += `<tr>
+                <td><b>${item.exactCode}</b></td>
+                <td>${item.name}</td>
+                <td>${item.rwIn} NOS</td>
+                <td style="color:#dc2626; font-weight:bold;">${item.rwOut} NOS</td>
+                <td><span class="badge-rework" style="${liveRework < 0 ? 'background:#fee2e2; color:#b91c1c;' : ''}">${liveRework} NOS</span></td>
+            </tr>`;
+        });
+        tbody.innerHTML = html;
+    }
+</script>
+</body>
+</html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
