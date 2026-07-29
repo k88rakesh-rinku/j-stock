@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rework Management - Control System</title>
     <link rel="stylesheet" href="style.css">
+    <!-- Firebase Realtime Sync Scripts -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
     <style>
@@ -76,13 +77,13 @@
         }
 
         .bom-breakdown-panel {
-            background: #eff6ff;
-            border: 2px solid #2563eb;
+            background: #f0f9ff;
+            border: 2px solid #0284c7;
             border-radius: 6px;
             padding: 12px;
             margin: 15px 0;
             display: none;
-            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+            box-shadow: 0 4px 12px rgba(2, 132, 199, 0.15);
         }
         .bom-breakdown-table {
             width: 100%;
@@ -178,7 +179,7 @@
                     <button type="button" onclick="selectAllBOMItems(false)" style="font-size:11px; padding:3px 8px; cursor:pointer;">Deselect All</button>
                 </div>
             </div>
-            <p style="font-size:11px; color:#475569; margin:4px 0;">⚠️ जिन कंपोनेंट्स पर <b>Tick (☑)</b> रहेगा, केवल वही माइनस होंगे (Cards auto-selected)।</p>
+            <p style="font-size:11px; color:#475569; margin:4px 0;">⚠️ जिन कंपोनेंट्स पर <b>Tick (☑)</b> रहेगा, केवल वही माइनस या प्लस होंगे (Cards/PCBs auto-selected)।</p>
             <table class="bom-breakdown-table">
                 <thead>
                     <tr>
@@ -259,7 +260,7 @@
     let masterCatalog = JSON.parse(localStorage.getItem('systemMasterCatalog')) || {};
     let flatPOList = [];
     let activeBtnRef = null;
-    let parsedBOMMap = {}; // Perfectly mapped BOMs
+    let parsedBOMMap = {}; // Perfectly mapped BOMs by clean key
 
     function safeConvertToArray(rawVal) {
         if (!rawVal) return [];
@@ -303,60 +304,27 @@
         if(data) { for(let key in data) { flatPOList.push(data[key]); } }
     });
 
-    // 📡 ADVANCED RECURSIVE DEEP PARSER FOR FIREBASE BOM DATA
-    database.ref().on('value', (snapshot) => {
-        if(snapshot.exists()) {
-            let val = snapshot.val();
-            let rawBOMData = val.bomMasterData || val.systemMasterCatalog || val.bomMaster || {};
-            parsedBOMMap = {};
+    // 📡 PERFECT REALTIME SYNC FOR bomMasterData (Mapped to mainCode, mainName & accessories)
+    database.ref('bomMasterData').on('value', (snapshot) => {
+        parsedBOMMap = {};
+        const data = snapshot.val();
+        if(data) {
+            for(let key in data) {
+                let bomObj = data[key];
+                if(bomObj && bomObj.mainCode) {
+                    let mainCodeStr = String(bomObj.mainCode).trim().toUpperCase();
+                    let mainNameStr = String(bomObj.mainName || '').trim().toUpperCase();
+                    let accList = safeConvertToArray(bomObj.accessories);
 
-            function extractBOM(node, nodeKey) {
-                if(!node || typeof node !== 'object') return;
+                    let cleanKey = cleanCodeStr(mainCodeStr);
 
-                // Determine BOM Code Name
-                let bomName = node.bomName || node.assemblyCode || node.modelCode || node.code || node.name || nodeKey;
-                
-                // Skip if key is pure Firebase Push Key (-Ou...) and no internal name
-                if(String(bomName).startsWith('-') && !node.bomName && !node.assemblyCode && !node.modelCode) {
-                    // Dive inside children
-                    for(let subKey in node) {
-                        extractBOM(node[subKey], subKey);
-                    }
-                    return;
-                }
-
-                // Look for Sub-components
-                let itemsRaw = node.gridItems || node.items || node.components || node.bomItems || node;
-                let itemsArr = safeConvertToArray(itemsRaw);
-
-                let validComponents = [];
-                itemsArr.forEach(comp => {
-                    if(comp && typeof comp === 'object') {
-                        let cCode = comp.modelCode || comp.partCode || comp.itemCode || comp.code || comp.itemShort || "";
-                        let cName = comp.modelName || comp.itemName || comp.description || comp.partName || comp.name || "";
-                        let cQty = parseFloat(comp.qty || comp.quantity || 1) || 1;
-
-                        if(cCode || cName) {
-                            validComponents.push({
-                                code: String(cCode).trim().toUpperCase(),
-                                name: String(cName).trim().toUpperCase(),
-                                qty: cQty
-                            });
-                        }
-                    }
-                });
-
-                if(validComponents.length > 0) {
-                    let cleanKey = cleanCodeStr(bomName);
                     parsedBOMMap[cleanKey] = {
-                        displayName: String(bomName).trim().toUpperCase(),
-                        items: validComponents
+                        fbKey: key,
+                        mainCode: mainCodeStr,
+                        mainName: mainNameStr,
+                        accessories: accList
                     };
                 }
-            }
-
-            for(let k in rawBOMData) {
-                extractBOM(rawBOMData[k], k);
             }
         }
     });
@@ -449,11 +417,15 @@
             }
         }
 
-        // 🎯 Scan Parsed BOM Assemblies (Ignore Push Keys)
+        // 🎯 Scan BOM Assemblies from bomMasterData
         Object.keys(parsedBOMMap).forEach(bKey => {
             let bData = parsedBOMMap[bKey];
-            if(bKey.includes(cleanText) || cleanCodeStr(bData.displayName).includes(cleanText)) {
-                matches.push({ code: bData.displayName, name: "📋 BOM ASSEMBLY: " + bData.displayName, isBOM: true });
+            if(bKey.includes(cleanText) || cleanCodeStr(bData.mainName).includes(cleanText)) {
+                matches.push({ 
+                    code: bData.mainCode, 
+                    name: bData.mainName ? `${bData.mainName} [BOM]` : "BOM ASSEMBLY", 
+                    isBOM: true 
+                });
             }
         });
 
@@ -482,7 +454,7 @@
         }
 
         // Live Match Check
-        let matchedBOMKey = Object.keys(parsedBOMMap).find(k => k === cleanText || k.includes(cleanText));
+        let matchedBOMKey = Object.keys(parsedBOMMap).find(k => k === cleanText);
         if(matchedBOMKey) {
             renderBOMComponentsChecklist(matchedBOMKey, tr);
         }
@@ -492,12 +464,12 @@
         let tr = elem.closest('tr');
         let codeUpper = code.toUpperCase();
         tr.querySelector('.item-short').value = codeUpper;
-        tr.querySelector('.item-name').value = name;
+        tr.querySelector('.item-name').value = name.replace(" [BOM]", "");
         let box = elem.closest('.suggestions-dropdown');
         if(box) box.style.display = "none";
 
         let targetClean = cleanCodeStr(codeUpper);
-        let matchedBOMKey = Object.keys(parsedBOMMap).find(k => k === targetClean || k.includes(targetClean));
+        let matchedBOMKey = Object.keys(parsedBOMMap).find(k => k === targetClean);
 
         if(matchedBOMKey) {
             renderBOMComponentsChecklist(matchedBOMKey, tr);
@@ -506,26 +478,26 @@
         }
     }
 
-    // 📦 RENDER SELECTIVE BOM CHECKLIST WITH REAL CODES & DESCRIPTIONS
+    // 📦 RENDER SELECTIVE BOM CHECKLIST (ACCESSORIES)
     function renderBOMComponentsChecklist(bomCleanKey, tr) {
         const container = document.getElementById('bomBreakdownContainer');
         const tbody = document.getElementById('bomBreakdownBody');
         let bomData = parsedBOMMap[bomCleanKey];
         
-        if(!bomData || !bomData.items || bomData.items.length === 0) {
+        if(!bomData || !bomData.accessories || bomData.accessories.length === 0) {
             container.style.display = 'none';
             return;
         }
 
-        document.getElementById('bomBreakdownTitle').innerText = `📋 BOM Components Checklist for: ${bomData.displayName}`;
+        document.getElementById('bomBreakdownTitle').innerText = `📋 BOM Components Checklist for: ${bomData.mainCode} (${bomData.mainName || 'Assembly'})`;
         tbody.innerHTML = '';
         
         let multiplier = parseFloat(tr.querySelector('.item-qty').value) || 1;
 
-        bomData.items.forEach((item, idx) => {
-            let cCode = item.code || "N/A";
-            let cName = item.name || "N/A";
-            let baseQty = item.qty || 1;
+        bomData.accessories.forEach((item, idx) => {
+            let cCode = String(item.code || "N/A").toUpperCase();
+            let cName = String(item.name || "N/A").toUpperCase();
+            let baseQty = parseFloat(item.qty || 1) || 1;
             let totalQty = baseQty * multiplier;
 
             let isCard = cCode.includes("CARD") || cName.includes("CARD") || cName.includes("PCB");
@@ -553,7 +525,7 @@
         let tr = input.closest('tr');
         let code = tr.querySelector('.item-short').value.toUpperCase();
         let targetClean = cleanCodeStr(code);
-        let matchedBOMKey = Object.keys(parsedBOMMap).find(k => k === targetClean || k.includes(targetClean));
+        let matchedBOMKey = Object.keys(parsedBOMMap).find(k => k === targetClean);
         if(matchedBOMKey) {
             renderBOMComponentsChecklist(matchedBOMKey, tr);
         }
@@ -639,7 +611,7 @@
 
             const bomContainer = document.getElementById('bomBreakdownContainer');
             let targetClean = cleanCodeStr(itemCode);
-            let matchedBOMKey = Object.keys(parsedBOMMap).find(k => k === targetClean || k.includes(targetClean));
+            let matchedBOMKey = Object.keys(parsedBOMMap).find(k => k === targetClean);
 
             if(bomContainer.style.display === 'block' && matchedBOMKey) {
                 let chkList = document.querySelectorAll('.chk-bom-item');
