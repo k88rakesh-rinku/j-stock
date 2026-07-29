@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rework Management - Control System</title>
     <link rel="stylesheet" href="style.css">
-    <!-- Firebase Realtime Sync Scripts -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
     <style>
@@ -27,7 +26,6 @@
         .search-input-box { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; width: 280px; text-transform: uppercase; }
         .limit-dropdown-select { padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; cursor: pointer; background: #fff; font-weight: bold; }
 
-        /* 🚨 FIX: Table Overlay Overflow so Dropdown Is Never Hidden */
         .table-wrapper-fix {
             position: relative !important;
             overflow: visible !important;
@@ -45,7 +43,6 @@
             width: 100%; 
         }
 
-        /* 🎯 DROPDOWN OVERLAY FIX */
         .suggestions-dropdown {
             position: absolute !important;
             top: 100% !important;
@@ -78,7 +75,6 @@
             font-weight: bold; 
         }
 
-        /* 📦 BOM BREAKDOWN BOX STYLING */
         .bom-breakdown-panel {
             background: #eff6ff;
             border: 2px solid #2563eb;
@@ -173,7 +169,7 @@
             <button type="button" class="btn-row-add" onclick="addReworkRow()">+</button>
         </div>
 
-        <!-- 📦 SELECTIVE BOM CHECKLIST BOX (TABLE KE NEECHE SHOW HOGA) -->
+        <!-- 📦 SELECTIVE BOM CHECKLIST BOX -->
         <div id="bomBreakdownContainer" class="bom-breakdown-panel">
             <div style="display:flex; justify-content:space-between; align-items:center;">
                 <b style="color:#1e3a8a; font-size:14px;" id="bomBreakdownTitle">📋 Selective BOM Components Checklist</b>
@@ -264,10 +260,15 @@
     let flatPOList = [];
     let activeBtnRef = null;
     let bomMasterData = {};
+    let parsedBOMMap = {}; // Cleaned BOM Map
 
     function safeConvertToArray(rawVal) {
         if (!rawVal) return [];
         return Array.isArray(rawVal) ? rawVal : Object.values(rawVal);
+    }
+
+    function cleanCodeStr(str) {
+        return String(str || '').toUpperCase().replace(/[\s\-_]/g, '');
     }
 
     function toggleDirectStockMode() {
@@ -297,17 +298,53 @@
         document.getElementById('btnSubmitForm').innerText = isDirect ? "Save Direct Stock Adjustment (IN/OUT)" : "Save Rework Gate In";
     }
 
-    // 📡 REALTIME FIREBASE LISTENERS
     database.ref('systemMasterCatalogFlat').on('value', (snapshot) => {
         flatPOList = [];
         const data = snapshot.val();
         if(data) { for(let key in data) { flatPOList.push(data[key]); } }
     });
 
+    // 📡 DEEP SCAN BOM MASTER & IGNORE FIREBASE PUSH KEYS
     database.ref().on('value', (snapshot) => {
         if(snapshot.exists()) {
             let val = snapshot.val();
             bomMasterData = val.bomMasterData || val.systemMasterCatalog || val.bomMaster || {};
+            parsedBOMMap = {};
+
+            Object.keys(bomMasterData).forEach(key => {
+                let bomObj = bomMasterData[key];
+                if(!bomObj) return;
+
+                // If key is a Firebase Push Key like -OuNh..., find real name inside object
+                let realBOMName = key;
+                if(key.startsWith('-')) {
+                    realBOMName = bomObj.bomName || bomObj.modelCode || bomObj.code || bomObj.name || key;
+                }
+
+                let items = bomObj.gridItems || bomObj.items || bomObj.components || bomObj;
+                if(!Array.isArray(items)) items = Object.values(items);
+
+                // Clean items array
+                let validItems = [];
+                items.forEach(i => {
+                    if(typeof i === 'object' && i !== null) {
+                        let cCode = String(i.modelCode || i.code || i.partCode || i.itemShort || "").trim();
+                        let cName = String(i.modelName || i.itemName || i.description || i.name || "").trim();
+                        let qty = parseFloat(i.qty || i.quantity || 1) || 1;
+                        if(cCode || cName) {
+                            validItems.push({ code: cCode, name: cName, qty: qty });
+                        }
+                    }
+                });
+
+                if(validItems.length > 0) {
+                    let cleanKey = cleanCodeStr(realBOMName);
+                    parsedBOMMap[cleanKey] = {
+                        displayName: realBOMName,
+                        items: validItems
+                    };
+                }
+            });
         }
     });
 
@@ -361,12 +398,7 @@
         body.appendChild(tr);
     }
 
-    // 🔍 HELPER: Clean text for fuzzy matching
-    function cleanCodeStr(str) {
-        return String(str || '').toUpperCase().replace(/[\s\-_]/g, '');
-    }
-
-    // 🔍 SMART SEARCH AUTOCOMPLETE
+    // 🔍 SEARCH AUTOCOMPLETE LOGIC
     function handleItemInput(input, type) {
         let text = input.value.trim().toLowerCase();
         let cleanText = cleanCodeStr(text);
@@ -404,12 +436,13 @@
             }
         }
 
-        // 🎯 Scan BOM Master Assembly Keys
-        for(let key in bomMasterData) {
-            if(cleanCodeStr(key).includes(cleanText)) {
-                matches.push({ code: key, name: "📋 BOM ASSEMBLY: " + key, isBOM: true });
+        // 🎯 Scan BOM Assembly Names
+        Object.keys(parsedBOMMap).forEach(bKey => {
+            let bData = parsedBOMMap[bKey];
+            if(bKey.includes(cleanText) || cleanCodeStr(bData.displayName).includes(cleanText)) {
+                matches.push({ code: bData.displayName, name: "📋 BOM ASSEMBLY: " + bData.displayName, isBOM: true });
             }
-        }
+        });
 
         let uniqueMatches = [];
         let seenCodes = new Set();
@@ -435,10 +468,10 @@
             box.style.display = "block";
         }
 
-        // 🎯 Live Smart Check for BOM Match
-        let foundKey = Object.keys(bomMasterData).find(k => cleanCodeStr(k) === cleanText || cleanCodeStr(k).includes(cleanText));
-        if(foundKey) {
-            renderBOMComponentsChecklist(foundKey, tr);
+        // Live Match Check
+        let matchedBOMKey = Object.keys(parsedBOMMap).find(k => k === cleanText || k.includes(cleanText));
+        if(matchedBOMKey) {
+            renderBOMComponentsChecklist(matchedBOMKey, tr);
         }
     }
 
@@ -450,9 +483,8 @@
         let box = elem.closest('.suggestions-dropdown');
         if(box) box.style.display = "none";
 
-        // Smart BOM Key Search
         let targetClean = cleanCodeStr(codeUpper);
-        let matchedBOMKey = Object.keys(bomMasterData).find(k => cleanCodeStr(k) === targetClean || cleanCodeStr(k).includes(targetClean));
+        let matchedBOMKey = Object.keys(parsedBOMMap).find(k => k === targetClean || k.includes(targetClean));
 
         if(matchedBOMKey) {
             renderBOMComponentsChecklist(matchedBOMKey, tr);
@@ -461,29 +493,27 @@
         }
     }
 
-    // 📦 RENDER SELECTIVE BOM CHECKLIST
-    function renderBOMComponentsChecklist(bomKey, tr) {
+    // 📦 RENDER SELECTIVE BOM CHECKLIST WITH REAL CODES & DESCRIPTIONS
+    function renderBOMComponentsChecklist(bomCleanKey, tr) {
         const container = document.getElementById('bomBreakdownContainer');
         const tbody = document.getElementById('bomBreakdownBody');
-        document.getElementById('bomBreakdownTitle').innerText = `📋 BOM Components Checklist for Assembly: ${bomKey}`;
+        let bomData = parsedBOMMap[bomCleanKey];
         
-        tbody.innerHTML = '';
-        let rawItems = bomMasterData[bomKey];
-        let items = Array.isArray(rawItems) ? rawItems : Object.values(rawItems);
-        let multiplier = parseFloat(tr.querySelector('.item-qty').value) || 1;
-
-        if(!items || items.length === 0) {
+        if(!bomData || !bomData.items || bomData.items.length === 0) {
             container.style.display = 'none';
             return;
         }
 
-        items.forEach((item, idx) => {
-            let cCode = (item.modelCode || item.code || item.partCode || item.itemShort || "").toUpperCase();
-            let cName = (item.modelName || item.itemName || item.description || item.name || "N/A").toUpperCase();
-            let baseQty = parseFloat(item.qty || item.quantity || 1) || 1;
-            let totalQty = baseQty * multiplier;
+        document.getElementById('bomBreakdownTitle').innerText = `📋 BOM Components Checklist for: ${bomData.displayName}`;
+        tbody.innerHTML = '';
+        
+        let multiplier = parseFloat(tr.querySelector('.item-qty').value) || 1;
 
-            if(!cCode && !cName) return;
+        bomData.items.forEach((item, idx) => {
+            let cCode = item.code || "N/A";
+            let cName = item.name || "N/A";
+            let baseQty = item.qty || 1;
+            let totalQty = baseQty * multiplier;
 
             let isCard = cCode.includes("CARD") || cName.includes("CARD") || cName.includes("PCB");
 
@@ -492,7 +522,7 @@
                     <td style="text-align:center;">
                         <input type="checkbox" class="chk-bom-item" id="chk_bom_${idx}" ${isCard ? 'checked' : ''} data-code="${cCode}" data-name="${cName}">
                     </td>
-                    <td><code>${cCode || 'N/A'}</code></td>
+                    <td><code>${cCode}</code></td>
                     <td><b>${cName}</b> ${isCard ? '<span style="color:#16a34a; font-size:10px;">(CARD DETECTED)</span>' : ''}</td>
                     <td><input type="number" id="qty_bom_${idx}" value="${totalQty}" style="width:70px; padding:4px;"></td>
                 </tr>
@@ -510,7 +540,7 @@
         let tr = input.closest('tr');
         let code = tr.querySelector('.item-short').value.toUpperCase();
         let targetClean = cleanCodeStr(code);
-        let matchedBOMKey = Object.keys(bomMasterData).find(k => cleanCodeStr(k) === targetClean);
+        let matchedBOMKey = Object.keys(parsedBOMMap).find(k => k === targetClean || k.includes(targetClean));
         if(matchedBOMKey) {
             renderBOMComponentsChecklist(matchedBOMKey, tr);
         }
@@ -596,7 +626,7 @@
 
             const bomContainer = document.getElementById('bomBreakdownContainer');
             let targetClean = cleanCodeStr(itemCode);
-            let matchedBOMKey = Object.keys(bomMasterData).find(k => cleanCodeStr(k) === targetClean);
+            let matchedBOMKey = Object.keys(parsedBOMMap).find(k => k === targetClean || k.includes(targetClean));
 
             if(bomContainer.style.display === 'block' && matchedBOMKey) {
                 let chkList = document.querySelectorAll('.chk-bom-item');
