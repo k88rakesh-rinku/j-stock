@@ -24,6 +24,23 @@
         .badge-rework { background: #fef9c3; color: #a16207; padding: 3px 8px; border-radius: 4px; font-weight: bold; }
         .badge-pending { background: #fee2e2; color: #b91c1c; padding: 3px 8px; border-radius: 4px; font-weight: bold; }
         .badge-ok { background: #f0fdf4; color: #16a34a; padding: 3px 8px; border-radius: 4px; font-weight: bold; }
+
+        /* 🗑️ BULK RESET STOCK TO ZERO BUTTON & CHECKBOX STYLE */
+        .btn-reset-stock {
+            background-color: #dc2626;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            display: none;
+            box-shadow: 0 2px 6px rgba(220, 38, 38, 0.3);
+            transition: all 0.2s ease;
+        }
+        .btn-reset-stock:hover { background-color: #991b1b; }
+        .stock-chk-box { width: 17px; height: 17px; cursor: pointer; accent-color: #dc2626; }
     </style>
 </head>
 <body>
@@ -58,9 +75,15 @@
         <div>
             <input type="text" id="ledgerSearchBox" class="search-input-box" placeholder="🔍 Search Item Code, Description, PO..." oninput="renderCurrentTab()">
         </div>
-        <div>
-            <span style="font-weight:bold; color:#475569;">Total Items Found: </span>
-            <span id="totalItemsCount" style="font-weight:bold; color:#1e3a8a;">0</span>
+        <div style="display:flex; align-items:center; gap:15px;">
+            <!-- 🗑️ DYNAMIC RESET STOCK BUTTON -->
+            <button type="button" id="btnResetStock" class="btn-reset-stock" onclick="executeBatchStockReset()">
+                🗑️ Reset Stock to ZERO for Selected (<span id="selectedStockCount">0</span>) Codes
+            </button>
+            <div>
+                <span style="font-weight:bold; color:#475569;">Total Items Found: </span>
+                <span id="totalItemsCount" style="font-weight:bold; color:#1e3a8a;">0</span>
+            </div>
         </div>
     </div>
 
@@ -91,6 +114,9 @@
             <table class="stock-table">
                 <thead>
                     <tr>
+                        <th style="width: 45px; text-align: center;">
+                            <input type="checkbox" id="chkSelectAllFresh" class="stock-chk-box" onchange="toggleSelectAllStock(this)" title="Select All Rows">
+                        </th>
                         <th>Item Code</th>
                         <th>Item Description</th>
                         <th>Total Fresh Inward</th>
@@ -111,6 +137,9 @@
             <table class="stock-table">
                 <thead>
                     <tr>
+                        <th style="width: 45px; text-align: center;">
+                            <input type="checkbox" id="chkSelectAllRework" class="stock-chk-box" onchange="toggleSelectAllStock(this)" title="Select All Rows">
+                        </th>
                         <th>Item Code</th>
                         <th>Item Description</th>
                         <th>Total Rework Gate In</th>
@@ -144,10 +173,11 @@
         document.querySelectorAll('.subtab-btn').forEach(b => b.classList.remove('active'));
         document.getElementById(tabId).style.display = 'block';
         btn.classList.add('active');
+        syncStockResetUI();
         renderCurrentTab();
     }
 
-    // 📡 FIREBASE REALTIME LISTENERS (Matching Index.html Nodes Exactly)
+    // 📡 FIREBASE REALTIME LISTENERS
     db.ref('freshStockVouchers').on('value', (snap) => {
         freshData = snap.val() || {};
         renderCurrentTab();
@@ -169,7 +199,7 @@
         else if(currentActiveTab === 'reworkTab') renderReworkLedger();
     }
 
-    // 🔍 HELPER TO EXTRACT ITEM DETAILS MATCHING INDEX.HTML
+    // 🔍 HELPER TO EXTRACT ITEM DETAILS
     function parseGridItem(item) {
         let code = String(item.modelCode || item.code || item.itemShort || "").trim().toUpperCase();
         let name = String(item.modelName || item.itemName || item.name || item.description || "N/A").trim().toUpperCase();
@@ -219,6 +249,7 @@
 
         if(keys.length === 0) {
             tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:15px; color:#64748b;">No PO Orders Found.</td></tr>`;
+            syncStockResetUI();
             return;
         }
 
@@ -235,9 +266,10 @@
             </tr>`;
         });
         tbody.innerHTML = html;
+        syncStockResetUI();
     }
 
-    // 🎯 2. FRESH STOCK LEDGER (EXACT INDEX.HTML MATCHING)
+    // 🎯 2. FRESH STOCK LEDGER (WITH CHECKBOXES)
     function renderFreshLedger() {
         const tbody = document.getElementById('freshLedgerBody');
         const rawSearch = (document.getElementById('ledgerSearchBox').value || "").trim().toUpperCase();
@@ -316,7 +348,8 @@
         document.getElementById('totalItemsCount').innerText = keys.length;
 
         if(keys.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:15px; color:#64748b;">No Fresh Stock Data Found.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:15px; color:#64748b;">No Fresh Stock Data Found.</td></tr>`;
+            syncStockResetUI();
             return;
         }
 
@@ -327,6 +360,9 @@
             let adjText = item.freshAdj > 0 ? `+${item.freshAdj}` : `${item.freshAdj}`;
 
             html += `<tr>
+                <td style="text-align:center;">
+                    <input type="checkbox" class="stock-chk-box stock-row-checkbox" value="${item.code}" onchange="syncStockResetUI()">
+                </td>
                 <td><b>${item.code}</b></td>
                 <td>${item.name}</td>
                 <td>${item.freshIn} NOS</td>
@@ -336,9 +372,10 @@
             </tr>`;
         });
         tbody.innerHTML = html;
+        syncStockResetUI();
     }
 
-    // 🎯 3. REWORK POOL LEDGER
+    // 🎯 3. REWORK POOL LEDGER (WITH CHECKBOXES)
     function renderReworkLedger() {
         const tbody = document.getElementById('reworkLedgerBody');
         const rawSearch = (document.getElementById('ledgerSearchBox').value || "").trim().toUpperCase();
@@ -389,7 +426,8 @@
         document.getElementById('totalItemsCount').innerText = keys.length;
 
         if(keys.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:15px; color:#64748b;">No Rework Pool Data Found.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:15px; color:#64748b;">No Rework Pool Data Found.</td></tr>`;
+            syncStockResetUI();
             return;
         }
 
@@ -399,6 +437,9 @@
             let liveRework = item.rwIn - item.rwOut;
 
             html += `<tr>
+                <td style="text-align:center;">
+                    <input type="checkbox" class="stock-chk-box stock-row-checkbox" value="${item.code}" onchange="syncStockResetUI()">
+                </td>
                 <td><b>${item.code}</b></td>
                 <td>${item.name}</td>
                 <td>${item.rwIn} NOS</td>
@@ -407,7 +448,31 @@
             </tr>`;
         });
         tbody.innerHTML = html;
+        syncStockResetUI();
     }
-</script>
-</body>
-</html>
+
+    // 🌟 SELECT ALL TOGGLE
+    function toggleSelectAllStock(masterCheckbox) {
+        const activeContainer = document.getElementById(currentActiveTab);
+        if(!activeContainer) return;
+        const visibleBoxes = activeContainer.querySelectorAll('.stock-row-checkbox');
+        visibleBoxes.forEach(chk => {
+            chk.checked = masterCheckbox.checked;
+        });
+        syncStockResetUI();
+    }
+
+    // 🌟 SYNC BUTTON & COUNTER
+    function syncStockResetUI() {
+        const activeContainer = document.getElementById(currentActiveTab);
+        const bulkBtn = document.getElementById('btnResetStock');
+        const countSpan = document.getElementById('selectedStockCount');
+
+        if(!activeContainer || currentActiveTab === 'poTab') {
+            if(bulkBtn) bulkBtn.style.display = 'none';
+            return;
+        }
+
+        const checkedBoxes = activeContainer.querySelectorAll('.stock-row-checkbox:checked');
+        const totalVisible = activeContainer.querySelectorAll('.stock-row-checkbox').length;
+        const masterId = currentActiveTab
