@@ -475,4 +475,123 @@
 
         const checkedBoxes = activeContainer.querySelectorAll('.stock-row-checkbox:checked');
         const totalVisible = activeContainer.querySelectorAll('.stock-row-checkbox').length;
-        const masterId = currentActiveTab
+        const masterId = currentActiveTab === 'freshTab' ? 'chkSelectAllFresh' : 'chkSelectAllRework';
+        const masterCheckbox = document.getElementById(masterId);
+
+        if (checkedBoxes.length > 0) {
+            bulkBtn.style.display = 'inline-block';
+            countSpan.innerText = checkedBoxes.length;
+        } else {
+            bulkBtn.style.display = 'none';
+        }
+
+        if (masterCheckbox) {
+            masterCheckbox.checked = (totalVisible > 0 && checkedBoxes.length === totalVisible);
+        }
+    }
+
+    // 💥 BULK RESET STOCK TO ZERO (VOUCHERS MEIN SE IN CODES KA DATA SAFALTA SE HATA DETA HAI)
+    function executeBatchStockReset() {
+        const activeContainer = document.getElementById(currentActiveTab);
+        const checkedBoxes = activeContainer.querySelectorAll('.stock-row-checkbox:checked');
+        const count = checkedBoxes.length;
+
+        if (count === 0) {
+            alert("⚠️ Please select at least one item row to reset stock!");
+            return;
+        }
+
+        let targetCodes = [];
+        checkedBoxes.forEach(chk => targetCodes.push(chk.value.trim().toUpperCase()));
+
+        const pass = prompt(`🔑 Security Verification:\nEnter Master Password (PIN) to RESET STOCK TO ZERO for ${count} selected item codes:\n\n(Note: Master item codes will NOT be deleted, only stock will become 0)`);
+        if (pass === null) return;
+
+        if (pass === "7004") {
+            const confirmed = confirm(`🚨 FINAL CONFIRMATION:\n\nAre you sure you want to completely erase the Stock Ledger history for ${count} items?\n\nCodes: ${targetCodes.join(', ')}\n\nThis will reset their stock to 0 NOS permanently!`);
+            if (!confirmed) return;
+
+            let updates = {};
+
+            // 1. Clean from Fresh Vouchers (freshStockVouchers)
+            for (let vKey in freshData) {
+                let v = freshData[vKey];
+                if (v) {
+                    if (v.gridItems) {
+                        let items = Array.isArray(v.gridItems) ? v.gridItems : Object.values(v.gridItems);
+                        let remaining = items.filter(i => {
+                            let c = String(i.modelCode || i.code || i.itemShort || '').trim().toUpperCase();
+                            return !targetCodes.includes(c);
+                        });
+
+                        if (remaining.length === 0) {
+                            updates[`freshStockVouchers/${vKey}`] = null;
+                        } else if (remaining.length !== items.length) {
+                            updates[`freshStockVouchers/${vKey}/gridItems`] = remaining;
+                        }
+                    } else if (v.modelCode) {
+                        let c = String(v.modelCode).trim().toUpperCase();
+                        if (targetCodes.includes(c)) {
+                            updates[`freshStockVouchers/${vKey}`] = null;
+                        }
+                    }
+                }
+            }
+
+            // 2. Clean from Gate Out Vouchers (gateoutVouchers)
+            for (let vKey in gateoutData) {
+                let v = gateoutData[vKey];
+                if (v) {
+                    let items = v.gridItems || v.items;
+                    if (items) {
+                        let itemArr = Array.isArray(items) ? items : Object.values(items);
+                        let remaining = itemArr.filter(i => {
+                            let c = String(i.modelCode || i.code || i.itemShort || '').trim().toUpperCase();
+                            return !targetCodes.includes(c);
+                        });
+
+                        if (remaining.length === 0) {
+                            updates[`gateoutVouchers/${vKey}`] = null;
+                        } else if (remaining.length !== itemArr.length) {
+                            updates[`gateoutVouchers/${vKey}/gridItems`] = remaining;
+                        }
+                    }
+                }
+            }
+
+            // 3. Clean from Rework Vouchers (reworkStockVouchers)
+            for (let vKey in reworkData) {
+                let v = reworkData[vKey];
+                if (v) {
+                    let items = v.gridItems || v.items;
+                    if (items) {
+                        let itemArr = Array.isArray(items) ? items : Object.values(items);
+                        let remaining = itemArr.filter(i => {
+                            let c = String(i.modelCode || i.code || i.itemShort || '').trim().toUpperCase();
+                            return !targetCodes.includes(c);
+                        });
+
+                        if (remaining.length === 0) {
+                            updates[`reworkStockVouchers/${vKey}`] = null;
+                        } else if (remaining.length !== itemArr.length) {
+                            updates[`reworkStockVouchers/${vKey}/gridItems`] = remaining;
+                        }
+                    }
+                }
+            }
+
+            // 🚀 Send Batch Firebase Update
+            db.ref().update(updates).then(() => {
+                alert(`🎉 Success: Stock history cleared! Live stock for ${count} items is now 0 NOS.`);
+                syncStockResetUI();
+            }).catch(err => {
+                alert("❌ Error resetting stock: " + err.message);
+            });
+
+        } else {
+            alert("❌ Access Denied: Incorrect Master Password!");
+        }
+    }
+</script>
+</body>
+</html>
